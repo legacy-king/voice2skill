@@ -55,5 +55,10 @@ function signupPage(req, res) {
   res.render('signup');
 }
 
+function logout(req, res) {
+  req.session.destroy(() => {
+    res.redirect('/login');
+  });
+}
 
-module.exports = { signup, login, dashboard, loginPage, signupPage };
+module.exports = { signup, login, dashboard, loginPage, signupPage, logout };

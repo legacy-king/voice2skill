@@ -67,7 +67,8 @@ async function getRoadmap(req, res) {
   const roadmap = await roadmapModel.getRoadmapById(roadmapId);
   const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmapId);
 
-  res.render('roadmap', { roadmap, checkins });
+ const message = req.query.message;
+res.render('roadmap', { roadmap, checkins, message });
 }
 
 module.exports = { generateRoadmapContent, selectTrack, getRoadmap };

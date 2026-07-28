@@ -5,7 +5,9 @@
 </head>
 <body>
   <h1>Your Learning Roadmap</h1>
-
+<% if (message === 'already_checked_in') { %>
+  <p style="color: orange;">You've already checked in today — come back tomorrow!</p>
+<% } %>
   <% roadmap.content.weeks.forEach(week => { %>
     <h2>Week <%= week.week_number %>: <%= week.focus %></h2>
     <ul>

@@ -11,9 +11,11 @@ async function createCheckinEntry(req, res) {
   const today = new Date().toISOString().split('T')[0];
 
   const existingCheckin = await checkinModel.getCheckinByDate(userId, roadmapId, today);
-  if (existingCheckin) {
-    return res.redirect(`/roadmaps/${roadmapId}`);
-  }
+  
+   if (existingCheckin) {
+  return res.redirect(`/roadmaps/${roadmapId}?message=already_checked_in`);
+}
+
 
   await checkinModel.createCheckin(userId, roadmapId, notes);
   res.redirect(`/roadmaps/${roadmapId}`);

@@ -10,5 +10,6 @@ router.get('/signup', userController.signupPage);
 router.get('/', (req, res) => {
   res.redirect('/login');
 });
+router.get('/logout', userController.logout);
 
 module.exports = router;
