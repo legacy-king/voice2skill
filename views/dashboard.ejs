@@ -2,11 +2,16 @@
 <html>
 <head>
   <title>Dashboard - Voice2Skill</title>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <h1>Welcome, <%= user.name %></h1>
-  <a href="/tracks">Choose a Learning Track</a>
-  <p>Email: <%= user.email %></p>
-  <a href="/logout">Log Out</a>
+  <div class="container">
+    <h1>Welcome, <%= user.name %></h1>
+    <nav>
+      <a href="/tracks">Choose a Learning Track</a>
+      <a href="/logout">Log Out</a>
+    </nav>
+    <p>Email: <%= user.email %></p>
+  </div>
 </body>
 </html>

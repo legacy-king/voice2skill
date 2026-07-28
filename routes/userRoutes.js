@@ -8,8 +8,9 @@ router.get('/dashboard', userController.dashboard);
 router.get('/login', userController.loginPage);
 router.get('/signup', userController.signupPage);
 router.get('/', (req, res) => {
-  res.redirect('/login');
+  res.render('landing');
 });
+
 router.get('/logout', userController.logout);
 
 module.exports = router;

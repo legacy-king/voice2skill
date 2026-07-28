@@ -2,14 +2,16 @@
 <html>
 <head>
   <title>Your Roadmap - Voice2Skill</title>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <div class="container">
   <h1>Your Learning Roadmap</h1>
 <% if (message === 'already_checked_in') { %>
   <p style="color: orange;">You've already checked in today — come back tomorrow!</p>
 <% } %>
   <% roadmap.content.weeks.forEach(week => { %>
-    <h2>Week <%= week.week_number %>: <%= week.focus %></h2>
+    <h2 data-week="<%= week.week_number %>"><%= week.focus %></h2>
     <ul>
       <% week.daily_topics.forEach(topic => { %>
         <li>
@@ -36,6 +38,7 @@
     <textarea name="notes" placeholder="What did you work on today?" required></textarea>
     <button type="submit">Submit Check-in</button>
   </form>
+</div>
 
 </body>
 </html>

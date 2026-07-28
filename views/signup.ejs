@@ -2,8 +2,10 @@
 <html>
 <head>
   <title>Signup - Voice2Skill</title>
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <div class="container">
   <h1>Sign Up</h1>
   <form action="/signup" method="POST">
     <input type="text" name="name" placeholder="Enter Your Name" required>
@@ -11,5 +13,8 @@
     <input type="password" name="password" placeholder="Password" required>
     <button type="submit">Sign Up</button>
   </form>
+
+  <p>Already have an account? <a href="/login">Log in</a></p>
+  </div>
 </body>
 </html>
