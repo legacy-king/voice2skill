@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Choose a Track - Voice2Skill</title>
+</head>
+<body>
+  <h1>Choose Your Track</h1>
+  <ul>
+    <% tracks.forEach(track => { %>
+      <li>
+        <a href="/tracks/<%= track.id %>/select">
+          <h3><%= track.name %></h3>
+          <p><%= track.description %></p>
+        </a>
+      </li>
+    <% }) %>
+  </ul>
+</body>
+</html>

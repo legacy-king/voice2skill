@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Roadmap - Voice2Skill</title>
+</head>
+<body>
+  <h1>Your Learning Roadmap</h1>
+
+  <% roadmap.content.weeks.forEach(week => { %>
+    <h2>Week <%= week.week_number %>: <%= week.focus %></h2>
+    <ul>
+      <% week.daily_topics.forEach(topic => { %>
+        <li><%= topic %></li>
+      <% }) %>
+    </ul>
+  <% }) %>
+
+  <h2>Daily Check-in</h2>
+<form action="/roadmaps/<%= roadmap.id %>/checkin" method="POST">
+  <textarea name="notes" placeholder="What did you work on today?" required></textarea>
+  <button type="submit">Submit Check-in</button>
+</form>
+
+<h2>Your Check-in History</h2>
+<% if (checkins.length === 0) { %>
+  <p>No check-ins yet. Start today!</p>
+<% } else { %>
+  <ul>
+    <% checkins.forEach(checkin => { %>
+      <li><%= checkin.checkin_date %> — <%= checkin.notes %></li>
+    <% }) %>
+  </ul>
+<% } %>
+
+</body>
+</html>
