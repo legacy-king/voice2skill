@@ -16,14 +16,20 @@ Generate an 8-week roadmap as valid JSON only, no markdown formatting, no explan
     {
       "week_number": 1,
       "focus": "short title for the week",
-      "daily_topics": ["topic 1", "topic 2", "topic 3", "topic 4", "topic 5"]
+      "daily_topics": [
+        {
+          "topic": "topic name",
+          "resource_name": "freeCodeCamp",
+          "resource_url": "https://www.freecodecamp.org"
+        }
+      ]
     }
   ]
 }
 
-Include free, real, reputable resources (freeCodeCamp, MDN, official docs) mentioned briefly within daily_topics where relevant. Return ONLY the JSON, nothing else.`;
-
-  const result = await model.generateContent(prompt);
+Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools). For resource_url, use the platform's main/root URL only (e.g. https://developer.mozilla.org, not a specific deep article link), since deep links can be inaccurate. Return ONLY the JSON, nothing else.`;
+  
+const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 
   const cleaned = responseText.replace(/```json|```/g, '').trim();
