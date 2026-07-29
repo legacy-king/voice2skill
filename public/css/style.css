@@ -10,11 +10,14 @@ body {
   color: #F0EDE6;
   line-height: 1.6;
   padding: 2rem 1rem;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;  
 }
 
 .container {
-  max-width: 640px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 h1 {
