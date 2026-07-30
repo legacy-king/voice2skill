@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
 const checkinModel = require('../models/checkinModel');
+const { calculateStreak } = require('../utils/streak');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -16,18 +17,20 @@ Generate an 8-week roadmap as valid JSON only, no markdown formatting, no explan
     {
       "week_number": 1,
       "focus": "short title for the week",
-      "daily_topics": [
+      "days": [
         {
-          "topic": "topic name",
+          "day_number": 1,
+          "task": "a clear, specific instruction for what to do today, written like a coach speaking directly to the learner (e.g. 'Today, learn HTML structure: tags, elements, and semantic markup')",
           "resource_name": "freeCodeCamp",
-          "resource_url": "https://www.freecodecamp.org"
+          "resource_url": "https://www.freecodecamp.org",
+          "video_search_term": "a YouTube search phrase for someone who prefers video (e.g. 'HTML basics crash course')"
         }
       ]
     }
   ]
 }
 
-Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools). For resource_url, use the platform's main/root URL only (e.g. https://developer.mozilla.org, not a specific deep article link), since deep links can be inaccurate. Return ONLY the JSON, nothing else.`;
+Each week must have exactly 5 days (Monday-Friday pace). Write each "task" as a direct, encouraging instruction, not just a topic label. Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools) for resource_url — root URLs only, not deep article links, since deep links can be inaccurate. For video_search_term, provide a search phrase, NOT a direct YouTube link (since we cannot verify a specific video exists). Return ONLY the JSON, nothing else.`;
   
 const result = await model.generateContent(prompt);
   const responseText = result.response.text();
@@ -66,9 +69,10 @@ async function getRoadmap(req, res) {
 
   const roadmap = await roadmapModel.getRoadmapById(roadmapId);
   const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmapId);
+  const streak = calculateStreak(checkins);
+  const message = req.query.message;
 
- const message = req.query.message;
-res.render('roadmap', { roadmap, checkins, message });
+  res.render('roadmap', { roadmap, checkins, message, streak });
 }
 
 module.exports = { generateRoadmapContent, selectTrack, getRoadmap };

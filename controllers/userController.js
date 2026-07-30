@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
+const roadmapModel = require('../models/roadmapModel');
 
 async function signup(req, res) {
   const { name, email, password } = req.body;
@@ -39,11 +40,16 @@ async function login(req, res) {
 
   async function dashboard(req, res) {
   if (!req.session.userId) {
-    // not logged in — where should they go?
-   return res.redirect('/login')
+    return res.redirect('/login');
   }
 
   const user = await userModel.findUserById(req.session.userId);
+  const existingRoadmap = await roadmapModel.getRoadmapByUser(req.session.userId);
+
+  if (existingRoadmap) {
+    return res.redirect(`/roadmaps/${existingRoadmap.id}`);
+  }
+
   res.render('dashboard', { user });
 }
 

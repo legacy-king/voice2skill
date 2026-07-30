@@ -24,4 +24,12 @@ async function getRoadmapById(id) {
     return result.rows[0];
 }
 
-module.exports = { createRoadmap, getRoadmapByUserAndTrack, getRoadmapById };
+async function getRoadmapByUser(userId) {
+  const result = await pool.query(
+    'SELECT * FROM roadmaps WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+    [userId]
+  );
+  return result.rows[0];
+}
+
+module.exports = { createRoadmap, getRoadmapByUserAndTrack, getRoadmapById, getRoadmapByUser };

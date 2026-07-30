@@ -11,17 +11,24 @@
 <% if (message === 'already_checked_in') { %>
   <p style="color: orange;">You've already checked in today — come back tomorrow!</p>
 <% } %>
-  <% roadmap.content.weeks.forEach(week => { %>
-    <h2 data-week="<%= week.week_number %>"><%= week.focus %></h2>
-    <ul>
-      <% week.daily_topics.forEach(topic => { %>
-        <li>
-          <%= topic.topic %>
-          (<a href="<%= topic.resource_url %>" target="_blank"><%= topic.resource_name %></a>)
-        </li>
-      <% }) %>
-    </ul>
-  <% }) %>
+<% if (streak > 0) { %>
+  <div class="message-banner" style="background: #1C2A10; color: #8FD14F;">
+    🔥 <%= streak %>-day streak — don't break it!
+  </div>
+<% } %>
+ <% roadmap.content.weeks.forEach(week => { %>
+  <h2 data-week="<%= week.week_number %>"><%= week.focus %></h2>
+  <ul>
+    <% week.days.forEach(day => { %>
+      <li>
+        <strong>Day <%= day.day_number %>:</strong> <%= day.task %><br>
+        <a href="<%= day.resource_url %>" target="_blank"><%= day.resource_name %></a>
+        &nbsp;|&nbsp;
+        <a href="https://www.youtube.com/results?search_query=<%= encodeURIComponent(day.video_search_term) %>" target="_blank">Prefer video? Search YouTube</a>
+      </li>
+    <% }) %>
+  </ul>
+<% }) %>
 
   <h2>Your Check-in History</h2>
   <% if (checkins.length === 0) { %>

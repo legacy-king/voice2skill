@@ -14,6 +14,7 @@ const pool = new Pool({
   } else {
     console.log('Connected to Neon at:', res.rows[0].now);
   }
+  process.exit();
 });*/
 
 module.exports = pool;
