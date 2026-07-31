@@ -22,19 +22,15 @@ async function login(req, res) {
 
   const existingUser = await userModel.findUserByEmail(email);
   if (!existingUser) {
-    // no user found — what should happen here?
-   return res.status(400).send("User Not Found!")
-    
+    return res.redirect('/login?error=not_found');
   }
 
   const passwordMatches = await bcrypt.compare(password, existingUser.password_hash);
   if (!passwordMatches) {
-    // password wrong — what should happen here?
-      return res.status(400).send('Incorrect Password')
+    return res.redirect('/login?error=wrong_password');
   }
 
-  // if we reach here, both checks passed — set the session and redirect
-   req.session.userId = existingUser.id;
+  req.session.userId = existingUser.id;
   res.redirect('/dashboard');
 }
 
@@ -54,7 +50,8 @@ async function login(req, res) {
 }
 
 function loginPage(req, res) {
-  res.render('login');
+  const error = req.query.error;
+  res.render('login', { error });
 }
 
 function signupPage(req, res) {

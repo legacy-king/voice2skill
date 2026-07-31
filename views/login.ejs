@@ -8,6 +8,11 @@
 <body>
   <div class="container" style="max-width: 380px;">
   <h1>Login</h1>
+  <% if (typeof error !== 'undefined' && error === 'not_found') { %>
+  <p style="color: #E5484D;">No account found with that email.</p>
+<% } else if (typeof error !== 'undefined' && error === 'wrong_password') { %>
+  <p style="color: #E5484D;">Incorrect password. Try again.</p>
+<% } %>
   <form action="/login" method="POST">
     <input type="email" name="email" placeholder="Email" required>
     <input type="password" name="password" placeholder="Password" required>

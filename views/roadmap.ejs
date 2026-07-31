@@ -50,9 +50,52 @@
 
 <h2>Daily Check-in</h2>
 <form action="/roadmaps/<%= roadmap.id %>/checkin" method="POST">
-  <textarea name="notes" placeholder="What did you work on today?" required></textarea>
+  <textarea name="notes" id="checkinNotes" placeholder="What did you work on today?" required></textarea>
+  <button type="button" id="voiceBtn">🎤 Speak instead</button>
   <button type="submit">Submit Check-in</button>
 </form>
+
+<script>
+  const voiceBtn = document.getElementById('voiceBtn');
+  const notesField = document.getElementById('checkinNotes');
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    voiceBtn.style.display = 'none';
+  } else {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    let isListening = false;
+
+    voiceBtn.addEventListener('click', () => {
+      if (isListening) return;
+      isListening = true;
+      voiceBtn.textContent = '🔴 Listening...';
+      recognition.start();
+    });
+
+    recognition.addEventListener('result', (event) => {
+      const transcript = event.results[0][0].transcript;
+      notesField.value = notesField.value
+        ? notesField.value + ' ' + transcript
+        : transcript;
+    });
+
+    recognition.addEventListener('end', () => {
+      isListening = false;
+      voiceBtn.textContent = '🎤 Speak instead';
+    });
+
+    recognition.addEventListener('error', (event) => {
+      isListening = false;
+      voiceBtn.textContent = '🎤 Speak instead';
+      console.error('Speech recognition error:', event.error);
+    });
+  }
+</script>
 </div>
 
 </body>
