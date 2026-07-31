@@ -20,6 +20,7 @@ Generate an 8-week roadmap as valid JSON only, no markdown formatting, no explan
       "days": [
         {
           "day_number": 1,
+          "day_type": "weekday",
           "task": "a clear, specific instruction for what to do today, written like a coach speaking directly to the learner (e.g. 'Today, learn HTML structure: tags, elements, and semantic markup')",
           "resource_name": "freeCodeCamp",
           "resource_url": "https://www.freecodecamp.org",
@@ -30,8 +31,7 @@ Generate an 8-week roadmap as valid JSON only, no markdown formatting, no explan
   ]
 }
 
-Each week must have exactly 5 days (Monday-Friday pace). Write each "task" as a direct, encouraging instruction, not just a topic label. Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools) for resource_url — root URLs only, not deep article links, since deep links can be inaccurate. For video_search_term, provide a search phrase, NOT a direct YouTube link (since we cannot verify a specific video exists). Return ONLY the JSON, nothing else.`;
-  
+Each week must have exactly 7 days. Days 1-5 are "weekday" type with a full new-topic task, matching a normal learning pace. Days 6-7 are "weekend" type and must be lighter: a review of the week's topics, a small practice exercise, or reflection — not new heavy material. Set "day_type" to either "weekday" or "weekend" accordingly. Write each "task" as a direct, encouraging instruction, not just a topic label. Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools) for resource_url — root URLs only, not deep article links, since deep links can be inaccurate. For video_search_term, provide a search phrase, NOT a direct YouTube link. Return ONLY the JSON, nothing else.`;
 const result = await model.generateContent(prompt);
   const responseText = result.response.text();
 
@@ -72,7 +72,26 @@ async function getRoadmap(req, res) {
   const streak = calculateStreak(checkins);
   const message = req.query.message;
 
-  res.render('roadmap', { roadmap, checkins, message, streak });
-}
+  const currentDayNumber = checkins.length + 1;
 
+  // Flatten all days across all weeks into one sequential list
+  const allDays = roadmap.content.weeks.flatMap(week =>
+    week.days.map(day => ({ ...day, week_focus: week.focus, week_number: week.week_number }))
+  );
+
+  const totalDays = allDays.length;
+  const isComplete = currentDayNumber > totalDays;
+  const todayTask = isComplete ? null : allDays[currentDayNumber - 1];
+
+  res.render('roadmap', {
+    roadmap,
+    checkins,
+    message,
+    streak,
+    todayTask,
+    currentDayNumber,
+    totalDays,
+    isComplete
+  });
+}
 module.exports = { generateRoadmapContent, selectTrack, getRoadmap };

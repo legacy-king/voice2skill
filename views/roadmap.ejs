@@ -8,44 +8,51 @@
 <body>
   <div class="container">
   <h1>Your Learning Roadmap</h1>
+
 <% if (message === 'already_checked_in') { %>
   <p style="color: orange;">You've already checked in today — come back tomorrow!</p>
 <% } %>
+
 <% if (streak > 0) { %>
   <div class="message-banner" style="background: #1C2A10; color: #8FD14F;">
     🔥 <%= streak %>-day streak — don't break it!
   </div>
 <% } %>
- <% roadmap.content.weeks.forEach(week => { %>
-  <h2 data-week="<%= week.week_number %>"><%= week.focus %></h2>
+
+<p style="color: #9B9891;">Day <%= currentDayNumber %> of <%= totalDays %> — Week <%= todayTask ? todayTask.week_number : '' %></p>
+
+<% if (isComplete) { %>
+  <h2>🎉 You've completed your roadmap!</h2>
+  <p>Great work. Check back soon for what's next.</p>
+<% } else { %>
+  <h2><%= todayTask.week_focus %></h2>
+  <% if (todayTask.day_type === 'weekend') { %>
+    <p style="color: #D4AF37; font-size: 0.9rem;">🌤️ Light day — review & practice</p>
+  <% } %>
+  <p style="font-size: 1.1rem; color: #F0EDE6;"><%= todayTask.task %></p>
+  <p>
+    <a href="<%= todayTask.resource_url %>" target="_blank"><%= todayTask.resource_name %></a>
+    &nbsp;|&nbsp;
+    <a href="https://www.youtube.com/results?search_query=<%= encodeURIComponent(todayTask.video_search_term) %>" target="_blank">Prefer video? Search YouTube</a>
+  </p>
+<% } %>
+
+<h2>Your Check-in History</h2>
+<% if (checkins.length === 0) { %>
+  <p>No check-ins yet. Start today!</p>
+<% } else { %>
   <ul>
-    <% week.days.forEach(day => { %>
-      <li>
-        <strong>Day <%= day.day_number %>:</strong> <%= day.task %><br>
-        <a href="<%= day.resource_url %>" target="_blank"><%= day.resource_name %></a>
-        &nbsp;|&nbsp;
-        <a href="https://www.youtube.com/results?search_query=<%= encodeURIComponent(day.video_search_term) %>" target="_blank">Prefer video? Search YouTube</a>
-      </li>
+    <% checkins.forEach(checkin => { %>
+      <li><%= checkin.checkin_date %> — <%= checkin.notes %></li>
     <% }) %>
   </ul>
-<% }) %>
+<% } %>
 
-  <h2>Your Check-in History</h2>
-  <% if (checkins.length === 0) { %>
-    <p>No check-ins yet. Start today!</p>
-  <% } else { %>
-    <ul>
-      <% checkins.forEach(checkin => { %>
-        <li><%= checkin.checkin_date %> — <%= checkin.notes %></li>
-      <% }) %>
-    </ul>
-  <% } %>
-
-  <h2>Daily Check-in</h2>
-  <form action="/roadmaps/<%= roadmap.id %>/checkin" method="POST">
-    <textarea name="notes" placeholder="What did you work on today?" required></textarea>
-    <button type="submit">Submit Check-in</button>
-  </form>
+<h2>Daily Check-in</h2>
+<form action="/roadmaps/<%= roadmap.id %>/checkin" method="POST">
+  <textarea name="notes" placeholder="What did you work on today?" required></textarea>
+  <button type="submit">Submit Check-in</button>
+</form>
 </div>
 
 </body>

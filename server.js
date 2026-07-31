@@ -6,6 +6,7 @@ const app = express();
 require('dotenv').config();
 const roadmapRoutes = require('./routes/roadmapRoutes');
 const checkinRoutes = require('./routes/checkinRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
 
 // ...
 app.set('view engine', 'ejs');
@@ -20,6 +21,7 @@ app.use('/', userRoutes);
 app.use('/', roadmapRoutes);
 app.use('/', trackRoutes);
 app.use('/', checkinRoutes);
+app.use('/', reminderRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log('Server running on port http://localhost:3000');
