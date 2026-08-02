@@ -1,9 +1,17 @@
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { sendReminderEmail } = require('../utils/mailer');
 
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 async function sendDailyReminders(req, res) {
   const secret = req.query.key;
-  if (secret !== process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || typeof secret !== 'string' || !safeEqual(secret, process.env.CRON_SECRET)) {
     return res.status(403).send('Forbidden');
   }
 

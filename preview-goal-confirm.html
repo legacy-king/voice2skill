@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>We mapped your goal - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23D4AF37'/%3E%3Cpath d='M12 6a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 12 6z' fill='%2316130A'/%3E%3Cpath d='M7.2 12.5a4.8 4.8 0 0 0 9.6 0h1.4a6.2 6.2 0 0 1-5.6 6.15V21h3.4v1.4H7.4V21h3.4v-2.35a6.2 6.2 0 0 1-5.6-6.15z' fill='%2316130A'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #121212;
+  color: #F0EDE6;
+  line-height: 1.6;
+  padding: 2rem 1rem;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin-bottom: 1.5rem;
+  color: #F0EDE6;
+}
+
+h2 {
+  font-size: 1.2rem;
+  color: #D4AF37;
+  margin: 2rem 0 0.75rem;
+  border-bottom: 1px solid #2A2A2A;
+  padding-bottom: 0.5rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+  color: #F0EDE6;
+  margin-bottom: 0.25rem;
+}
+
+p {
+  color: #9B9891;
+  margin-bottom: 0.5rem;
+}
+
+a {
+  color: #D4AF37;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 400px;
+}
+
+input, textarea {
+  background: #1C1C1C;
+  border: 1px solid #2A2A2A;
+  color: #F0EDE6;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: #D4AF37;
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+button {
+  background: #D4AF37;
+  color: #121212;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #E5C158;
+}
+
+ul {
+  list-style: none;
+}
+
+/* Track cards on /tracks */
+.track-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.track-card {
+  display: block;
+  background: #1C1C1C;
+  border: 1px solid #2A2A2A;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  transition: border-color 0.15s ease;
+}
+
+.track-card:hover {
+  border-color: #D4AF37;
+  text-decoration: none;
+}
+
+/* Roadmap weeks */
+.week-block {
+  margin-bottom: 1.5rem;
+}
+
+.week-block li {
+  padding: 0.4rem 0;
+  color: #F0EDE6;
+  border-bottom: 1px solid #1C1C1C;
+}
+
+/* Check-in history */
+.checkin-history li {
+  color: #9B9891;
+  padding: 0.3rem 0;
+}
+
+.message-banner {
+  background: #2A2210;
+  color: #D4AF37;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+nav {
+  margin-bottom: 1.5rem;
+  display: flex;
+  gap: 1rem;
+}
+
+/* Subtle depth on cards */
+.track-card, .week-block, form {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.track-card {
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.track-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.15);
+}
+
+/* Gradient accent behind the hero */
+.hero {
+  background: linear-gradient(135deg, #1C1C1C 0%, #121212 100%);
+  border: 1px solid #2A2A2A;
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.hero .tagline {
+  font-size: 1.2rem;
+  color: #D4AF37;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+.hero p {
+  max-width: 480px;
+}
+
+/* Better button presence */
+button, .btn-primary {
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.25);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+button:hover, .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.35);
+}
+
+/* Progress-style week numbering */
+.week-block h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.week-block h2::before {
+  content: attr(data-week);
+  background: #D4AF37;
+  color: #121212;
+  font-size: 0.85rem;
+  font-weight: 700;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}</style>
+  <style>/* ============================================================
+   Voice2Skill — App pages stylesheet (dashboard, tracks, roadmap)
+   Shares the landing page's design language: dark + gold + cream.
+   Loaded AFTER style.css; scoped to body.app where it conflicts.
+   ============================================================ */
+
+/* ---------- Tokens (mirror landing.css) ---------- */
+body.app {
+  --bg: #0B0B0E;
+  --bg-soft: #101014;
+  --card: #14141A;
+  --card-2: #181820;
+  --ink: #F2EEE3;
+  --ink-dim: #B8B3A7;
+  --muted: #9B9891;
+  --faint: #6E6A63;
+  --gold: #D4AF37;
+  --gold-2: #F0D27A;
+  --gold-deep: #9C7A1E;
+  --green: #8FD14F;
+  --red: #E5484D;
+  --line: rgba(242, 238, 227, 0.09);
+  --line-strong: rgba(242, 238, 227, 0.16);
+  --shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+  --font-display: 'Sora', 'Segoe UI', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* reset style.css body (flex-centered, padded, lighter bg) */
+  display: block;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ---------- Typography overrides ---------- */
+body.app h1,
+body.app h2,
+body.app h3 {
+  font-family: var(--font-display);
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+body.app h1 { font-size: 1.75rem; margin-bottom: 0; }
+body.app h2 { font-size: 1.2rem; color: var(--ink); border-bottom: none; margin: 0; padding-bottom: 0; }
+body.app h3 { font-size: 1.05rem; margin-bottom: 0; }
+body.app p { color: var(--ink-dim); margin-bottom: 0; }
+body.app a { color: var(--gold); }
+body.app a:hover { text-decoration: none; }
+body.app button,
+body.app .btn-primary { box-shadow: none; }
+body.app button:hover,
+body.app .btn-primary:hover { transform: none; box-shadow: none; }
+body.app nav { display: block; gap: 0; margin: 0; }
+/* style.css sets form to a 400px flex column — full width in app cards instead */
+body.app form {
+  display: block;
+  gap: 0;
+  max-width: none;
+}
+body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); }
+
+/* ---------- Layout ---------- */
+.app-wrap {
+  width: min(1120px, 100% - 2.5rem);
+  margin-inline: auto;
+}
+
+.app-main {
+  padding: 5.5rem 0 4rem;
+}
+
+.app-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.grad-text {
+  background: linear-gradient(100deg, var(--gold-2), var(--gold) 55%, #B98A22);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ---------- Buttons ---------- */
+.app .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 999px;
+  padding: 0.8rem 1.6rem;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.18s var(--ease), box-shadow 0.25s var(--ease),
+              background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.app .btn-gold {
+  background: linear-gradient(120deg, var(--gold-2), var(--gold));
+  color: #16130A;
+  box-shadow: 0 10px 30px -8px rgba(212, 175, 55, 0.45);
+}
+
+.app .btn-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px -8px rgba(212, 175, 55, 0.55);
+  color: #16130A;
+}
+
+.app .btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.app .btn-ghost:hover {
+  border-color: rgba(212, 175, 55, 0.6);
+  color: var(--gold-2);
+  transform: translateY(-2px);
+}
+
+.app .btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.app .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ---------- App nav ---------- */
+.app-nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 100;
+  border-bottom: 1px solid transparent;
+  transition: background 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+.app-nav.scrolled {
+  background: rgba(11, 11, 14, 0.82);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom-color: var(--line);
+}
+
+.app-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  height: 68px;
+}
+
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.06rem;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.app-brand svg { width: 24px; height: 24px; }
+.app-brand:hover { color: var(--ink); }
+
+.app-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+  list-style: none;
+}
+
+.app-nav-links a {
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.app-nav-links a:hover { color: var(--gold-2); }
+.app-nav-links a.active { color: var(--gold-2); }
+
+.app-nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+/* ---------- Page header ---------- */
+.app-head {
+  margin-bottom: 2.2rem;
+}
+
+.app-head h1 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  margin: 0.6rem 0 0.7rem;
+}
+
+.app-head p {
+  font-size: 1.02rem;
+  max-width: 560px;
+}
+
+/* ---------- Cards ---------- */
+.app-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.7rem 1.8rem;
+  box-shadow: 0 14px 40px -24px rgba(0, 0, 0, 0.7);
+}
+
+.app-card + .app-card {
+  margin-top: 1.2rem;
+}
+
+.app-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.app-card-head h2 {
+  font-size: 1.12rem;
+}
+
+/* ---------- Dashboard ---------- */
+.dash-hero {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 3.4rem 2rem;
+  margin-bottom: 1.2rem;
+  background: linear-gradient(150deg, var(--card-2), var(--card));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.dash-hero::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.18), transparent 65%);
+  pointer-events: none;
+}
+
+.dash-hero > * { position: relative; }
+
+.dash-hero h1 {
+  font-size: clamp(1.9rem, 4.4vw, 2.7rem);
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+}
+
+.dash-hero p {
+  max-width: 520px;
+  margin: 0 auto 1.8rem;
+  font-size: 1.04rem;
+}
+
+.dash-email {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 1.2rem;
+}
+
+.dash-actions {
+  display: flex;
+  gap: 0.9rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Quick stats on dashboard */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.dash-stat {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.3rem 1.4rem;
+  text-align: center;
+}
+
+.dash-stat .num {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.dash-stat .lbl {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+/* ---------- Tracks ---------- */
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.1rem;
+}
+
+.track-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.5rem 1.4rem;
+  text-decoration: none;
+  color: var(--ink);
+  transition: transform 0.3s var(--ease), border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.track-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(212, 175, 55, 0.45);
+  background: var(--card-2);
+  box-shadow: 0 22px 50px -24px rgba(0, 0, 0, 0.75);
+}
+
+.track-card .glyph {
+  font-family: var(--font-mono);
+  font-size: 1.3rem;
+  color: var(--gold);
+  display: block;
+}
+
+.track-card h3 {
+  font-size: 1.02rem;
+}
+
+.track-card p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  flex: 1;
+}
+
+.track-card .track-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.track-card .track-go::after {
+  content: '→';
+  transition: transform 0.2s var(--ease);
+}
+
+.track-card:hover .track-go::after {
+  transform: translateX(3px);
+}
+
+/* ---------- Roadmap ---------- */
+.streak-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: linear-gradient(120deg, rgba(143, 209, 79, 0.1), rgba(143, 209, 79, 0.03));
+  border: 1px solid rgba(143, 209, 79, 0.35);
+  border-radius: 14px;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.2rem;
+}
+
+.streak-banner .flame {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(143, 209, 79, 0.15);
+  display: grid;
+  place-items: center;
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.streak-banner .flame svg { width: 19px; height: 19px; }
+
+.streak-banner b {
+  display: block;
+  color: var(--green);
+  font-size: 0.98rem;
+}
+
+.streak-banner span {
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+}
+
+.msg-banner {
+  background: #2A2210;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: var(--gold-2);
+  padding: 0.8rem 1.1rem;
+  border-radius: 12px;
+  margin-bottom: 1.2rem;
+  font-size: 0.92rem;
+}
+
+/* Progress */
+.progress-card .progress-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.7rem;
+}
+
+.progress-card .progress-top span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.progress-card .progress-top b {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--gold-2);
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.progress-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold-2));
+  transition: width 0.8s var(--ease);
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--faint);
+  margin-top: 0.6rem;
+}
+
+/* Today's task */
+.task-day {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.task-focus {
+  font-size: 1.25rem;
+  margin-bottom: 0.6rem;
+}
+
+.task-text {
+  font-size: 1.05rem;
+  color: var(--ink);
+  margin-bottom: 1.3rem;
+  line-height: 1.65;
+}
+
+.weekend-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--gold-2);
+  background: rgba(212, 175, 55, 0.09);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  margin-bottom: 0.9rem;
+}
+
+.task-links {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+/* Complete state */
+.done-box {
+  text-align: center;
+  padding: 2.6rem 2rem;
+}
+
+.done-box .trophy {
+  font-size: 2.6rem;
+  display: block;
+  margin-bottom: 0.8rem;
+}
+
+.done-box h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Check-in form */
+.checkin-form textarea {
+  width: 100%;
+  background: #0E0E12;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  font-size: 0.98rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 110px;
+  transition: border-color 0.2s ease;
+}
+
+.checkin-form textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.checkin-form .form-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Voice button listening state */
+.app .btn.listening {
+  background: rgba(229, 72, 77, 0.12);
+  border-color: rgba(229, 72, 77, 0.5);
+  color: var(--red);
+  animation: pulse-red 1.6s infinite;
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.35); }
+  70% { box-shadow: 0 0 0 9px rgba(229, 72, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+}
+
+/* Check-in history */
+.history-list {
+  list-style: none;
+}
+
+.history-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-list li:last-child {
+  border-bottom: none;
+}
+
+.history-list .h-date {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.history-list .h-notes {
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+
+.empty-note {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+/* ---------- Goal form (dashboard) ---------- */
+body.app form.goal-form {
+  display: flex;
+  gap: 0.7rem;
+  max-width: 520px;
+  margin: 0 auto 0.7rem;
+}
+
+.goal-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.goal-form input {
+  width: 100%;
+  background: #0E0E12;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  padding: 0.85rem 3rem 0.85rem 1.1rem;
+  border-radius: 999px;
+  font-size: 0.96rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.goal-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.goal-form input::placeholder {
+  color: var(--faint);
+}
+
+.goal-form .btn {
+  flex-shrink: 0;
+}
+
+.goal-mic {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(120deg, var(--gold-2), var(--gold));
+  color: #16130A;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), box-shadow 0.25s var(--ease);
+  box-shadow: 0 6px 18px -4px rgba(212, 175, 55, 0.5);
+}
+
+.goal-mic:hover {
+  transform: translateY(-50%) scale(1.06);
+  box-shadow: 0 10px 26px -6px rgba(212, 175, 55, 0.65);
+}
+
+.goal-mic svg {
+  width: 17px;
+  height: 17px;
+}
+
+.goal-mic.listening {
+  background: rgba(229, 72, 77, 0.9);
+  color: #fff;
+  animation: pulse-red 1.6s infinite;
+}
+
+.goal-hint {
+  font-size: 0.78rem;
+  color: var(--faint);
+  margin-bottom: 1.5rem;
+}
+
+.goal-error {
+  background: rgba(229, 72, 77, 0.1);
+  border: 1px solid rgba(229, 72, 77, 0.4);
+  color: var(--red);
+  font-size: 0.86rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 10px;
+  margin: 0 auto 1rem;
+  max-width: 520px;
+  text-align: center;
+}
+
+.quick-picks {
+  margin-top: 2.2rem;
+}
+
+.quick-picks-label {
+  display: block;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 1rem;
+}
+
+.quick-picks-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+}
+
+.quick-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
+  color: var(--ink-dim);
+  font-size: 0.86rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform 0.2s var(--ease), border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.quick-pick:hover {
+  transform: translateY(-2px);
+  border-color: rgba(212, 175, 55, 0.45);
+  color: var(--gold-2);
+  background: var(--card-2);
+}
+
+.quick-pick-glyph {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--gold);
+}
+
+/* ---------- Goal confirmation step ---------- */
+.confirm-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem 0 0;
+}
+
+.confirm-card {
+  width: 100%;
+  max-width: 520px;
+  background: linear-gradient(160deg, var(--card-2), var(--card));
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  padding: 2.6rem 2.3rem;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.confirm-card h1 {
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  font-weight: 700;
+  margin: 0.5rem 0 1.2rem;
+}
+
+.confirm-goal {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--gold-2);
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 12px;
+  padding: 0.8rem 1.1rem;
+  margin-bottom: 1.6rem;
+  word-break: break-word;
+}
+
+.confirm-track {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.2rem 1.3rem;
+  margin-bottom: 1.3rem;
+}
+
+.confirm-glyph {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  color: var(--gold);
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.confirm-track-text h2 {
+  font-size: 1.15rem;
+  margin-bottom: 0.2rem;
+}
+
+.confirm-track-text p {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.confirm-note {
+  font-size: 0.88rem;
+  color: var(--ink-dim);
+  margin-bottom: 1.7rem;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.confirm-back {
+  display: block;
+  margin-top: 1.3rem;
+  font-size: 0.82rem;
+  color: var(--faint);
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.confirm-back:hover {
+  color: var(--gold-2);
+}
+
+/* ---------- Auth pages (login / signup) ---------- */
+.auth-wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  position: relative;
+}
+
+.auth-wrap::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 820px;
+  height: 820px;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.13), transparent 62%);
+  pointer-events: none;
+}
+
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(160deg, var(--card-2), var(--card));
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  padding: 2.4rem 2.2rem;
+  box-shadow: var(--shadow);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.12rem;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  margin-bottom: 1.6rem;
+}
+
+.auth-brand svg {
+  width: 26px;
+  height: 26px;
+}
+
+.auth-brand:hover { color: var(--ink); }
+
+.auth-card h1 {
+  text-align: center;
+  font-size: 1.55rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.auth-sub {
+  text-align: center;
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-bottom: 1.8rem;
+}
+
+.auth-error {
+  background: rgba(229, 72, 77, 0.1);
+  border: 1px solid rgba(229, 72, 77, 0.4);
+  color: var(--red);
+  font-size: 0.86rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 10px;
+  margin-bottom: 1.1rem;
+  text-align: center;
+}
+
+/* style.css makes form a 400px flex column — auth form is a stacked grid instead */
+body.app form.auth-form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: none;
+}
+
+.auth-form input {
+  width: 100%;
+  background: #0E0E12;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.96rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.auth-form input::placeholder {
+  color: var(--faint);
+}
+
+.auth-form .btn {
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  margin-top: 0.3rem;
+}
+
+.auth-foot {
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-top: 1.5rem;
+}
+
+.auth-home {
+  display: block;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--faint);
+  text-decoration: none;
+  margin-top: 1.1rem;
+  transition: color 0.18s ease;
+}
+
+.auth-home:hover { color: var(--gold-2); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 760px) {
+  .app-main { padding: 5rem 0 3rem; }
+  .dash-stats { grid-template-columns: 1fr; }
+  .app-nav-links { display: none; }
+  .history-list li { flex-direction: column; gap: 0.15rem; }
+}
+
+@media (max-width: 480px) {
+  body.app form.goal-form {
+    flex-direction: column;
+  }
+  .goal-form .btn {
+    width: 100%;
+  }
+}
+</style>
+</head>
+<body class="app">
+  <header class="app-nav" id="appnav">
+  <div class="app-wrap app-nav-inner">
+    <a class="app-brand" href="/dashboard" aria-label="Voice2Skill dashboard">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" rx="7" fill="url(#appgrad)"/>
+        <path d="M12 6.2a2.3 2.3 0 0 0-2.3 2.3v4a2.3 2.3 0 0 0 4.6 0v-4A2.3 2.3 0 0 0 12 6.2z" fill="#16130A"/>
+        <path d="M7.4 12.4a4.6 4.6 0 0 0 9.2 0h1.2a5.8 5.8 0 0 1-5.2 5.77V20.6h3v1.4H7.4v-1.4h3v-2.43a5.8 5.8 0 0 1-5.2-5.77z" fill="#16130A"/>
+        <defs>
+          <linearGradient id="appgrad" x1="0" y1="0" x2="24" y2="24">
+            <stop stop-color="#F0D27A"/><stop offset="1" stop-color="#C89B2E"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      Voice2Skill
+    </a>
+    <nav aria-label="App">
+      <ul class="app-nav-links">
+        <li><a href="/dashboard" class="active">Dashboard</a></li>
+        <li><a href="/tracks" class="">Skill Tracks</a></li>
+        
+      </ul>
+    </nav>
+    <div class="app-nav-cta">
+      <a class="btn btn-ghost" href="/logout">Log out</a>
+    </div>
+  </div>
+</header>
+<script>
+  (function () {
+    var nav = document.getElementById('appnav');
+    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 12); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+
+
+  <main class="app-wrap app-main">
+    <div class="confirm-wrap">
+      <div class="confirm-card">
+        <span class="app-eyebrow">Goal matched</span>
+        <h1>We mapped <span class="grad-text">your goal</span></h1>
+        <p class="confirm-goal">“design a mobile app interface”</p>
+
+        <div class="confirm-track">
+          <span class="confirm-glyph">✦</span>
+          <div class="confirm-track-text">
+            <h2>UI/UX Design</h2>
+            <p>Design thinking, Figma, and interfaces people love.</p>
+          </div>
+        </div>
+
+        <p class="confirm-note">We'll build your free 8-week roadmap around this — day-by-day tasks, real resources, and a coach that checks in daily.</p>
+
+        <div class="confirm-actions">
+          <a class="btn btn-gold" href="/tracks/2/select?goal=design%20a%20mobile%20app%20interface">
+            Build my 8-week roadmap
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="/tracks">Pick a different track</a>
+        </div>
+
+        <a class="confirm-back" href="/dashboard?goal=design%20a%20mobile%20app%20interface">← Edit my goal</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

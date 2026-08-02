@@ -3,6 +3,9 @@ CREATE TABLE users (
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  verification_token TEXT,
+  verification_token_expires TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -13,16 +16,17 @@ CREATE TABLE tracks (
 );
 
 INSERT INTO tracks (name, description) VALUES
-('Software Development', 'Full-stack, backend, and mobile frameworks guided by real-world challenges.'),
-('UI/UX Design', 'Design principles, prototyping, and user research for digital products.'),
-('Data Analysis', 'Data cleaning, visualization, and insights using modern tools.'),
-('Digital Marketing', 'SEO, content strategy, and growth marketing for digital brands.'),
-('Cybersecurity', 'Offensive and defensive security strategies to protect the digital frontier.');
+('Web Development', 'HTML, CSS, JavaScript — build and ship real sites.'),
+('UI/UX Design', 'Design thinking, Figma, and interfaces people love.'),
+('Data Analysis', 'Spreadsheets, SQL, and insights that drive decisions.'),
+('Digital Marketing', 'Content, SEO, and campaigns that reach people.'),
+('Cybersecurity', 'Fundamentals of protecting systems and data.');
 
 CREATE TABLE roadmaps (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   track_id INTEGER NOT NULL REFERENCES tracks(id),
+  goal TEXT,
   content JSONB NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

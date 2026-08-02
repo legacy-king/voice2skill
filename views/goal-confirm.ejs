@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>We mapped your goal - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23D4AF37'/%3E%3Cpath d='M12 6a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 12 6z' fill='%2316130A'/%3E%3Cpath d='M7.2 12.5a4.8 4.8 0 0 0 9.6 0h1.4a6.2 6.2 0 0 1-5.6 6.15V21h3.4v1.4H7.4V21h3.4v-2.35a6.2 6.2 0 0 1-5.6-6.15z' fill='%2316130A'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'dashboard' }) %>
+
+  <main class="app-wrap app-main">
+    <div class="confirm-wrap">
+      <div class="confirm-card">
+        <span class="app-eyebrow">Goal matched</span>
+        <h1>We mapped <span class="grad-text">your goal</span></h1>
+        <p class="confirm-goal">“<%= goal %>”</p>
+
+        <div class="confirm-track">
+          <span class="confirm-glyph"><%= glyphs[(track.id - 1) % glyphs.length] %></span>
+          <div class="confirm-track-text">
+            <h2><%= track.name %></h2>
+            <p><%= track.description %></p>
+          </div>
+        </div>
+
+        <% if (alternatives && alternatives.length > 0) { %>
+          <div class="confirm-alts">
+            <span class="confirm-alts-label">Not quite it? These are close too:</span>
+            <div class="alt-row">
+              <% alternatives.forEach(alt => { %>
+                <form method="POST" action="/tracks/<%= alt.id %>/select">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="goal" value="<%= goal %>">
+                  <button type="submit" class="alt-chip">
+                    <span class="alt-glyph"><%= glyphs[(alt.id - 1) % glyphs.length] %></span>
+                    <%= alt.name %>
+                    <% if (alt.matchLabel === 'strong') { %>
+                      <span class="alt-badge strong">strong</span>
+                    <% } else { %>
+                      <span class="alt-badge">close</span>
+                    <% } %>
+                  </button>
+                </form>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+
+        <p class="confirm-note">We'll build your free 8-week roadmap around this — day-by-day tasks, real resources, and a coach that checks in daily.</p>
+
+        <div class="confirm-actions">
+          <form method="POST" action="/tracks/<%= track.id %>/select">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="goal" value="<%= goal %>">
+            <button type="submit" class="btn btn-gold">
+              Build my 8-week roadmap
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
+          <a class="btn btn-ghost" href="/tracks">Pick a different track</a>
+        </div>
+
+        <a class="confirm-back" href="/dashboard?goal=<%= encodeURIComponent(goal) %>">← Edit my goal</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

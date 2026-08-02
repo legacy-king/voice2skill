@@ -1,29 +1,451 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Voice2Skill - From Learning to Earning</title>
+  <title>Voice2Skill — Speak it. Learn it. Earn it.</title>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tell Voice2Skill the digital skill you want to learn — web development, design, data, marketing, or cybersecurity — and get a free 8-week roadmap with an AI coach that checks in daily.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23D4AF37'/%3E%3Cpath d='M12 6a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 12 6z' fill='%2316130A'/%3E%3Cpath d='M7.2 12.5a4.8 4.8 0 0 0 9.6 0h1.4a6.2 6.2 0 0 1-5.6 6.15V21h3.4v1.4H7.4V21h3.4v-2.35a6.2 6.2 0 0 1-5.6-6.15z' fill='%2316130A'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/landing.css">
+  <noscript><style>.landing .reveal { opacity: 1; transform: none; }</style></noscript>
 </head>
-<body>
-  <div class="container">
-    <div class="hero">
-      <h1>Voice2Skill</h1>
-      <p class="tagline">From Learning to Earning.</p>
-      <p>
-        Tell us what digital skill you want to learn — Software Development, UI/UX Design,
-        Data Analysis, Digital Marketing, or Cybersecurity — and Voice2Skill builds you a
-        personalized 8-week roadmap with real, free resources.
-      </p>
-      <p>
-        Your AI coach checks in with you daily, keeps you on track, and helps you stay
-        consistent until you've actually mastered the skill.
-      </p>
-      <nav style="margin-top: 1.5rem;">
-        <a href="/signup"><button>Get Started Free</button></a>
-        <a href="/login" style="margin-left: 1rem;">Already have an account? Log in</a>
+<body class="landing">
+
+  <!-- ===== Nav ===== -->
+  <header class="nav" id="topnav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="/" aria-label="Voice2Skill home">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect width="24" height="24" rx="7" fill="url(#g1)"/>
+          <path d="M12 6.2a2.3 2.3 0 0 0-2.3 2.3v4a2.3 2.3 0 0 0 4.6 0v-4A2.3 2.3 0 0 0 12 6.2z" fill="#16130A"/>
+          <path d="M7.4 12.4a4.6 4.6 0 0 0 9.2 0h1.2a5.8 5.8 0 0 1-5.2 5.77V20.6h3v1.4H7.4v-1.4h3v-2.43a5.8 5.8 0 0 1-5.2-5.77z" fill="#16130A"/>
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="24" y2="24">
+              <stop stop-color="#F0D27A"/><stop offset="1" stop-color="#C89B2E"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        Voice2Skill
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#skills">Skill tracks</a></li>
+          <li><a href="#why">Why it works</a></li>
+          <li><a href="#stories">Stories</a></li>
+        </ul>
       </nav>
+      <div class="nav-cta">
+        <a class="nav-login" href="/login">Log in</a>
+        <a class="btn btn-gold" href="/signup">Get started free</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Hero ===== -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="pill"><span class="pulse-dot" aria-hidden="true"></span> Your personal AI skill coach</span>
+        <h1>
+          Speak it.
+          <span class="grad-text">Learn it. Earn it.</span>
+        </h1>
+        <p class="hero-sub">
+          Tell Voice2Skill the digital skill you want to learn — web development, design,
+          data, marketing, or security — and get a <strong>free 8-week roadmap</strong> built
+          for you, plus an AI coach that checks in daily until the skill sticks.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-gold" href="/signup">
+            Start learning free
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <ul class="hero-trust">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Free forever
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            No credit card
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Built for beginners
+          </li>
+        </ul>
+      </div>
+
+      <div class="hero-mock" aria-hidden="true" role="presentation">
+        <div class="mock-glow"></div>
+        <div class="mock-card">
+          <div class="mock-top">
+            <div class="mock-user">
+              <span class="mock-avatar">M</span>
+              <span>
+                <strong>Your AI coach</strong>
+                <span>checked in · just now</span>
+              </span>
+            </div>
+            <span class="mock-streak">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5z"/></svg>
+              12-day streak
+            </span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-label">
+              <span>Daily check-in</span>
+              <span class="live">recording</span>
+            </div>
+            <div class="waveform">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="coach-bubble">
+              <span class="typing" id="coach-type">Great work today, Maya — you finished Module 3: CSS Grid. 🎉</span>
+            </div>
+            <div class="mock-input">
+              <span class="ph">Tell your coach how it went…</span>
+              <span class="mock-mic">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="mock-chip">
+          <div class="chip-top">
+            <span>Week 4 of 8 · Web Dev</span>
+            <b>46%</b>
+          </div>
+          <div class="bar"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Stats ===== -->
+  <div class="stats">
+    <div class="wrap stats-inner">
+      <div class="stat reveal">
+        <div class="num"><span class="grad-text">8</span>&nbsp;weeks</div>
+        <div class="lbl">to a new digital skill</div>
+      </div>
+      <div class="stat reveal" style="--d:.08s">
+        <div class="num"><span class="grad-text">5</span>&nbsp;tracks</div>
+        <div class="lbl">to choose from</div>
+      </div>
+      <div class="stat reveal" style="--d:.16s">
+        <div class="num"><span class="grad-text">1</span>&nbsp;check-in</div>
+        <div class="lbl">a day with your coach</div>
+      </div>
+      <div class="stat reveal" style="--d:.24s">
+        <div class="num"><span class="grad-text">100</span>%</div>
+        <div class="lbl">free, real-world resources</div>
+      </div>
     </div>
   </div>
+
+  <!-- ===== How it works ===== -->
+  <section class="sec-pad" id="how">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">How it works</span>
+        <h2>Three steps. <span class="grad-text">Zero course fees.</span></h2>
+        <p>No 40-hour video courses. Just a plan, a coach, and one check-in a day.</p>
+      </div>
+      <div class="steps">
+        <article class="step reveal">
+          <span class="step-num">01 — GOAL</span>
+          <div class="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Tell us your goal</h3>
+          <p>Say it or type it. “I want to learn web development” is all your coach needs to start building your plan.</p>
+        </article>
+        <article class="step reveal" style="--d:.1s">
+          <span class="step-num">02 — PLAN</span>
+          <div class="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="5" r="1.4" fill="currentColor"/><circle cx="13" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="19" r="1.4" fill="currentColor"/></svg>
+          </div>
+          <h3>Get your 8-week roadmap</h3>
+          <p>A day-by-day plan with hand-picked free resources. No fluff — just the path, matched to your pace.</p>
+        </article>
+        <article class="step reveal" style="--d:.2s">
+          <span class="step-num">03 — MOMENTUM</span>
+          <div class="step-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Check in daily</h3>
+          <p>Your AI coach asks how it went, adjusts tomorrow’s pace, and keeps your streak alive until it sticks.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Skills ===== -->
+  <section class="sec-pad skills" id="skills">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Skill tracks</span>
+        <h2>Pick the skill. <span class="grad-text">We’ll map the path.</span></h2>
+        <p>Five in-demand digital skills, each with its own 8-week roadmap and coach.</p>
+      </div>
+      <div class="skills-grid">
+        <article class="skill-card reveal">
+          <span class="glyph">&lt;/&gt;</span>
+          <h3>Web Development</h3>
+          <p>HTML, CSS, JavaScript — build and ship real sites.</p>
+        </article>
+        <article class="skill-card reveal" style="--d:.06s">
+          <span class="glyph">✦</span>
+          <h3>UI/UX Design</h3>
+          <p>Design thinking, Figma, and interfaces people love.</p>
+        </article>
+        <article class="skill-card reveal" style="--d:.12s">
+          <span class="glyph">∑</span>
+          <h3>Data Analysis</h3>
+          <p>Spreadsheets, SQL, and insights that drive decisions.</p>
+        </article>
+        <article class="skill-card reveal" style="--d:.18s">
+          <span class="glyph">◎</span>
+          <h3>Digital Marketing</h3>
+          <p>Content, SEO, and campaigns that reach people.</p>
+        </article>
+        <article class="skill-card reveal" style="--d:.24s">
+          <span class="glyph">⚿</span>
+          <h3>Cybersecurity</h3>
+          <p>Fundamentals of protecting systems and data.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Why it works ===== -->
+  <section class="sec-pad" id="why">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Why it works</span>
+        <h2>Consistency beats intensity — <span class="grad-text">we built for that.</span></h2>
+        <p>Most courses fail because nobody follows up. Voice2Skill is the follow-up.</p>
+      </div>
+      <div class="feat-grid">
+        <article class="feat reveal">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Voice-first check-ins</h3>
+          <p>Talk to your coach the way you’d talk to a mentor. No long written updates required.</p>
+        </article>
+        <article class="feat reveal" style="--d:.07s">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>A plan that fits your life</h3>
+          <p>8 weeks, structured day by day, and re-paced around how much time you actually have.</p>
+        </article>
+        <article class="feat reveal" style="--d:.14s">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Streaks that stick</h3>
+          <p>Daily check-ins build momentum you can see — and a streak you won’t want to break.</p>
+        </article>
+        <article class="feat reveal" style="--d:.21s">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2v3m0 12V5m0 0H4m2.5 0h5a5 5 0 0 1 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Real, free resources</h3>
+          <p>Curated tutorials, docs, and projects hand-picked for each week — nothing behind a paywall.</p>
+        </article>
+        <article class="feat reveal" style="--d:.28s">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l1.9 5.6L20 10l-6.1 1.4L12 17l-1.9-5.6L4 10l6.1-1.4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Visible progress</h3>
+          <p>Watch the roadmap fill in week by week — motivation you can actually see.</p>
+        </article>
+        <article class="feat reveal" style="--d:.35s">
+          <div class="feat-icon">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/><path d="M5 20a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3>A coach in your corner</h3>
+          <p>Someone who knows your goal, remembers your progress, and shows up every day.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Stories ===== -->
+  <section class="sec-pad" id="stories">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Stories</span>
+        <h2>From “someday” to <span class="grad-text">day 45.</span></h2>
+        <p>Learners who stopped planning and started checking in.</p>
+      </div>
+      <div class="quotes">
+        <figure class="quote reveal">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>I’d bought three courses and finished none. The daily check-in is the only reason I actually learned HTML and CSS this time.</blockquote>
+          <footer>
+            <span class="qv">T</span>
+            <span>
+              <b>Tunde A.</b>
+              <span>Learning Web Development</span>
+            </span>
+          </footer>
+        </figure>
+        <figure class="quote reveal" style="--d:.1s">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>Speaking my update takes 20 seconds. That’s it. The coach keeps me honest without making me feel bad on slow days.</blockquote>
+          <footer>
+            <span class="qv">N</span>
+            <span>
+              <b>Ngozi O.</b>
+              <span>Learning Data Analysis</span>
+            </span>
+          </footer>
+        </figure>
+        <figure class="quote reveal" style="--d:.2s">
+          <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
+          <blockquote>It told me exactly what to learn each day and it was all free. I shipped my first portfolio site at the end of week 8.</blockquote>
+          <footer>
+            <span class="qv">S</span>
+            <span>
+              <b>Sarah K.</b>
+              <span>Learning UI/UX Design</span>
+            </span>
+          </footer>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <div class="cta-band">
+    <div class="wrap">
+      <div class="cta-inner reveal">
+        <span class="eyebrow">No credit card · Free forever</span>
+        <h2>Your first check-in takes <span class="grad-text">30 seconds.</span></h2>
+        <p>Tell your coach what you want to learn. The roadmap and your first check-in are waiting.</p>
+        <a class="btn btn-gold" href="/signup">Start learning free</a>
+        <p class="cta-note">Already have an account? <a href="/login">Log in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="/">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect width="24" height="24" rx="7" fill="url(#g2)"/>
+              <path d="M12 6.2a2.3 2.3 0 0 0-2.3 2.3v4a2.3 2.3 0 0 0 4.6 0v-4A2.3 2.3 0 0 0 12 6.2z" fill="#16130A"/>
+              <path d="M7.4 12.4a4.6 4.6 0 0 0 9.2 0h1.2a5.8 5.8 0 0 1-5.2 5.77V20.6h3v1.4H7.4v-1.4h3v-2.43a5.8 5.8 0 0 1-5.2-5.77z" fill="#16130A"/>
+              <defs>
+                <linearGradient id="g2" x1="0" y1="0" x2="24" y2="24">
+                  <stop stop-color="#F0D27A"/><stop offset="1" stop-color="#C89B2E"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            Voice2Skill
+          </a>
+          <p>From learning to earning. A free AI coach and an 8-week roadmap for the digital skills that pay.</p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#how">How it works</a></li>
+              <li><a href="#skills">Skill tracks</a></li>
+              <li><a href="#why">Why it works</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Account</h4>
+            <ul>
+              <li><a href="/signup">Sign up</a></li>
+              <li><a href="/login">Log in</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year">2026</span> Voice2Skill. All rights reserved.</span>
+        <span>Made for learners who show up.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Nav background on scroll
+    var nav = document.getElementById('topnav');
+    var onScroll = function () {
+      nav.classList.toggle('scrolled', window.scrollY > 12);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // Reveal on scroll
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+
+    // Decorative typed coach messages (mock card) — skipped for reduced-motion users
+    var coach = document.getElementById('coach-type');
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+      var lines = [
+        'Great work today, Maya — you finished Module 3: CSS Grid. 🎉',
+        'Tomorrow: build your first responsive landing page.',
+        'Your 12-day streak is your longest yet. Keep it alive!',
+        'Want me to speed up Week 5? Just say the word.'
+      ];
+      var lineIdx = 0, charIdx = 0, deleting = false;
+      var TYPE_MS = 26, PAUSE_MS = 2400;
+
+      function tick() {
+        var text = lines[lineIdx];
+        if (!deleting) {
+          charIdx++;
+          coach.textContent = text.slice(0, charIdx);
+          if (charIdx === text.length) {
+            deleting = true;
+            setTimeout(tick, PAUSE_MS);
+            return;
+          }
+          setTimeout(tick, TYPE_MS + (text[charIdx - 1] === ' ' ? 60 : 0));
+        } else {
+          charIdx--;
+          coach.textContent = text.slice(0, charIdx);
+          if (charIdx === 0) {
+            deleting = false;
+            lineIdx = (lineIdx + 1) % lines.length;
+            setTimeout(tick, 500);
+            return;
+          }
+          setTimeout(tick, 12);
+        }
+      }
+      setTimeout(tick, 900);
+    }
+  </script>
 </body>
 </html>

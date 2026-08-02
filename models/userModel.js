@@ -1,9 +1,17 @@
+const crypto = require('crypto');
 const pool = require('../config/db');
 
-async function createUser(name, email, passwordHash) {
+/** SHA-256 hash of a verification token — only the hash is stored/looked up,
+ *  so a DB leak doesn't expose usable tokens. */
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function createUser(name, email, passwordHash, verificationToken, verificationTokenExpires) {
   const result = await pool.query(
-    'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING *',
-    [name, email, passwordHash]
+    `INSERT INTO users (name, email, password_hash, verification_token, verification_token_expires)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, email, passwordHash, hashToken(verificationToken), verificationTokenExpires]
   );
   return result.rows[0];
 }
@@ -23,4 +31,34 @@ async function findUserById(id) {
     return result.rows[0];
 }
 
-module.exports = { createUser, findUserByEmail, findUserById };
+/** Find a user by an unexpired verification token. */
+async function findUserByVerificationToken(token) {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE verification_token = $1 AND verification_token_expires > NOW()',
+    [hashToken(token)]
+  );
+  return result.rows[0];
+}
+
+/** Mark a user verified and clear the token. */
+async function markEmailVerified(userId) {
+  const result = await pool.query(
+    `UPDATE users
+     SET email_verified = TRUE, verification_token = NULL, verification_token_expires = NULL
+     WHERE id = $1
+     RETURNING *`,
+    [userId]
+  );
+  return result.rows[0];
+}
+
+/** Replace the verification token (for resend flows). */
+async function setVerificationToken(userId, token, expiresAt) {
+  const result = await pool.query(
+    'UPDATE users SET verification_token = $1, verification_token_expires = $2 WHERE id = $3 RETURNING *',
+    [hashToken(token), expiresAt, userId]
+  );
+  return result.rows[0];
+}
+
+module.exports = { createUser, findUserByEmail, findUserById, findUserByVerificationToken, markEmailVerified, setVerificationToken };

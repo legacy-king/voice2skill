@@ -10,7 +10,7 @@ Many people want to learn digital skills — software development, UI/UX design,
 
 ## What It Does
 
-- 🎯 Choose a skill track (Software Development, UI/UX Design, Data Analysis, Digital Marketing, Cybersecurity)
+- 🎯 Choose a skill track (Web Development, UI/UX Design, Data Analysis, Digital Marketing, Cybersecurity)
 - 🗺️ Get an AI-generated, personalized 8-week learning roadmap with real, free resources
 - 📚 Follow a structured weekly and daily focus, not a random collection of tutorials
 - ✅ Log daily check-ins to track consistency and progress
