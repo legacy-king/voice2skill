@@ -62,6 +62,20 @@ const cases = [
     ['Please enter both your email and password.']],
   ['login (not verified)', 'login.ejs', { error: 'not_verified' },
     ['Please verify your email first', 'resend the link']],
+  ['login (password reset done)', 'login.ejs', { error: 'password_reset' },
+    ['Password updated. Log in with your new password']],
+
+  ['forgot-password (default)', 'forgot-password.ejs', { sent: false, error: null },
+    ['Reset your password', 'Send reset link', '_csrf']],
+  ['forgot-password (sent)', 'forgot-password.ejs', { sent: true, error: null },
+    ['expires in 30 minutes', 'Back to login']],
+  ['forgot-password (expired token)', 'forgot-password.ejs', { sent: false, error: 'expired_token' },
+    ['invalid or has expired']],
+
+  ['reset-password (default)', 'reset-password.ejs', { token: 'abc123', error: null },
+    ['Set a new password', 'New password (min 8 chars)', 'Update password', '_csrf', 'value="abc123"']],
+  ['reset-password (weak)', 'reset-password.ejs', { token: 'abc123', error: 'weak' },
+    ['Password must be at least 8 characters.']],
 
   ['verify-email (sent)', 'verify-email.ejs', { sent: true, error: null },
     ['Verify your email', 'confirmation link', 'Resend verification email', '_csrf']],

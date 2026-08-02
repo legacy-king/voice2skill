@@ -3,12 +3,13 @@ const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
-const { sendVerificationEmail } = require('../utils/mailer');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
 const { rankTracksForGoal } = require('../utils/goalMatcher');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GLYPHS = ['</>', '✦', '∑', '◎', '⚿'];
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const RESET_TTL_MS = 30 * 60 * 1000; // 30 min
 
 async function signup(req, res) {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
@@ -113,6 +114,71 @@ async function confirmEmail(req, res) {
   });
 }
 
+/** GET /forgot-password — email entry form. */
+function forgotPasswordPage(req, res) {
+  const sent = req.query.sent === '1';
+  const error = req.query.error || null;
+  res.render('forgot-password', { sent, error });
+}
+
+/** POST /forgot-password — send a reset link if the email exists. */
+async function requestPasswordReset(req, res) {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  if (!EMAIL_RE.test(email)) {
+    return res.redirect('/forgot-password?error=invalid_email');
+  }
+
+  const user = await userModel.findUserByEmail(email);
+  // Don't leak whether an email exists — same redirect either way.
+  if (user) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+    await userModel.setPasswordResetToken(user.id, token, expiresAt);
+    try {
+      await sendPasswordResetEmail(email, user.name, token);
+    } catch (err) {
+      console.error('Failed to send password reset email:', err.message);
+      return res.redirect('/forgot-password?error=send_failed');
+    }
+  }
+
+  res.redirect('/forgot-password?sent=1');
+}
+
+/** GET /reset-password?token=... — show the new-password form. */
+async function resetPasswordPage(req, res) {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) {
+    return res.redirect('/forgot-password?error=invalid_token');
+  }
+
+  const user = await userModel.findUserByPasswordResetToken(token);
+  if (!user) {
+    return res.redirect('/forgot-password?error=expired_token');
+  }
+
+  res.render('reset-password', { token, error: req.query.error || null });
+}
+
+/** POST /reset-password — validate token + new password, then update. */
+async function resetPassword(req, res) {
+  const token = typeof req.body.token === 'string' ? req.body.token : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+  if (password.length < 8) {
+    return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=weak`);
+  }
+
+  const user = await userModel.findUserByPasswordResetToken(token);
+  if (!user) {
+    return res.redirect('/forgot-password?error=expired_token');
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await userModel.updatePassword(user.id, passwordHash);
+  res.redirect('/login?error=password_reset');
+}
+
 /** POST /verify-email/resend — regenerates the token and re-sends. */
 async function resendVerification(req, res) {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
@@ -198,4 +264,9 @@ function logout(req, res) {
   });
 }
 
-module.exports = { signup, login, dashboard, matchGoal, verifyEmailPage, confirmEmail, resendVerification, loginPage, signupPage, logout };
+module.exports = {
+  signup, login, dashboard, matchGoal,
+  verifyEmailPage, confirmEmail, resendVerification,
+  forgotPasswordPage, requestPasswordReset, resetPasswordPage, resetPassword,
+  loginPage, signupPage, logout
+};

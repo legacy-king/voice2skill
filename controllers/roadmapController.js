@@ -7,6 +7,21 @@ const { goalToSearchPhrase } = require('../utils/goalMatcher');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+/**
+ * AI-generated resource_urls are data, not trusted config. Only allow real
+ * http(s) links — a crafted goal could prompt-inject a `javascript:` URL that
+ * would execute on click if rendered straight into an href.
+ */
+function sanitizeResourceUrl(url) {
+  if (typeof url !== 'string') return '#';
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : '#';
+  } catch {
+    return '#';
+  }
+}
+
 async function generateRoadmapContent(trackName, trackDescription, goal = null) {
   const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
@@ -106,7 +121,9 @@ async function getRoadmap(req, res) {
 
   const totalDays = allDays.length;
   const isComplete = currentDayNumber > totalDays;
-  const todayTask = isComplete ? null : allDays[currentDayNumber - 1];
+  const todayTask = isComplete
+    ? null
+    : { ...allDays[currentDayNumber - 1], resource_url: sanitizeResourceUrl(allDays[currentDayNumber - 1].resource_url) };
 
   // Tie the learner's own goal phrasing into video search for today's task.
   const videoSearchPhrase = todayTask

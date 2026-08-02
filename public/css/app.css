@@ -206,6 +206,10 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
   gap: 0.9rem;
 }
 
+.app-nav-cta .logout-form {
+  display: contents;
+}
+
 /* ---------- Page header ---------- */
 .app-head {
   margin-bottom: 2.2rem;

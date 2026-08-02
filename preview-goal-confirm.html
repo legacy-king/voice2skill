@@ -1306,13 +1306,41 @@ body.app form.auth-form {
           </div>
         </div>
 
+        <div class="confirm-alts">
+          <span class="confirm-alts-label">Not quite it? These are close too:</span>
+          <div class="alt-row">
+            <form method="POST" action="/tracks/1/select">
+              <input type="hidden" name="_csrf" value="test-csrf-token">
+              <input type="hidden" name="goal" value="design a mobile app interface">
+              <button type="submit" class="alt-chip">
+                <span class="alt-glyph">&lt;/&gt;</span>
+                Web Development
+                <span class="alt-badge">close</span>
+              </button>
+            </form>
+            <form method="POST" action="/tracks/4/select">
+              <input type="hidden" name="_csrf" value="test-csrf-token">
+              <input type="hidden" name="goal" value="design a mobile app interface">
+              <button type="submit" class="alt-chip">
+                <span class="alt-glyph">◎</span>
+                Digital Marketing
+                <span class="alt-badge">close</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
         <p class="confirm-note">We'll build your free 8-week roadmap around this — day-by-day tasks, real resources, and a coach that checks in daily.</p>
 
         <div class="confirm-actions">
-          <a class="btn btn-gold" href="/tracks/2/select?goal=design%20a%20mobile%20app%20interface">
-            Build my 8-week roadmap
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
+          <form method="POST" action="/tracks/2/select">
+            <input type="hidden" name="_csrf" value="test-csrf-token">
+            <input type="hidden" name="goal" value="design a mobile app interface">
+            <button type="submit" class="btn btn-gold">
+              Build my 8-week roadmap
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
           <a class="btn btn-ghost" href="/tracks">Pick a different track</a>
         </div>
 

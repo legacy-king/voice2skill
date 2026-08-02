@@ -52,4 +52,24 @@ async function sendVerificationEmail(toEmail, userName, token) {
   });
 }
 
-module.exports = { sendReminderEmail, sendVerificationEmail };
+/** Send the password-reset link with a 30-minute expiry token. */
+async function sendPasswordResetEmail(toEmail, userName, token) {
+  const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
+  await transporter.sendMail({
+    from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
+    to: toEmail,
+    subject: 'Reset your Voice2Skill password 🔑',
+    html: `
+      <p>Hi ${esc(userName)},</p>
+      <p>We got a request to reset your Voice2Skill password. Click the button below to set a new one:</p>
+      <p style="margin: 24px 0;">
+        <a href="${resetUrl}" style="background:#D4AF37;color:#16130A;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold;">Reset my password</a>
+      </p>
+      <p style="color:#777;">Or paste this link: <a href="${resetUrl}">${resetUrl}</a></p>
+      <p style="color:#777;">This link expires in 30 minutes. If you didn't request this, you can safely ignore this email — your password won't change.</p>
+      <p>— The Voice2Skill Team</p>
+    `
+  });
+}
+
+module.exports = { sendReminderEmail, sendVerificationEmail, sendPasswordResetEmail };

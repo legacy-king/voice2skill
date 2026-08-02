@@ -61,4 +61,46 @@ async function setVerificationToken(userId, token, expiresAt) {
   return result.rows[0];
 }
 
-module.exports = { createUser, findUserByEmail, findUserById, findUserByVerificationToken, markEmailVerified, setVerificationToken };
+/** Store a hashed password-reset token with expiry. */
+async function setPasswordResetToken(userId, token, expiresAt) {
+  const result = await pool.query(
+    'UPDATE users SET password_reset_token = $1, password_reset_token_expires = $2 WHERE id = $3 RETURNING *',
+    [hashToken(token), expiresAt, userId]
+  );
+  return result.rows[0];
+}
+
+/** Find a user by an unexpired password-reset token. */
+async function findUserByPasswordResetToken(token) {
+  const result = await pool.query(
+    'SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_token_expires > NOW()',
+    [hashToken(token)]
+  );
+  return result.rows[0];
+}
+
+/** Update a user's password and clear any reset/verification tokens. */
+async function updatePassword(userId, passwordHash) {
+  const result = await pool.query(
+    `UPDATE users
+     SET password_hash = $1,
+         password_reset_token = NULL,
+         password_reset_token_expires = NULL
+     WHERE id = $2
+     RETURNING *`,
+    [passwordHash, userId]
+  );
+  return result.rows[0];
+}
+
+module.exports = {
+  createUser,
+  findUserByEmail,
+  findUserById,
+  findUserByVerificationToken,
+  markEmailVerified,
+  setVerificationToken,
+  setPasswordResetToken,
+  findUserByPasswordResetToken,
+  updatePassword
+};

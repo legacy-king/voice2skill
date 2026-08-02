@@ -11,6 +11,10 @@ router.post('/dashboard/goal', rateLimiter({ max: 30 }), userController.matchGoa
 router.get('/verify-email', userController.verifyEmailPage);
 router.get('/verify-email/confirm', userController.confirmEmail);
 router.post('/verify-email/resend', rateLimiter({ windowMs: 15 * 60 * 1000, max: 10 }), userController.resendVerification);
+router.get('/forgot-password', userController.forgotPasswordPage);
+router.post('/forgot-password', authLimiter, userController.requestPasswordReset);
+router.get('/reset-password', userController.resetPasswordPage);
+router.post('/reset-password', authLimiter, userController.resetPassword);
 router.get('/dashboard', userController.dashboard);
 router.get('/login', userController.loginPage);
 router.get('/signup', userController.signupPage);
@@ -18,6 +22,7 @@ router.get('/', (req, res) => {
   res.render('landing');
 });
 
-router.get('/logout', userController.logout);
+// POST, not GET: destroying a session is a state change and must be CSRF-protected.
+router.post('/logout', rateLimiter({ max: 30 }), userController.logout);
 
 module.exports = router;

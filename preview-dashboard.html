@@ -1337,15 +1337,21 @@ body.app form.auth-form {
       <span class="quick-picks-label">Or jump straight to a track:</span>
       <div class="quick-picks-row">
         
-          <a class="quick-pick" href="/tracks/1/select">
-            <span class="quick-pick-glyph">&lt;/&gt;</span>
-            Web Development
-          </a>
+          <form method="POST" action="/tracks/1/select" class="quick-pick-form">
+            <input type="hidden" name="_csrf" value="test-csrf-token">
+            <button type="submit" class="quick-pick">
+              <span class="quick-pick-glyph">&lt;/&gt;</span>
+              Web Development
+            </button>
+          </form>
         
-          <a class="quick-pick" href="/tracks/2/select">
-            <span class="quick-pick-glyph">✦</span>
-            UI/UX Design
-          </a>
+          <form method="POST" action="/tracks/2/select" class="quick-pick-form">
+            <input type="hidden" name="_csrf" value="test-csrf-token">
+            <button type="submit" class="quick-pick">
+              <span class="quick-pick-glyph">✦</span>
+              UI/UX Design
+            </button>
+          </form>
         
       </div>
     </div>

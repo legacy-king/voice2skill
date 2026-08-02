@@ -6,6 +6,8 @@ CREATE TABLE users (
   email_verified BOOLEAN NOT NULL DEFAULT FALSE,
   verification_token TEXT,
   verification_token_expires TIMESTAMP,
+  password_reset_token TEXT,
+  password_reset_token_expires TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
