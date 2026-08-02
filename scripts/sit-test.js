@@ -70,8 +70,9 @@ function saveCookies(res, j = jar) {
   }
 }
 
-async function req(path, { method = 'GET', form, jar: useJar = jar } = {}) {
+async function req(path, { method = 'GET', form, jar: useJar = jar, userAgent } = {}) {
   const headers = { cookie: cookieHeader(useJar) };
+  if (userAgent) headers['user-agent'] = userAgent;
   let body;
   if (form) {
     headers['content-type'] = 'application/x-www-form-urlencoded';
@@ -81,6 +82,12 @@ async function req(path, { method = 'GET', form, jar: useJar = jar } = {}) {
   saveCookies(res, useJar);
   const text = await res.text();
   return { status: res.status, location: res.headers.get('location'), text };
+}
+
+// A genuinely different device (e.g. someone's phone) so the new-device alert fires.
+const PHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1';
+function hasMailLog(kind) {
+  return logLines.some((l) => l.includes(`[mail:log] ${kind} ${TEST_EMAIL}`));
 }
 
 async function main() {
@@ -250,17 +257,19 @@ async function main() {
   const secPageLate = await req('/security');
   check('security page shows last-active for other devices', secPageLate.text.includes('Last active'), 'missing Last active marker');
 
-  // Sign in from a SECOND device (separate cookie jar)
+  // Sign in from a SECOND device (separate cookie jar + different user-agent)
   const loginPage7 = await req('/login', { jar: jar2 });
   const loginCsrf7 = csrfFrom(loginPage7.text);
   const login2 = await req('/login', {
     jar: jar2,
+    userAgent: PHONE_UA,
     method: 'POST',
     form: { _csrf: loginCsrf7, email: TEST_EMAIL, password: FINAL_PASSWORD }
   });
   check('second device logs in', login2.status === 302 && (login2.location || '') === '/dashboard', login2.location);
   const dashB = await req('/dashboard', { jar: jar2 });
   check('second device sees dashboard', dashB.status === 200 && dashB.text.includes('SIT User'), dashB.status);
+  check('new-device alert email logged', hasMailLog('newdevice'), 'no [mail:log] newdevice line');
 
   // Device A now sees both sessions on the security page
   const secPage2 = await req('/security');
@@ -275,6 +284,7 @@ async function main() {
     form: { _csrf: secCsrf, sid: otherSid }
   });
   check('revoke succeeds', revoked.status === 302 && (revoked.location || '').includes('success=1'), revoked.location);
+  check('revoked-session alert email logged', hasMailLog('revoke'), 'no [mail:log] revoke line');
 
   // Device B is now dead; Device A is untouched
   const dashB2 = await req('/dashboard', { jar: jar2 });

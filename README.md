@@ -77,6 +77,11 @@ voice2skill/
 4. `POST /security/revoke` deletes **one** session by `sid` — but only if it belongs to the logged-in user (`deleteUserSession` checks ownership in the same query) and **never** the current session (`sid === req.sessionID` is rejected with `error=self`).
 5. Revoking a device signs it out on its next request — the deleted session row simply no longer exists, so `req.session.userId` is gone.
 
+### Security Alert Emails 🛡️
+- **New-device sign-in** — on login and email-confirm, `maybeAlertNewDevice` compares the request's (user-agent, IP) against every **existing active** session's metadata (it runs before the fresh session is persisted). If no currently-active session matches, `sendNewDeviceAlertEmail` tells the owner which device/IP signed in, with links to the security page and change-password page. Note the alert re-fires if a device signs in again after all of its earlier sessions were revoked/expired — deliberate, since a fresh unrecognized sign-in is exactly what should be flagged.
+- **Session revoked** — `POST /security/revoke` captures the target session's device label + IP *before* deleting the row, then `sendSessionRevokedEmail` notifies the owner which device was signed out.
+- Both are fire-and-forget (never block login/revoke), escaped before rendering into email HTML, and support `EMAIL_MODE=log` like every other mailer — the SIT test asserts both log lines.
+
 ---
 
 ## Migrations

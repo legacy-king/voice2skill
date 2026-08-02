@@ -126,6 +126,20 @@ async function listUserSessions(userId) {
   return result.rows;
 }
 
+/** Get ONE session row, only if it belongs to the user (ownership check).
+ *  Used to capture device info before a revoke wipes the row. */
+async function getUserSession(userId, sid) {
+  const result = await pool.query(
+    `SELECT sid, expire,
+            sess::jsonb ->> 'userAgent' AS user_agent,
+            sess::jsonb ->> 'ip' AS ip
+     FROM "session"
+     WHERE sid = $1 AND sess::jsonb ->> 'userId' = $2`,
+    [String(sid), String(userId)]
+  );
+  return result.rows[0] || null;
+}
+
 /** Delete ONE session, only if it belongs to the user (ownership check). */
 async function deleteUserSession(userId, sid) {
   const result = await pool.query(
@@ -148,5 +162,6 @@ module.exports = {
   updatePassword,
   deleteUserSessions,
   listUserSessions,
+  getUserSession,
   deleteUserSession
 };

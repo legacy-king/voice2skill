@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
+const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../utils/mailer');
 const { rankTracksForGoal } = require('../utils/goalMatcher');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,6 +36,27 @@ function describeDevice(ua = '') {
     : s.includes('opera/') || s.includes('opr/') ? 'Opera'
     : 'Browser';
   return `${browser} · ${os}`;
+}
+
+/**
+ * If this sign-in comes from a device the account hasn't seen before, email the
+ * owner. Never blocks login — failures are logged and swallowed. Compares the
+ * current request's (user-agent, IP) against every EXISTING session's metadata
+ * (the fresh session isn't persisted yet when this runs).
+ */
+async function maybeAlertNewDevice(user, req) {
+  try {
+    const ua = String(req.headers['user-agent'] || '').slice(0, 200);
+    const ip = req.ip || 'unknown';
+    const sessions = await userModel.listUserSessions(user.id);
+    if (sessions.length === 0) return; // first-ever sign-in — nothing to compare
+    const seenBefore = sessions.some((s) => s.user_agent === ua && s.ip === ip);
+    if (!seenBefore) {
+      await sendNewDeviceAlertEmail(user.email, user.name, describeDevice(ua), ip);
+    }
+  } catch (err) {
+    console.error('New-device alert failed:', err.message);
+  }
 }
 
 async function signup(req, res) {
@@ -104,6 +125,11 @@ async function login(req, res) {
     return res.redirect('/login?error=not_verified');
   }
 
+  // Alert the owner if this looks like a device the account hasn't seen before.
+  // Runs before regenerate() so it compares against EXISTING sessions only.
+  // Fire-and-forget: never blocks or breaks the login.
+  maybeAlertNewDevice(existingUser, req);
+
   // Regenerate the session on privilege elevation to prevent session fixation.
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('Something went wrong on our end.');
@@ -133,6 +159,9 @@ async function confirmEmail(req, res) {
   }
 
   await userModel.markEmailVerified(user.id);
+
+  // Alert the owner if this confirmation comes from a new device.
+  maybeAlertNewDevice(user, req);
 
   // New session on privilege elevation (prevents session fixation).
   req.session.regenerate((err) => {
@@ -327,7 +356,20 @@ async function revokeSession(req, res) {
   if (sid === req.sessionID) {
     return res.redirect('/security?error=self');
   }
+  // Capture the device label BEFORE deleting the row so the alert can say
+  // exactly which device was kicked. Fire-and-forget: revoking never fails
+  // because an email alert did.
+  const target = await userModel.getUserSession(req.session.userId, sid);
   await userModel.deleteUserSession(req.session.userId, sid);
+  if (target) {
+    const user = await userModel.findUserById(req.session.userId);
+    sendSessionRevokedEmail(
+      user.email,
+      user.name,
+      describeDevice(target.user_agent),
+      target.ip || 'unknown'
+    ).catch((err) => console.error('Revoked-session alert failed:', err.message));
+  }
   res.redirect('/security?success=1');
 }
 

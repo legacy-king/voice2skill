@@ -87,4 +87,52 @@ async function sendPasswordResetEmail(toEmail, userName, token) {
   });
 }
 
-module.exports = { sendReminderEmail, sendVerificationEmail, sendPasswordResetEmail };
+/** Alert the account owner when a sign-in looks like a new device. */
+async function sendNewDeviceAlertEmail(toEmail, userName, deviceLabel, ip) {
+  if (LOG_ONLY) {
+    console.log(`[mail:log] newdevice ${toEmail} device=${deviceLabel} ip=${ip}`);
+    return;
+  }
+  await transporter.sendMail({
+    from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
+    to: toEmail,
+    subject: 'New device signed in to your Voice2Skill account 🛡️',
+    html: `
+      <p>Hey ${esc(userName)},</p>
+      <p>We noticed a sign-in to your Voice2Skill account from a device we haven't seen before:</p>
+      <p style="background:#1C1C1C;border:1px solid #2A2A2A;border-radius:8px;padding:14px 18px;">
+        <b>Device:</b> ${esc(deviceLabel)}<br>
+        <b>IP:</b> ${esc(ip)}<br>
+        <b>Time:</b> ${new Date().toLocaleString()}
+      </p>
+      <p>Was this you? No action needed. If it wasn't, <a href="${APP_URL}/security">review your active sessions</a> and consider <a href="${APP_URL}/change-password">changing your password</a>.</p>
+      <p>— The Voice2Skill Team</p>
+    `
+  });
+}
+
+/** Alert the account owner when one of their sessions is revoked. */
+async function sendSessionRevokedEmail(toEmail, userName, deviceLabel, ip) {
+  if (LOG_ONLY) {
+    console.log(`[mail:log] revoke ${toEmail} device=${deviceLabel} ip=${ip}`);
+    return;
+  }
+  await transporter.sendMail({
+    from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
+    to: toEmail,
+    subject: 'A device was signed out of your Voice2Skill account',
+    html: `
+      <p>Hey ${esc(userName)},</p>
+      <p>A device was just signed out of your Voice2Skill account:</p>
+      <p style="background:#1C1C1C;border:1px solid #2A2A2A;border-radius:8px;padding:14px 18px;">
+        <b>Device:</b> ${esc(deviceLabel)}<br>
+        <b>IP:</b> ${esc(ip)}<br>
+        <b>Time:</b> ${new Date().toLocaleString()}
+      </p>
+      <p>If this was you, no action needed. If you didn't revoke it, <a href="${APP_URL}/security">check your sessions</a> and <a href="${APP_URL}/change-password">change your password</a> right away.</p>
+      <p>— The Voice2Skill Team</p>
+    `
+  });
+}
+
+module.exports = { sendReminderEmail, sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail };
