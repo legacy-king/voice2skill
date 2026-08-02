@@ -9,8 +9,13 @@ const checkinRoutes = require('./routes/checkinRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const { securityHeaders, csrfProtection } = require('./middleware/security');
 
+// Never run with a forgeable session secret in production — a known constant
+// would let anyone mint session cookies and take over any account.
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET is required in production — refusing to start.');
+}
 if (!process.env.SESSION_SECRET) {
-  console.warn('⚠  SESSION_SECRET is not set — using an insecure fallback. Set it in production!');
+  console.warn('⚠  SESSION_SECRET is not set — using a dev-only fallback. Set it in production!');
 }
 
 app.set('view engine', 'ejs');
