@@ -79,18 +79,61 @@ async function findUserByPasswordResetToken(token) {
   return result.rows[0];
 }
 
-/** Update a user's password and clear any reset/verification tokens. */
+/** Update a user's password, record when, and clear any reset/verification tokens. */
 async function updatePassword(userId, passwordHash) {
   const result = await pool.query(
     `UPDATE users
      SET password_hash = $1,
          password_reset_token = NULL,
-         password_reset_token_expires = NULL
+         password_reset_token_expires = NULL,
+         password_changed_at = NOW()
      WHERE id = $2
      RETURNING *`,
     [passwordHash, userId]
   );
   return result.rows[0];
+}
+
+/**
+ * Delete all session rows belonging to a user (e.g. after a password change,
+ * to revoke every other logged-in session). `exceptSid` keeps the current
+ * session when one exists.
+ */
+async function deleteUserSessions(userId, exceptSid = null) {
+  const params = [String(userId)];
+  let query = `DELETE FROM "session" WHERE sess::jsonb ->> 'userId' = $1`;
+  if (exceptSid) {
+    params.push(String(exceptSid));
+    query += ` AND sid <> $2`;
+  }
+  const result = await pool.query(query, params);
+  return result.rowCount;
+}
+
+/** List every active session belonging to a user (for the security page). */
+async function listUserSessions(userId) {
+  const result = await pool.query(
+    `SELECT sid, expire,
+            sess::jsonb ->> 'userAgent' AS user_agent,
+            sess::jsonb ->> 'ip' AS ip,
+            sess::jsonb ->> 'signedInAt' AS signed_in_at,
+            sess::jsonb ->> 'lastActiveAt' AS last_active_at
+     FROM "session"
+     WHERE sess::jsonb ->> 'userId' = $1
+     ORDER BY expire DESC`,
+    [String(userId)]
+  );
+  return result.rows;
+}
+
+/** Delete ONE session, only if it belongs to the user (ownership check). */
+async function deleteUserSession(userId, sid) {
+  const result = await pool.query(
+    `DELETE FROM "session"
+     WHERE sid = $1 AND sess::jsonb ->> 'userId' = $2`,
+    [String(sid), String(userId)]
+  );
+  return result.rowCount;
 }
 
 module.exports = {
@@ -102,5 +145,8 @@ module.exports = {
   setVerificationToken,
   setPasswordResetToken,
   findUserByPasswordResetToken,
-  updatePassword
+  updatePassword,
+  deleteUserSessions,
+  listUserSessions,
+  deleteUserSession
 };

@@ -206,6 +206,18 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
   gap: 0.9rem;
 }
 
+.app-nav-settings {
+  color: var(--ink-dim);
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.app-nav-settings:hover {
+  color: var(--gold-2);
+}
+
 .app-nav-cta .logout-form {
   display: contents;
 }
@@ -648,6 +660,102 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
   color: var(--muted);
 }
 
+/* ---------- Security page (sessions) ---------- */
+.session-list {
+  list-style: none;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.session-item:last-child {
+  border-bottom: none;
+}
+
+.session-item.is-current {
+  background: rgba(143, 209, 79, 0.05);
+  border-radius: 12px;
+  padding: 1rem 0.9rem;
+  margin: 0 -0.9rem;
+}
+
+.session-device {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.session-glyph {
+  font-size: 1.1rem;
+  color: var(--gold);
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+.session-name {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.session-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.badge-current {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: rgba(143, 209, 79, 0.12);
+  border: 1px solid rgba(143, 209, 79, 0.35);
+  border-radius: 999px;
+  padding: 0.14rem 0.55rem;
+}
+
+.active-now {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.sessions-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.revoke-form {
+  flex-shrink: 0;
+}
+
+.revoke-form .btn-danger-ghost {
+  font-size: 0.84rem;
+  padding: 0.55rem 1.1rem;
+  color: var(--red);
+  border-color: rgba(229, 72, 77, 0.4);
+}
+
+.revoke-form .btn-danger-ghost:hover {
+  background: rgba(229, 72, 77, 0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+
 /* ---------- Goal form (dashboard) ---------- */
 body.app form.goal-form {
   display: flex;
@@ -999,6 +1107,12 @@ body.app form.goal-form {
   box-shadow: var(--shadow);
 }
 
+/* Centered auth card inside a regular app page (e.g. change password). */
+.auth-card--center {
+  margin-inline: auto;
+  max-width: 420px;
+}
+
 .auth-brand {
   display: flex;
   align-items: center;
@@ -1113,5 +1227,16 @@ body.app form.auth-form {
   }
   .goal-form .btn {
     width: 100%;
+  }
+}
+
+/* ---------- Reduced motion (WCAG 2.3.3) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  body.app *,
+  body.app *::before,
+  body.app *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
   }
 }

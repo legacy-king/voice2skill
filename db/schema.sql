@@ -8,6 +8,7 @@ CREATE TABLE users (
   verification_token_expires TIMESTAMP,
   password_reset_token TEXT,
   password_reset_token_expires TIMESTAMP,
+  password_changed_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -42,3 +43,12 @@ CREATE TABLE checkins (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, roadmap_id, checkin_date)
 );
+
+-- connect-pg-simple session store (bootstrap also handled by createTableIfMissing)
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid" varchar NOT NULL COLLATE "default",
+  "sess" json NOT NULL,
+  "expire" timestamp(6) NOT NULL,
+  CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+);
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");

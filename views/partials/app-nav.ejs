@@ -1,3 +1,4 @@
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="app-nav" id="appnav">
   <div class="app-wrap app-nav-inner">
     <a class="app-brand" href="/dashboard" aria-label="Voice2Skill dashboard">
@@ -15,14 +16,16 @@
     </a>
     <nav aria-label="App">
       <ul class="app-nav-links">
-        <li><a href="/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a></li>
-        <li><a href="/tracks" class="<%= active === 'tracks' ? 'active' : '' %>">Skill Tracks</a></li>
+        <li><a href="/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>" <%= active === 'dashboard' ? 'aria-current="page"' : '' %>>Dashboard</a></li>
+        <li><a href="/tracks" class="<%= active === 'tracks' ? 'active' : '' %>" <%= active === 'tracks' ? 'aria-current="page"' : '' %>>Skill Tracks</a></li>
+        <li><a href="/security" class="<%= active === 'security' ? 'active' : '' %>" <%= active === 'security' ? 'aria-current="page"' : '' %>>Security</a></li>
         <% if (typeof roadmapUrl !== 'undefined' && roadmapUrl) { %>
-          <li><a href="<%= roadmapUrl %>" class="<%= active === 'roadmap' ? 'active' : '' %>">My Roadmap</a></li>
+          <li><a href="<%= roadmapUrl %>" class="<%= active === 'roadmap' ? 'active' : '' %>" <%= active === 'roadmap' ? 'aria-current="page"' : '' %>>My Roadmap</a></li>
         <% } %>
       </ul>
     </nav>
     <div class="app-nav-cta">
+      <a class="app-nav-settings" href="/change-password">Change password</a>
       <form method="POST" action="/logout" class="logout-form">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button type="submit" class="btn btn-ghost">Log out</button>

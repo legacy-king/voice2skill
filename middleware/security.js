@@ -40,6 +40,28 @@ function csrfProtection(req, res, next) {
 }
 
 /**
+ * Throttled "last active" tracker. Updates req.session.lastActiveAt for
+ * logged-in users, but at most once per `throttleMs` per session — otherwise
+ * every request would write to the session store (express-session saves when
+ * the session is modified). 5 minutes of slack is plenty for a security page.
+ */
+function touchLastActive({ throttleMs = 5 * 60 * 1000 } = {}) {
+  return function touchLastActiveMiddleware(req, res, next) {
+    if (req.session && req.session.userId) {
+      const now = Date.now();
+      // Missing/absent → 0 so the first request stamps it. A corrupt value
+      // (NaN) also falls back to 0 so the throttle can't brick permanently.
+      const last = req.session.lastActiveAt ? new Date(req.session.lastActiveAt).getTime() : 0;
+      const lastTs = Number.isFinite(last) ? last : 0;
+      if (now - lastTs >= throttleMs) {
+        req.session.lastActiveAt = new Date(now).toISOString();
+      }
+    }
+    next();
+  };
+}
+
+/**
  * Minimal in-memory rate limiter.
  * @param {object} opts
  * @param {number} opts.windowMs sliding window in ms
@@ -78,4 +100,4 @@ function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message = 'Too many
   };
 }
 
-module.exports = { securityHeaders, csrfProtection, rateLimiter };
+module.exports = { securityHeaders, csrfProtection, rateLimiter, touchLastActive };

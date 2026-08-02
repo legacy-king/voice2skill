@@ -4,6 +4,8 @@
   <title>Sign up - Voice2Skill</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Create your free Voice2Skill account — no credit card. Get an AI coach and a personalized 8-week learning roadmap.">
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23D4AF37'/%3E%3Cpath d='M12 6a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 12 6z' fill='%2316130A'/%3E%3Cpath d='M7.2 12.5a4.8 4.8 0 0 0 9.6 0h1.4a6.2 6.2 0 0 1-5.6 6.15V21h3.4v1.4H7.4V21h3.4v-2.35a6.2 6.2 0 0 1-5.6-6.15z' fill='%2316130A'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,7 +14,8 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="app">
-  <main class="auth-wrap">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <main class="auth-wrap" id="main">
     <div class="auth-card">
       <a class="auth-brand" href="/" aria-label="Voice2Skill home">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -44,9 +47,12 @@
 
       <form class="auth-form" action="/signup" method="POST">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="text" name="name" placeholder="Your name" required autocomplete="name">
-        <input type="email" name="email" placeholder="Email" required autocomplete="email">
-        <input type="password" name="password" placeholder="Password (min 8 chars)" minlength="8" required autocomplete="new-password">
+        <label class="visually-hidden" for="name">Your name</label>
+        <input type="text" name="name" id="name" placeholder="Your name" required autocomplete="name">
+        <label class="visually-hidden" for="email">Email</label>
+        <input type="email" name="email" id="email" placeholder="Email" required autocomplete="email">
+        <label class="visually-hidden" for="password">Password (min 8 chars)</label>
+        <input type="password" name="password" id="password" placeholder="Password (min 8 chars)" minlength="8" required autocomplete="new-password">
         <button type="submit" class="btn btn-gold">Start learning free</button>
       </form>
 

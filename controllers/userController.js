@@ -11,6 +11,33 @@ const GLYPHS = ['</>', '✦', '∑', '◎', '⚿'];
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const RESET_TTL_MS = 30 * 60 * 1000; // 30 min
 
+/** Record the current device on a session so the security page can label it. */
+function stampSession(req) {
+  const now = new Date().toISOString();
+  req.session.userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+  req.session.ip = req.ip || 'unknown';
+  req.session.signedInAt = now;
+  req.session.lastActiveAt = now;
+}
+
+/** Turn a user-agent string into a short, human-readable device label. */
+function describeDevice(ua = '') {
+  const s = ua.toLowerCase();
+  const os = s.includes('windows') ? 'Windows'
+    : s.includes('iphone') || s.includes('ipad') ? 'iOS'
+    : s.includes('mac os') || s.includes('macintosh') ? 'macOS'
+    : s.includes('android') ? 'Android'
+    : s.includes('linux') ? 'Linux'
+    : 'Unknown OS';
+  const browser = s.includes('edg/') || s.includes('edge/') ? 'Edge'
+    : s.includes('chrome/') ? 'Chrome'
+    : s.includes('firefox/') ? 'Firefox'
+    : s.includes('safari/') ? 'Safari'
+    : s.includes('opera/') || s.includes('opr/') ? 'Opera'
+    : 'Browser';
+  return `${browser} · ${os}`;
+}
+
 async function signup(req, res) {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
@@ -81,6 +108,7 @@ async function login(req, res) {
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('Something went wrong on our end.');
     req.session.userId = existingUser.id;
+    stampSession(req);
     res.redirect('/dashboard');
   });
 }
@@ -110,6 +138,7 @@ async function confirmEmail(req, res) {
   req.session.regenerate((err) => {
     if (err) return res.status(500).send('Something went wrong on our end.');
     req.session.userId = user.id;
+    stampSession(req);
     res.redirect('/dashboard');
   });
 }
@@ -176,6 +205,10 @@ async function resetPassword(req, res) {
 
   const passwordHash = await bcrypt.hash(password, 10);
   await userModel.updatePassword(user.id, passwordHash);
+  // Revoke every other session — a password change should log out
+  // any device the account was compromised on. (No current session exists
+  // here since reset flows run while logged out.)
+  await userModel.deleteUserSessions(user.id);
   res.redirect('/login?error=password_reset');
 }
 
@@ -201,6 +234,101 @@ async function resendVerification(req, res) {
   }
 
   res.redirect('/verify-email?sent=1');
+}
+
+/** GET /change-password — form for logged-in users. */
+async function changePasswordPage(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const user = await userModel.findUserById(req.session.userId);
+  res.render('change-password', {
+    user,
+    error: req.query.error || null,
+    success: req.query.success === '1'
+  });
+}
+
+/** POST /change-password — verify current password, then swap in a new one.
+ *  Every OTHER session is revoked (the one making the change stays logged in). */
+async function changePassword(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+
+  const current = typeof req.body.current_password === 'string' ? req.body.current_password : '';
+  const next = typeof req.body.new_password === 'string' ? req.body.new_password : '';
+
+  if (!current || !next) {
+    return res.redirect('/change-password?error=missing');
+  }
+  if (next.length < 8) {
+    return res.redirect('/change-password?error=weak');
+  }
+
+  const user = await userModel.findUserById(req.session.userId);
+  if (!user) {
+    req.session.destroy(() => res.redirect('/login'));
+    return;
+  }
+
+  const currentMatches = await bcrypt.compare(current, user.password_hash);
+  if (!currentMatches) {
+    return res.redirect('/change-password?error=wrong_current');
+  }
+
+  const passwordHash = await bcrypt.hash(next, 10);
+  await userModel.updatePassword(user.id, passwordHash);
+
+  // Rotate the session ID (same hardening as login/email-confirm): a stolen
+  // pre-change cookie for THIS device also dies. Then kick every other device.
+  req.session.regenerate(async (err) => {
+    if (err) return res.status(500).send('Something went wrong on our end.');
+    req.session.userId = user.id;
+    stampSession(req); // regenerate wiped the device metadata — re-record it
+    await userModel.deleteUserSessions(user.id, req.sessionID);
+    res.redirect('/change-password?success=1');
+  });
+}
+
+/** GET /security — list the user's active sessions, marking the current device. */
+async function securityPage(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const user = await userModel.findUserById(req.session.userId);
+  const rows = await userModel.listUserSessions(req.session.userId);
+  const sessions = rows.map((row) => ({
+    sid: row.sid,
+    isCurrent: row.sid === req.sessionID,
+    device: describeDevice(row.user_agent),
+    ip: row.ip || 'unknown',
+    signedInAt: row.signed_in_at ? new Date(row.signed_in_at) : null,
+    lastActiveAt: row.last_active_at ? new Date(row.last_active_at) : null,
+    expiresAt: row.expire ? new Date(row.expire) : null
+  }));
+  res.render('security', {
+    user,
+    sessions,
+    error: req.query.error || null,
+    success: req.query.success === '1'
+  });
+}
+
+/** POST /security/revoke — delete ONE session (never the current one). */
+async function revokeSession(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const sid = typeof req.body.sid === 'string' ? req.body.sid.trim() : '';
+  if (!sid) {
+    return res.redirect('/security?error=missing');
+  }
+  if (sid === req.sessionID) {
+    return res.redirect('/security?error=self');
+  }
+  await userModel.deleteUserSession(req.session.userId, sid);
+  res.redirect('/security?success=1');
 }
 
   async function dashboard(req, res) {
@@ -268,5 +396,7 @@ module.exports = {
   signup, login, dashboard, matchGoal,
   verifyEmailPage, confirmEmail, resendVerification,
   forgotPasswordPage, requestPasswordReset, resetPasswordPage, resetPassword,
+  changePasswordPage, changePassword,
+  securityPage, revokeSession,
   loginPage, signupPage, logout
 };

@@ -50,10 +50,11 @@ const weekendTask = { ...weekdayTask, day_type: 'weekend', day_number: 6 };
 // ---- Case list: (label, template file, locals, expected content strings) ----
 const cases = [
   ['landing', 'landing.ejs', {},
-    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Web Development', 'Cybersecurity']],
+    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Web Development', 'Cybersecurity',
+     'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
 
   ['login (no error)', 'login.ejs', {},
-    ['Welcome back', 'Log in', 'Sign up free', '_csrf']],
+    ['Welcome back', 'Log in', 'Sign up free', '_csrf', 'Skip to content', 'noindex', 'id="main"']],
   ['login (wrong password)', 'login.ejs', { error: 'wrong_password' },
     ['Incorrect password. Try again.']],
   ['login (not found)', 'login.ejs', { error: 'not_found' },
@@ -66,19 +67,19 @@ const cases = [
     ['Password updated. Log in with your new password']],
 
   ['forgot-password (default)', 'forgot-password.ejs', { sent: false, error: null },
-    ['Reset your password', 'Send reset link', '_csrf']],
+    ['Reset your password', 'Send reset link', '_csrf', 'noindex', 'Skip to content']],
   ['forgot-password (sent)', 'forgot-password.ejs', { sent: true, error: null },
     ['expires in 30 minutes', 'Back to login']],
   ['forgot-password (expired token)', 'forgot-password.ejs', { sent: false, error: 'expired_token' },
     ['invalid or has expired']],
 
   ['reset-password (default)', 'reset-password.ejs', { token: 'abc123', error: null },
-    ['Set a new password', 'New password (min 8 chars)', 'Update password', '_csrf', 'value="abc123"']],
+    ['Set a new password', 'New password (min 8 chars)', 'Update password', '_csrf', 'value="abc123"', 'noindex', 'Skip to content']],
   ['reset-password (weak)', 'reset-password.ejs', { token: 'abc123', error: 'weak' },
     ['Password must be at least 8 characters.']],
 
   ['verify-email (sent)', 'verify-email.ejs', { sent: true, error: null },
-    ['Verify your email', 'confirmation link', 'Resend verification email', '_csrf']],
+    ['Verify your email', 'confirmation link', 'Resend verification email', '_csrf', 'noindex', 'Skip to content']],
   ['verify-email (invalid token)', 'verify-email.ejs', { sent: false, error: 'invalid' },
     ['invalid or has expired', 'Resend verification email']],
   ['verify-email (send failed)', 'verify-email.ejs', { sent: false, error: 'send_failed' },
@@ -87,7 +88,7 @@ const cases = [
     ['we\'ll send you a verification link', 'Resend verification email']],
 
   ['signup', 'signup.ejs', {},
-    ['Create your account', 'Start learning free', 'Already have an account?', 'Password (min 8 chars)', '_csrf']],
+    ['Create your account', 'Start learning free', 'Already have an account?', 'Password (min 8 chars)', '_csrf', 'noindex', 'visually-hidden']],
   ['signup (name error)', 'signup.ejs', { error: 'name' },
     ['Please enter your name.']],
   ['signup (password error)', 'signup.ejs', { error: 'password' },
@@ -95,8 +96,37 @@ const cases = [
   ['signup (taken error)', 'signup.ejs', { error: 'taken' },
     ['already registered']],
 
+  ['change-password (default)', 'change-password.ejs', { user, error: null, success: false },
+    ['Change password', 'Current password', 'New password (min 8 chars)', 'Update password', '_csrf', 'Back to dashboard', 'noindex', 'Skip to content']],
+  ['change-password (wrong current)', 'change-password.ejs', { user, error: 'wrong_current', success: false },
+    ['Current password is incorrect']],
+  ['change-password (weak)', 'change-password.ejs', { user, error: 'weak', success: false },
+    ['Password must be at least 8 characters.']],
+  ['change-password (missing)', 'change-password.ejs', { user, error: 'missing', success: false },
+    ['Enter both your current and new password.']],
+  ['change-password (success)', 'change-password.ejs', { user, error: null, success: true },
+    ['Password updated. Other devices have been signed out.']],
+
+  ['security (two sessions)', 'security.ejs',
+    {
+      user,
+      sessions: [
+        { sid: 'aaa', isCurrent: true, device: 'Chrome · Windows', ip: '1.2.3.4', signedInAt: new Date('2026-08-01'), lastActiveAt: new Date('2026-08-02T10:30:00'), expiresAt: new Date('2026-08-08') },
+        { sid: 'bbb', isCurrent: false, device: 'Safari · iOS', ip: '5.6.7.8', signedInAt: new Date('2026-07-30'), lastActiveAt: new Date('2026-08-01T14:00:00'), expiresAt: new Date('2026-08-06') }
+      ],
+      error: null,
+      success: false
+    },
+    ['Security settings', 'Active sessions', '2 devices', 'Chrome · Windows', 'Safari · iOS', 'This device', 'IP 1.2.3.4', 'IP 5.6.7.8', 'Active now', 'Last active', 'Revoke', 'name="sid" value="bbb"', '_csrf', 'Change password', 'noindex', 'Skip to content']],
+  ['security (no sessions)', 'security.ejs', { user, sessions: [], error: null, success: false },
+    ['No active sessions found']],
+  ['security (self-revoke blocked)', 'security.ejs', { user, sessions: [], error: 'self', success: false },
+    ["can't revoke the device you're currently using"]],
+  ['security (revoke success)', 'security.ejs', { user, sessions: [], error: null, success: true },
+    ['Session revoked']],
+
   ['dashboard', 'dashboard.ejs', { user, tracks, goalError: null, goalValue: '' },
-    ['Maya', 'maya@example.com', 'Map my goal', 'Browse all tracks', 'I want to learn', '8', 'tracks', 'check-in', 'Web Development', 'Speak your goal']],
+    ['Maya', 'maya@example.com', 'Map my goal', 'Browse all tracks', 'I want to learn', '8', 'tracks', 'check-in', 'Web Development', 'Speak your goal', 'noindex', 'Skip to content']],
 
   ['goal confirm', 'goal-confirm.ejs', { goal: 'design a mobile app interface', track: tracks[1], alternatives: [tracks[0], tracks[3]], glyphs: ['</>', '✦', '∑', '◎', '⚿'] },
     ['design a mobile app interface', 'UI/UX Design', 'Build my 8-week roadmap', 'Pick a different track', 'Edit my goal', 'action="/tracks/2/select"', 'name="goal"', 'Not quite it?', 'Web Development', 'Digital Marketing', 'action="/tracks/1/select"', 'action="/tracks/4/select"', '_csrf']],
@@ -112,7 +142,7 @@ const cases = [
 
   ['tracks', 'tracks.ejs', { tracks },
     ['Choose your', 'Web Development', 'UI/UX Design', 'Data Analysis', 'Digital Marketing', 'Cybersecurity',
-     'action="/tracks/1/select"', 'action="/tracks/5/select"', '_csrf']],
+     'action="/tracks/1/select"', 'action="/tracks/5/select"', '_csrf', 'noindex', 'id="main"']],
 
   ['roadmap (active weekday)', 'roadmap.ejs',
     {
@@ -127,7 +157,7 @@ const cases = [
       isComplete: false
     },
     ['12-day streak', 'JavaScript Fundamentals', 'MDN Web Docs', '/roadmaps/42/checkin',
-     'Day 22 of 56', 'Week 4', '2 check-ins completed']],
+     'Day 22 of 56', 'Week 4', '2 check-ins completed', 'noindex', 'visually-hidden', 'Skip to content']],
 
   ['roadmap (with persisted goal + video phrase)', 'roadmap.ejs',
     {
@@ -203,8 +233,8 @@ const cases = [
 
 let failures = 0;
 
-// Mirrors what the real app always provides via res.locals (csrf middleware).
-const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token' };
+// Mirrors what the real app always provides via res.locals (csrf middleware + appUrl).
+const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token', appUrl: 'https://voice2skill.test' };
 
 for (const [label, file, locals, expect] of cases) {
   const fullPath = path.join(VIEWS_DIR, file);

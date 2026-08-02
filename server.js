@@ -1,5 +1,7 @@
 const express = require('express');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
+const pool = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const trackRoutes = require('./routes/trackRoutes');
 const app = express();
@@ -7,7 +9,7 @@ require('dotenv').config();
 const roadmapRoutes = require('./routes/roadmapRoutes');
 const checkinRoutes = require('./routes/checkinRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
-const { securityHeaders, csrfProtection } = require('./middleware/security');
+const { securityHeaders, csrfProtection, touchLastActive } = require('./middleware/security');
 
 // Never run with a forgeable session secret in production — a known constant
 // would let anyone mint session cookies and take over any account.
@@ -22,12 +24,22 @@ app.set('view engine', 'ejs');
 app.set('trust proxy', 1); // behind Render/Heroku proxy — required for req.ip + secure cookies
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(express.static('public'));
+// Public base URL for canonical/OG tags and the sitemap (same default as mailer).
+app.use((req, res, next) => {
+  res.locals.appUrl = process.env.APP_URL || 'https://voice2skill.onrender.com';
+  next();
+});
 app.use(securityHeaders);
 app.use(session({
   secret: process.env.SESSION_SECRET || 'insecure-dev-secret-change-me',
   name: 'voice2skill.sid',
   resave: false,
   saveUninitialized: false,
+  store: new pgSession({
+    pool,
+    tableName: 'session',
+    createTableIfMissing: true // bootstrap the session table if absent
+  }),
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
@@ -36,6 +48,8 @@ app.use(session({
   }
 }));
 app.use(csrfProtection);
+// Throttled last-active tracking for logged-in users (security page).
+app.use(touchLastActive());
 app.use('/', userRoutes);
 app.use('/', roadmapRoutes);
 app.use('/', trackRoutes);

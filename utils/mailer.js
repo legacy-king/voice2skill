@@ -10,6 +10,9 @@ const transporter = nodemailer.createTransport({
 
 const APP_URL = process.env.APP_URL || 'https://voice2skill.onrender.com';
 
+// EMAIL_MODE=log prints instead of sending — used by automated tests.
+const LOG_ONLY = process.env.EMAIL_MODE === 'log';
+
 /** Escape user-provided text so it can't break email HTML. */
 function esc(value) {
   return String(value ?? '')
@@ -19,6 +22,10 @@ function esc(value) {
 }
 
 async function sendReminderEmail(toEmail, userName) {
+  if (LOG_ONLY) {
+    console.log(`[mail:log] reminder to ${toEmail}`);
+    return;
+  }
   await transporter.sendMail({
     from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
     to: toEmail,
@@ -34,6 +41,10 @@ async function sendReminderEmail(toEmail, userName) {
 
 /** Send the email-verification link with a 24h expiry token. */
 async function sendVerificationEmail(toEmail, userName, token) {
+  if (LOG_ONLY) {
+    console.log(`[mail:log] verify ${toEmail} token=${token}`);
+    return;
+  }
   const verifyUrl = `${APP_URL}/verify-email/confirm?token=${encodeURIComponent(token)}`;
   await transporter.sendMail({
     from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
@@ -54,6 +65,10 @@ async function sendVerificationEmail(toEmail, userName, token) {
 
 /** Send the password-reset link with a 30-minute expiry token. */
 async function sendPasswordResetEmail(toEmail, userName, token) {
+  if (LOG_ONLY) {
+    console.log(`[mail:log] reset ${toEmail} token=${token}`);
+    return;
+  }
   const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
   await transporter.sendMail({
     from: `"Voice2Skill" <${process.env.GMAIL_USER}>`,
