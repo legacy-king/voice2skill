@@ -13,23 +13,24 @@ function esc(value) {
 
 /** Core sender — talks to Resend over HTTPS, not SMTP. */
 async function sendEmail(to, subject, html) {
-  const response = await fetch('https://api.resend.com/emails', {
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json'
+      'api-key': process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
     },
     body: JSON.stringify({
-      from: 'Voice2Skill <onboarding@resend.dev>',
-      to,
+      sender: { name: 'Voice2Skill', email: process.env.BREVO_SENDER_EMAIL },
+      to: [{ email: to }],
       subject,
-      html
+      htmlContent: html
     })
   });
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Resend API error: ${error}`);
+    throw new Error(`Brevo API error: ${error}`);
   }
 
   return response.json();
