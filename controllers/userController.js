@@ -79,9 +79,6 @@ async function signup(req, res) {
     return res.redirect('/signup?error=taken');
   }
 
-  // Re-signup with an UNVERIFIED email is a retry, not a collision:
-  // regenerate the token, re-send the link, and point them at the inbox
-  // instead of a dead-end "already registered" message.
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + VERIFY_TTL_MS);
 
@@ -92,12 +89,10 @@ async function signup(req, res) {
     await userModel.createUser(name, email, passwordHash, token, expiresAt);
   }
 
-  try {
-    await sendVerificationEmail(email, name, token);
-  } catch (err) {
+  // Fire the email in the background — don't make the user wait on it.
+  sendVerificationEmail(email, name, token).catch(err => {
     console.error('Failed to send verification email:', err.message);
-    return res.redirect('/verify-email?error=send_failed');
-  }
+  });
 
   // Do NOT auto-login — require verification first.
   res.redirect('/verify-email?sent=1');
