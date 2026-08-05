@@ -8,14 +8,18 @@ async function migrateOldRoadmaps() {
   const allRoadmaps = result.rows;
 
   for (const roadmap of allRoadmaps) {
-    const isOldFormat = roadmap.content.weeks[0]?.daily_topics !== undefined;
+    const firstWeek = roadmap.content.weeks[0];
+    const isOldFormat =
+      firstWeek?.daily_topics !== undefined ||   // original pre-day-by-day format
+      firstWeek?.project === undefined ||         // missing weekly project
+      firstWeek?.days?.[0]?.lesson === undefined; // missing lesson content
 
     if (isOldFormat) {
       console.log(`Migrating roadmap ${roadmap.id}...`);
 
       try {
         const track = await trackModel.getTrackById(roadmap.track_id);
-        const newContent = await generateRoadmapContent(track.name, track.description);
+        const newContent = await generateRoadmapContent(track.name, track.description, roadmap.goal);
 
         await pool.query(
           'UPDATE roadmaps SET content = $1 WHERE id = $2',

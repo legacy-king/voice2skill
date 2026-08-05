@@ -1240,3 +1240,24 @@ body.app form.auth-form {
     transition-duration: 0.001s !important;
   }
 }
+
+.lesson-box, .quiz-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #1A1A1A;
+  border-radius: 8px;
+  border: 1px solid #2A2A2A;
+}
+.lesson-box h4, .quiz-box h4 {
+  color: #D4AF37;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+.quiz-item summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.quiz-answer {
+  margin-top: 0.5rem;
+  color: #9B9891;
+}
