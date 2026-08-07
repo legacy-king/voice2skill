@@ -113,19 +113,12 @@
         </div>
       </div>
 
-      <% if (todayTask.lesson) { %>
-  <div class="lesson-box">
-    <h4>Today's lesson</h4>
-    <p><%= todayTask.lesson %></p>
-  </div>
-<% } %>
-
-<% if (todayTask.code_example) { %>
-  <div class="code-box">
-    <h4>Example</h4>
-    <pre><code><%= todayTask.code_example %></code></pre>
-  </div>
-<% } %>
+      <% if (todayTask.code_example) { %>
+        <div class="code-box">
+          <h4>Example</h4>
+          <pre><code><%= todayTask.code_example %></code></pre>
+        </div>
+      <% } %>
 
       <% if (todayTask.week_project) { %>
         <div class="app-card">
