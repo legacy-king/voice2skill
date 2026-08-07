@@ -82,6 +82,26 @@
         <% } %>
         <h3 class="task-focus"><%= todayTask.week_focus %></h3>
         <p class="task-text"><%= todayTask.task %></p>
+
+        <% if (todayTask.lesson) { %>
+          <div class="lesson-box">
+            <h4>Today's lesson</h4>
+            <p><%= todayTask.lesson %></p>
+          </div>
+        <% } %>
+
+        <% if (todayTask.quiz && todayTask.quiz.length > 0) { %>
+          <div class="quiz-box">
+            <h4>Quick check</h4>
+            <% todayTask.quiz.forEach(q => { %>
+              <details class="quiz-item">
+                <summary><%= q.question %></summary>
+                <p class="quiz-answer"><%= q.answer %></p>
+              </details>
+            <% }) %>
+          </div>
+        <% } %>
+
         <div class="task-links">
           <a class="btn btn-gold" href="<%= todayTask.resource_url %>" target="_blank" rel="noopener">
             Open resource: <%= todayTask.resource_name %>
@@ -92,6 +112,29 @@
           </a>
         </div>
       </div>
+
+      <% if (todayTask.lesson) { %>
+  <div class="lesson-box">
+    <h4>Today's lesson</h4>
+    <p><%= todayTask.lesson %></p>
+  </div>
+<% } %>
+
+<% if (todayTask.code_example) { %>
+  <div class="code-box">
+    <h4>Example</h4>
+    <pre><code><%= todayTask.code_example %></code></pre>
+  </div>
+<% } %>
+
+      <% if (todayTask.week_project) { %>
+        <div class="app-card">
+          <div class="app-card-head">
+            <h2>This week's project</h2>
+          </div>
+          <p><%= todayTask.week_project %></p>
+        </div>
+      <% } %>
 
       <!-- Daily check-in -->
       <div class="app-card">

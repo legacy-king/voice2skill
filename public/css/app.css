@@ -633,26 +633,40 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
 
 .history-list li {
   display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #2A2A2A;
 }
 
-.history-list li:last-child {
-  border-bottom: none;
+.h-date {
+  font-size: 0.8rem;
+  color: #9B9891;
+  font-weight: 600;
 }
 
-.history-list .h-date {
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  color: var(--gold);
-  white-space: nowrap;
+.h-notes {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  color: #F0EDE6;
 }
 
-.history-list .h-notes {
-  font-size: 0.92rem;
-  color: var(--ink-dim);
+.app-card,
+.lesson-box p,
+.quiz-answer,
+.task-text,
+.h-notes,
+.code-box pre,
+.goal-chip-text {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.h-notes {
+  display: block;
+  max-width: 100%;
 }
 
 .empty-note {
@@ -1260,4 +1274,26 @@ body.app form.auth-form {
 .quiz-answer {
   margin-top: 0.5rem;
   color: #9B9891;
+}
+
+.code-box {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #0D0D0D;
+  border-radius: 8px;
+  border: 1px solid #2A2A2A;
+  overflow-x: auto;
+}
+.code-box h4 {
+  color: #D4AF37;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+.code-box pre {
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: #E5E5E0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
