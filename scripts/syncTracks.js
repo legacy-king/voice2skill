@@ -12,7 +12,7 @@
 const pool = require('../config/db');
 
 const TARGET_TRACKS = [
-  { name: 'Web Development',    description: 'HTML, CSS, JavaScript — build and ship real sites.' },
+  { name: 'Software Engineering', description: 'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.' },
   { name: 'UI/UX Design',       description: 'Design thinking, Figma, and interfaces people love.' },
   { name: 'Data Analysis',      description: 'Spreadsheets, SQL, and insights that drive decisions.' },
   { name: 'Digital Marketing',  description: 'Content, SEO, and campaigns that reach people.' },
@@ -23,19 +23,34 @@ async function syncTracks() {
   const { rows } = await pool.query('SELECT id, name FROM tracks');
   const existing = new Map(rows.map(r => [r.name.trim().toLowerCase(), r.id]));
 
-  // Legacy rename: "Software Development" -> "Web Development" (only if Web Dev is absent)
+  // Legacy rename: "Software Development" -> "Software Engineering" (only if SE is absent)
   const legacyId = existing.get('software development');
-  if (legacyId && !existing.has('web development')) {
+  if (legacyId && !existing.has('software engineering')) {
     await pool.query('UPDATE tracks SET name = $1, description = $2 WHERE id = $3', [
-      'Web Development',
-      'HTML, CSS, JavaScript — build and ship real sites.',
+      'Software Engineering',
+      'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.',
       legacyId
     ]);
-    existing.set('web development', legacyId);
+    existing.set('software engineering', legacyId);
     existing.delete('software development');
-    console.log('↻ Renamed "Software Development" → "Web Development"');
+    console.log('↻ Renamed "Software Development" → "Software Engineering"');
   } else if (legacyId) {
-    console.warn('⚠  Both "Software Development" and "Web Development" exist — legacy row left untouched. Review manually if it should be removed.');
+    console.warn('⚠  Both "Software Development" and "Software Engineering" exist — legacy row left untouched. Review manually if it should be removed.');
+  }
+
+  // Legacy rename: "Web Development" -> "Software Engineering" (only if SE is absent)
+  const webDevId = existing.get('web development');
+  if (webDevId && !existing.has('software engineering')) {
+    await pool.query('UPDATE tracks SET name = $1, description = $2 WHERE id = $3', [
+      'Software Engineering',
+      'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.',
+      webDevId
+    ]);
+    existing.set('software engineering', webDevId);
+    existing.delete('web development');
+    console.log('↻ Renamed "Web Development" → "Software Engineering"');
+  } else if (webDevId) {
+    console.warn('⚠  Both "Web Development" and "Software Engineering" exist — legacy row left untouched. Review manually if it should be removed.');
   }
 
   for (const track of TARGET_TRACKS) {

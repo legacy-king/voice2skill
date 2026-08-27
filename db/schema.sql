@@ -19,11 +19,22 @@ CREATE TABLE tracks (
 );
 
 INSERT INTO tracks (name, description) VALUES
-('Web Development', 'HTML, CSS, JavaScript — build and ship real sites.'),
+('Software Engineering', 'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.'),
 ('UI/UX Design', 'Design thinking, Figma, and interfaces people love.'),
 ('Data Analysis', 'Spreadsheets, SQL, and insights that drive decisions.'),
 ('Digital Marketing', 'Content, SEO, and campaigns that reach people.'),
 ('Cybersecurity', 'Fundamentals of protecting systems and data.');
+
+CREATE TABLE assessments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  track_id INTEGER NOT NULL REFERENCES tracks(id),
+  level VARCHAR(20) NOT NULL,
+  score INTEGER NOT NULL,
+  topic_scores JSONB NOT NULL,
+  answers JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE roadmaps (
   id SERIAL PRIMARY KEY,
@@ -31,6 +42,7 @@ CREATE TABLE roadmaps (
   track_id INTEGER NOT NULL REFERENCES tracks(id),
   goal TEXT,
   content JSONB NOT NULL,
+  assessment_id INTEGER REFERENCES assessments(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -42,6 +54,16 @@ CREATE TABLE checkins (
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, roadmap_id, checkin_date)
+);
+
+CREATE TABLE coach_responses (
+  id SERIAL PRIMARY KEY,
+  checkin_id INTEGER UNIQUE NOT NULL REFERENCES checkins(id) ON DELETE CASCADE,
+  acknowledgement TEXT NOT NULL,
+  insight TEXT NOT NULL,
+  next_action TEXT NOT NULL,
+  is_fallback BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- connect-pg-simple session store (bootstrap also handled by createTableIfMissing)

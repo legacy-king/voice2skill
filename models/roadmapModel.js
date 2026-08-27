@@ -1,9 +1,9 @@
 const pool = require('../config/db');
 
-async function createRoadmap(userId, trackId, content, goal = null) {
+async function createRoadmap(userId, trackId, content, goal = null, assessmentId = null) {
   const result = await pool.query(
-    'INSERT INTO roadmaps (user_id, track_id, goal, content) VALUES ($1, $2, $3, $4) RETURNING *',
-    [userId, trackId, goal, content]
+    'INSERT INTO roadmaps (user_id, track_id, goal, content, assessment_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+    [userId, trackId, goal, content, assessmentId]
   );
   return result.rows[0];
 }

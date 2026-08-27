@@ -1,5 +1,7 @@
 const checkinModel = require('../models/checkinModel');
 const roadmapModel = require('../models/roadmapModel');
+const coachResponseModel = require('../models/coachResponseModel');
+const { createCoachResponse } = require('../utils/coachService');
 
 async function createCheckinEntry(req, res) {
   if (!req.session.userId) {
@@ -31,7 +33,43 @@ async function createCheckinEntry(req, res) {
     return res.redirect(`/roadmaps/${roadmapId}?message=already_checked_in`);
   }
 
-  await checkinModel.createCheckin(userId, roadmapId, notes);
+  const checkin = await checkinModel.createCheckin(userId, roadmapId, notes);
+
+  // Generate coach response (fire-and-forget — don't block the redirect)
+  try {
+    const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmapId);
+
+    const allDays = roadmap.content.weeks.flatMap(week =>
+      week.days.map(day => ({ ...day, week_focus: week.focus, week_number: week.week_number, week_project: week.project }))
+    );
+
+    const currentDayNumber = checkins.length + 1;
+    const completedTask = currentDayNumber > 1 ? allDays[currentDayNumber - 2] : null;
+    const nextTask = currentDayNumber <= allDays.length ? allDays[currentDayNumber - 1] : null;
+    const weeklyProject = roadmap.content.weeks[Math.ceil((currentDayNumber - 1) / 7)]?.project || null;
+
+    const context = {
+      profile: roadmap.assessment_id ? { level: req.session.assessmentLevel, topicScores: {} } : null,
+      goal: roadmap.goal,
+      completedTask,
+      checkinNotes: notes,
+      weeklyProject,
+      nextTask
+    };
+
+    const coachResponse = await createCoachResponse(context);
+    await coachResponseModel.createCoachResponse(
+      checkin.id,
+      coachResponse.acknowledgement,
+      coachResponse.insight,
+      coachResponse.nextAction,
+      coachResponse.isFallback
+    );
+  } catch (err) {
+    // Coach response failure should not block the check-in
+    console.error('Failed to generate coach response:', err.message);
+  }
+
   res.redirect(`/roadmaps/${roadmapId}`);
 }
 

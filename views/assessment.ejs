@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Capability Assessment - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Assess your software engineering capabilities to get a personalized roadmap.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23D4AF37'/%3E%3Cpath d='M12 6a2.5 2.5 0 0 0-2.5 2.5v4a2.5 2.5 0 0 0 5 0v-4A2.5 2.5 0 0 0 12 6z' fill='%2316130A'/%3E%3Cpath d='M7.2 12.5a4.8 4.8 0 0 0 9.6 0h1.4a6.2 6.2 0 0 1-5.6 6.15V21h3.4v1.4H7.4V21h3.4v-2.35a6.2 6.2 0 0 1-5.6-6.15z' fill='%2316130A'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'tracks' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <div class="app-head">
+      <a href="/tracks" class="btn btn-ghost" style="margin-bottom: 1rem;">← Back to tracks</a>
+      <span class="app-eyebrow">Software Engineering</span>
+      <h1>Capability <span class="grad-text">Assessment</span></h1>
+      <p>Answer <%= totalQuestions %> questions so we can tailor your roadmap to your skill level.</p>
+    </div>
+
+    <div class="assessment-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: <%= (questionNumber / totalQuestions) * 100 %>%"></div>
+      </div>
+      <span class="progress-text">Question <%= questionNumber %> of <%= totalQuestions %></span>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error" role="alert">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <form method="POST" action="/tracks/<%= track.id %>/assessment" class="assessment-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="questionId" value="<%= question.id %>">
+      <% if (questionNumber === 1 && !goal) { %>
+        <input type="hidden" name="goal" id="goal-input" value="">
+      <% } %>
+
+      <div class="question-card">
+        <h2 class="question-text"><%= question.question %></h2>
+
+        <div class="options">
+          <% question.options.forEach(option => { %>
+            <label class="option">
+              <input type="radio" name="answer" value="<%= option.value %>" <%= answers[question.id] === option.value ? 'checked' : '' %>>
+              <span class="option-text"><%= option.label %></span>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+
+      <% if (questionNumber === 1 && !goal) { %>
+        <div class="goal-section">
+          <label for="goal-input-visible" class="goal-label">What's your learning goal? (optional)</label>
+          <input type="text" id="goal-input-visible" class="input" placeholder="e.g., build a portfolio website, get a dev job" maxlength="200">
+          <p class="help-text">We'll use this to personalize your roadmap.</p>
+        </div>
+      <% } %>
+
+      <button type="submit" class="btn btn-primary">
+        <%= questionNumber === totalQuestions ? 'Complete Assessment' : 'Next Question' %>
+      </button>
+    </form>
+  </main>
+
+  <script>
+    // Sync goal input to hidden field
+    var goalInput = document.getElementById('goal-input');
+    var goalVisible = document.getElementById('goal-input-visible');
+    if (goalInput && goalVisible) {
+      goalVisible.addEventListener('input', function() {
+        goalInput.value = goalVisible.value;
+      });
+    }
+  </script>
+</body>
+</html>

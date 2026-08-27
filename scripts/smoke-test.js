@@ -144,6 +144,19 @@ const cases = [
     ['Choose your', 'Web Development', 'UI/UX Design', 'Data Analysis', 'Digital Marketing', 'Cybersecurity',
      'action="/tracks/1/select"', 'action="/tracks/5/select"', '_csrf', 'noindex', 'id="main"']],
 
+  ['assessment (question 1)', 'assessment.ejs', {
+    track: { id: 1, name: 'Software Engineering' },
+    question: { id: 'html_basics', question: 'What does the <a> tag do in HTML?', options: [
+      { value: 'a', label: 'Creates a hyperlink' },
+      { value: 'b', label: 'Makes text bold' }
+    ]},
+    questionNumber: 1,
+    totalQuestions: 8,
+    answers: {},
+    goal: '',
+    error: null
+  }, ['Capability Assessment', 'Question 1 of 8', 'What does the', 'tag do in HTML', 'Creates a hyperlink', '_csrf', 'noindex']],
+
   ['roadmap (active weekday)', 'roadmap.ejs',
     {
       roadmap: { id: 42 },
@@ -227,8 +240,27 @@ const cases = [
       currentDayNumber: 57,
       totalDays: 56,
       isComplete: true
-    },
-    ['completed your roadmap', 'Day 57 of 56']]
+    }, ['completed your roadmap', 'Day 57 of 56']],
+
+  ['roadmap (with coach response)', 'roadmap.ejs',
+    {
+      roadmap: { id: 42, goal: 'learn React' },
+      trackName: 'Software Engineering',
+      checkins: [
+        { checkin_date: '2026-08-19', notes: 'Built a todo app', coachResponse: {
+          acknowledgement: 'Great work on the todo app!',
+          insight: 'Building real projects is the best way to learn React.',
+          next_action: 'Start learning about React hooks next.',
+          is_fallback: false
+        }}
+      ],
+      message: null,
+      streak: 1,
+      todayTask: weekdayTask,
+      currentDayNumber: 2,
+      totalDays: 56,
+      isComplete: false
+    }, ['Your coach', 'AI Coach', 'Great work on the todo app', 'hooks next', 'Built a todo app']],
 ];
 
 let failures = 0;
@@ -339,9 +371,95 @@ for (const [goal, expected] of searchCases) {
   }
 }
 
+// ---- Capability assessment unit checks ----
+const { scoreAssessment, getNextQuestion } = require('../utils/capabilityAssessment');
+const { getLevelContext, analyzeTopicScores } = require('../utils/coachService');
+
+// Foundation level (0-4 correct)
+const foundationAnswers = { html_basics: 'a', css_box_model: 'a' };
+const foundationResult = scoreAssessment(foundationAnswers);
+if (foundationResult.level !== 'foundation') {
+  failures++;
+  console.error(`✗ foundation level: got ${foundationResult.level}, expected foundation`);
+} else {
+  console.log(`✓ foundation level (${foundationResult.score} correct)`);
+}
+
+// Professional level (11+ correct)
+const professionalAnswers = {
+  html_basics: 'a', css_box_model: 'a', css_selectors: 'a',
+  js_basics: 'a', js_basics_advanced: 'a', js_async: 'a', js_frameworks: 'a',
+  git_basics: 'a', git_branching: 'a', git_collaboration: 'a',
+  debugging: 'a', debugging_tools: 'a',
+  apis: 'a', api_methods: 'a',
+  testing: 'a', testing_types: 'a',
+  architecture: 'a', architecture_patterns: 'a'
+};
+const professionalResult = scoreAssessment(professionalAnswers);
+if (professionalResult.level !== 'professional') {
+  failures++;
+  console.error(`✗ professional level: got ${professionalResult.level}, expected professional`);
+} else {
+  console.log(`✓ professional level (${professionalResult.score} correct)`);
+}
+
+// Builder level (5-10 correct)
+const builderAnswers = { html_basics: 'a', css_box_model: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a', apis: 'a' };
+const builderResult = scoreAssessment(builderAnswers);
+if (builderResult.level !== 'builder') {
+  failures++;
+  console.error(`✗ builder level: got ${builderResult.level}, expected builder`);
+} else {
+  console.log(`✓ builder level (${builderResult.score} correct)`);
+}
+
+// Adaptive follow-up: wrong HTML should offer css_box_model next
+const adaptiveAnswers = { html_basics: 'b' };
+const nextQ = getNextQuestion(adaptiveAnswers);
+if (!nextQ || nextQ.id !== 'css_box_model') {
+  failures++;
+  console.error(`✗ adaptive follow-up: expected css_box_model, got ${nextQ?.id}`);
+} else {
+  console.log('✓ adaptive follow-up → css_box_model after wrong HTML answer');
+}
+
+// ---- Coach service unit checks ----
+const foundationContext = getLevelContext('foundation', {});
+if (!foundationContext.tone || !foundationContext.emphasis) {
+  failures++;
+  console.error('✗ getLevelContext(foundation): missing tone or emphasis');
+} else {
+  console.log('✓ getLevelContext(foundation) returns valid context');
+}
+
+const builderContext = getLevelContext('builder', {});
+if (!builderContext.tone || !builderContext.emphasis) {
+  failures++;
+  console.error('✗ getLevelContext(builder): missing tone or emphasis');
+} else {
+  console.log('✓ getLevelContext(builder) returns valid context');
+}
+
+const profContext = getLevelContext('professional', {});
+if (!profContext.tone || !profContext.emphasis) {
+  failures++;
+  console.error('✗ getLevelContext(professional): missing tone or emphasis');
+} else {
+  console.log('✓ getLevelContext(professional) returns valid context');
+}
+
+const topicScores = { javascript: { correct: 4, total: 4 }, git: { correct: 0, total: 3 } };
+const topicAnalysis = analyzeTopicScores(topicScores);
+if (!topicAnalysis.strengths.includes('javascript') || !topicAnalysis.weaknesses.includes('git')) {
+  failures++;
+  console.error('✗ analyzeTopicScores: incorrect strengths/weaknesses');
+} else {
+  console.log('✓ analyzeTopicScores correctly identifies strengths and weaknesses');
+}
+
 console.log('');
 if (failures > 0) {
   console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
   process.exit(1);
 }
-console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks OK.`);
+console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks OK.`);

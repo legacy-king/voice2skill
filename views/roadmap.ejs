@@ -148,6 +148,32 @@
           </div>
         </form>
       </div>
+
+      <!-- Latest coach response -->
+      <% const latestCheckin = checkins.length > 0 ? checkins[checkins.length - 1] : null;
+         const latestCoach = latestCheckin?.coachResponse;
+         if (latestCoach) { %>
+        <div class="app-card coach-card">
+          <div class="app-card-head">
+            <h2>Your coach</h2>
+            <span class="coach-badge <%= latestCoach.is_fallback ? 'coach-fallback' : 'coach-ai' %>">
+              <%= latestCoach.is_fallback ? '💫 Quick tip' : '🤖 AI Coach' %>
+            </span>
+          </div>
+          <div class="coach-section">
+            <h4>Got it!</h4>
+            <p><%= latestCoach.acknowledgement %></p>
+          </div>
+          <div class="coach-section">
+            <h4>Insight</h4>
+            <p><%= latestCoach.insight %></p>
+          </div>
+          <div class="coach-section">
+            <h4>Next action</h4>
+            <p><%= latestCoach.next_action %></p>
+          </div>
+        </div>
+      <% } %>
     <% } %>
 
     <!-- Check-in history -->
@@ -166,6 +192,11 @@
             <li>
               <span class="h-date"><%= checkin.checkin_date %></span>
               <span class="h-notes"><%= checkin.notes %></span>
+              <% if (checkin.coachResponse) { %>
+                <div class="coach-mini">
+                  <span class="coach-mini-label">Coach:</span> <%= checkin.coachResponse.insight.slice(0, 150) %><%= checkin.coachResponse.insight.length > 150 ? '…' : '' %>
+                </div>
+              <% } %>
             </li>
           <% }) %>
         </ul>

@@ -9,6 +9,7 @@ require('dotenv').config();
 const roadmapRoutes = require('./routes/roadmapRoutes');
 const checkinRoutes = require('./routes/checkinRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
 const { securityHeaders, csrfProtection, touchLastActive } = require('./middleware/security');
 
 // Never run with a forgeable session secret in production — a known constant
@@ -55,6 +56,7 @@ app.use('/', roadmapRoutes);
 app.use('/', trackRoutes);
 app.use('/', checkinRoutes);
 app.use('/', reminderRoutes);
+app.use('/', assessmentRoutes);
 
 // 404 + central error handler
 app.use((req, res) => {

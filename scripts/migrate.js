@@ -15,11 +15,12 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const MIGRATIONS = [
-  'migrateGoals.js',          // roadmaps.goal column
-  'migrateVerification.js',   // users.email_verified + verification token columns
-  'migratePasswordReset.js',  // users.password_reset_token columns
-  'migrateSessions.js',       // session table + users.password_changed_at
-  'syncTracks.js'             // syncs the 5 landing-page tracks
+  'migrateGoals.js',              // roadmaps.goal column
+  'migrateVerification.js',       // users.email_verified + verification token columns
+  'migratePasswordReset.js',      // users.password_reset_token columns
+  'migrateSessions.js',           // session table + users.password_changed_at
+  'syncTracks.js',                // syncs the 5 landing-page tracks (+ rename to Software Engineering)
+  'migrateCapabilityCoach.js'     // assessments, coach_responses tables + roadmaps.assessment_id
 ];
 
 const TIMEOUT_MS = 120 * 1000; // guard against a hanging DB connection

@@ -6,13 +6,15 @@ Voice2Skill is an AI-powered career and digital skills coach that helps people g
 
 ## The Problem
 
-Many people want to learn digital skills — web development, UI/UX design, data analysis, digital marketing — but don't know what to learn, where to start, or how to stay consistent. Free resources exist everywhere, but structure and accountability don't.
+Many people want to learn digital skills — Software Engineering, UI/UX design, data analysis, digital marketing — but don't know what to learn, where to start, or how to stay consistent. Free resources exist everywhere, but structure and accountability don't.
 
 ## What It Does
 
-- 🎯 Choose a skill track (Web Development, UI/UX Design, Data Analysis, Digital Marketing, Cybersecurity)
+- 🎯 Choose a skill track (Software Engineering, UI/UX Design, Data Analysis, Digital Marketing, Cybersecurity)
 - 🎙️ Tell us your goal in your own words (type or speak) — we match it to the closest track and show next-best alternatives
+- 📊 Take a capability assessment for Software Engineering — 8 questions that grade you as Foundation, Builder, or Professional
 - 🗺️ Get an AI-generated, personalized 8-week roadmap with real, free resources — your goal is persisted on the roadmap and woven into the plan
+- 🤖 Receive AI coaching after every check-in — personalized insights based on your capability level
 - 📺 Every daily task links to a YouTube search tuned with your goal phrasing
 - 📚 Follow a structured weekly and daily focus, not a random collection of tutorials
 - ✅ Log daily check-ins to track consistency and progress
@@ -31,11 +33,11 @@ Many people want to learn digital skills — web development, UI/UX design, data
 ```
 voice2skill/
 ├── config/        # Database connection (pg Pool)
-├── controllers/   # Route logic (auth, tracks, roadmaps, checkins, reminders)
-├── models/        # Database queries
+├── controllers/   # Route logic (auth, tracks, roadmaps, checkins, reminders, assessments)
+├── models/        # Database queries (users, tracks, roadmaps, checkins, assessments, coach_responses)
 ├── routes/        # Express route definitions
 ├── middleware/    # CSRF, rate limiting, security headers
-├── utils/         # goal matcher, mailer, streak
+├── utils/         # goal matcher, mailer, streak, capability assessment, coach service
 ├── views/         # EJS templates (+ preview-*.html static previews)
 ├── db/            # Schema definition
 ├── scripts/       # Migrations, smoke/SIT tests, track sync
@@ -84,6 +86,33 @@ voice2skill/
 
 ---
 
+## Capability Coaching
+
+### Assessment Levels
+
+- **Foundation (0-2 correct):** New to software engineering. Roadmap starts with absolute basics, more scaffolding, simpler projects.
+- **Builder (3-5 correct):** Working knowledge. Roadmap focuses on intermediate concepts, real-world projects.
+- **Professional (6+ correct):** Experienced. Roadmap skips basics, focuses on advanced topics, architecture, and complex projects.
+
+### How It Works
+
+1. **Select Software Engineering track** → redirected to capability assessment
+2. **Answer 8 questions** covering HTML/CSS, JavaScript, Git, debugging, APIs, testing, and architecture
+3. **Get scored** and persisted to database
+4. **Generate roadmap** with assessment-aware prompts that tailor content to your level
+5. **Check in daily** → AI coach generates personalized feedback based on your profile, goal, and progress
+
+### Coach Response
+
+After each check-in, the AI coach provides:
+- **Acknowledgement:** Warm recognition of progress
+- **Insight:** Specific, actionable feedback based on your level
+- **Next action:** Clear next step with motivation
+
+If AI generation fails, a deterministic fallback ensures you always get feedback (no data loss).
+
+---
+
 ## Migrations
 
 Migrations are idempotent — safe to run repeatedly against an existing database.
@@ -94,9 +123,10 @@ Migrations are idempotent — safe to run repeatedly against an existing databas
 | `node scripts/migrateVerification.js` | `users.email_verified`, `verification_token`, `verification_token_expires` (grandfathers existing accounts as verified) |
 | `node scripts/migratePasswordReset.js` | `users.password_reset_token`, `users.password_reset_token_expires` |
 | `node scripts/migrateSessions.js` | `session` table (connect-pg-simple) + `users.password_changed_at` |
-| `node scripts/syncTracks.js` | Syncs the 5 landing-page tracks (renames legacy "Software Development" → "Web Development") |
+| `node scripts/syncTracks.js` | Syncs the 5 landing-page tracks (renames legacy "Software Development" → "Software Engineering") |
+| `node scripts/migrateCapabilityCoach.js` | `assessments` table, `coach_responses` table, `roadmaps.assessment_id` column |
 
-**`npm run migrate`** runs all five migrations in order against the configured database (each is idempotent, so it's safe to run repeatedly). `db/schema.sql` is the canonical schema for fresh installs.
+**`npm run migrate`** runs all six migrations in order against the configured database (each is idempotent, so it's safe to run repeatedly). `db/schema.sql` is the canonical schema for fresh installs.
 
 ---
 
@@ -127,7 +157,7 @@ APP_URL             # Public base URL used in email links (defaults to onrender 
 
 ## Tests
 
-- **UAT / template smoke test:** `npm test` (or `node scripts/smoke-test.js`) — renders every view with representative data and asserts content; also unit-checks the goal matcher and search-phrase logic. No database required.
+- **UAT / template smoke test:** `npm test` (or `node scripts/smoke-test.js`) — renders every view with representative data and asserts content; also unit-checks the goal matcher, search-phrase logic, and capability assessment scoring (Foundation/Builder/Professional levels + adaptive follow-up). No database required.
 - **SIT (system integration):** `EMAIL_MODE=log node scripts/sit-test.js` — boots the real server against the configured database and walks the full auth journey: signup → verify → login → forgot password → reset → session revocation. Requires `DATABASE_URL` in `.env`.
 
 ## Status
