@@ -39,6 +39,12 @@
     <div class="app-head">
       <span class="app-eyebrow"><%= trackName ? trackName : 'Your roadmap' %></span>
       <h1>Your learning <span class="grad-text">roadmap</span></h1>
+      <div class="app-head">
+  <span class="app-eyebrow"><%= trackName ? trackName : 'Your roadmap' %></span>
+  <h1>Your learning <span class="grad-text">roadmap</span></h1>
+  <% if (roadmap.is_cached) { %>
+    <span class="task-day" style="background:#1C2A10; color:#8FD14F; display:inline-block; margin-top:0.5rem;">⚡ Previously generated</span>
+  <% } %>
       <p>Day <%= currentDayNumber %> of <%= totalDays %><% if (todayTask) { %> — Week <%= todayTask.week_number %><% } %>. One step at a time.</p>
     </div>
 

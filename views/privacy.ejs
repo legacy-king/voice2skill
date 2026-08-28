@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Privacy Policy - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'privacy' }) %>
+  <main class="app-wrap app-main" id="main">
+    <div class="app-card">
+      <h1>Privacy Policy</h1>
+      <p style="color:#9B9891;">Last updated: <%= new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %></p>
+
+      <h2>What we collect</h2>
+      <p>When you use Voice2Skill, we collect: your name and email address (at signup), your password (stored as an irreversible hash, never in readable form), the learning goal you describe to us, your selected track and skill level (if you complete our assessment), your daily check-in notes, and basic device/session information (browser type, IP address) used for account security.</p>
+
+      <h2>Why we collect it</h2>
+      <p>We use this information to: create and secure your account, generate your personalized AI learning roadmap, provide daily AI coaching based on your check-ins, send you account-related emails (verification, password reset, security alerts, and optional daily reminders), and detect suspicious account activity.</p>
+
+      <h2>How your data is used with AI</h2>
+      <p>Your stated learning goal and daily check-in notes are sent to our AI provider (Google Gemini) to generate your roadmap and coaching responses. We do not use your data to train AI models, and your check-in notes are treated as data to respond to, not as instructions the AI follows.</p>
+
+      <h2>Who we share data with</h2>
+      <p>We do not sell your personal data. We share data only with the service providers necessary to run Voice2Skill: our database host (Neon), our hosting provider (Render), our email provider (Brevo), and our AI provider (Google Gemini). Each of these providers processes data only to provide their service to us.</p>
+
+      <h2>Data storage and security</h2>
+      <p>Your password is hashed using bcrypt and cannot be reversed, even by us. Email verification and password reset links use single-use, time-limited tokens stored as cryptographic hashes. Your account session is protected with secure, encrypted cookies.</p>
+
+      <h2>Your rights</h2>
+      <p>Under the Nigeria Data Protection Regulation (NDPR), you have the right to access the personal data we hold about you, request correction of inaccurate data, and request deletion of your account and associated data. To exercise any of these rights, contact us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+
+      <h2>Data retention</h2>
+      <p>We retain your account data for as long as your account remains active. If you request account deletion, we will remove your personal data within a reasonable time, except where retention is required for legal or security purposes (e.g., fraud prevention records).</p>
+
+      <h2>Changes to this policy</h2>
+      <p>We may update this policy as Voice2Skill evolves. We'll update the date above when changes are made. Continued use of Voice2Skill after changes means you accept the updated policy.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about this policy or your data? Reach us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+    </div>
+  </main>
+</body>
+</html>

@@ -2,6 +2,7 @@ const checkinModel = require('../models/checkinModel');
 const roadmapModel = require('../models/roadmapModel');
 const coachResponseModel = require('../models/coachResponseModel');
 const { createCoachResponse } = require('../utils/coachService');
+const assessmentModel = require('../models/assessmentModel');
 
 async function createCheckinEntry(req, res) {
   if (!req.session.userId) {
@@ -48,8 +49,17 @@ async function createCheckinEntry(req, res) {
     const nextTask = currentDayNumber <= allDays.length ? allDays[currentDayNumber - 1] : null;
     const weeklyProject = roadmap.content.weeks[Math.ceil((currentDayNumber - 1) / 7)]?.project || null;
 
-    const context = {
-      profile: roadmap.assessment_id ? { level: req.session.assessmentLevel, topicScores: {} } : null,
+   let profile = null;
+if (roadmap.assessment_id) {
+  const assessment = await assessmentModel.getAssessmentById(roadmap.assessment_id);
+  if (assessment) {
+    profile = { level: assessment.level, topicScores: assessment.topic_scores };
+  }
+}
+
+const context = {
+  profile,
+  ...
       goal: roadmap.goal,
       completedTask,
       checkinNotes: notes,
