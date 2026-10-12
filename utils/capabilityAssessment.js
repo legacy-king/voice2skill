@@ -8,9 +8,10 @@
  * and architecture/system design.
  *
  * Scoring: Each correct answer = 1 point
- * - foundation: 0-4 correct (new to software engineering)
- * - builder: 5-10 correct (working knowledge)
- * - professional: 11+ correct (experienced)
+ * The diagnostic asks seven core questions and one adaptive question:
+ * - foundation: 0-2 correct
+ * - builder: 3-5 correct
+ * - professional: 6-8 correct
  */
 
 const questions = [
@@ -245,6 +246,17 @@ const questions = [
   }
 ];
 
+const assessmentQuestionLimit = 8;
+const coreQuestionIds = [
+  'html_basics',
+  'js_basics',
+  'git_basics',
+  'debugging',
+  'apis',
+  'testing',
+  'architecture'
+];
+
 /**
  * Get a question by its ID.
  * @param {string} id - Question identifier
@@ -283,33 +295,21 @@ function getQuestionsByDifficulty(difficulty) {
  * @returns {object|null} Next question or null if assessment complete
  */
 function getNextQuestion(answers) {
-  const answeredIds = Object.keys(answers);
-  const allIds = questions.map(q => q.id);
-
-  // Adaptive: if foundational questions answered incorrectly, offer more
-  const htmlAnswer = answers['html_basics'];
-  const cssBoxAnswer = answers['css_box_model'];
-  const jsAnswer = answers['js_basics'];
-
-  // Foundation struggles: ensure they get basics
-  if (htmlAnswer && htmlAnswer !== 'a') {
-    if (!answers['css_box_model']) return getQuestion('css_box_model');
-    if (!answers['css_selectors']) return getQuestion('css_selectors');
-  }
-
-  if (cssBoxAnswer && cssBoxAnswer !== 'a') {
-    if (!answers['css_selectors']) return getQuestion('css_selectors');
-  }
-
-  // JavaScript struggles: ensure they get JS basics
-  if (jsAnswer && jsAnswer !== 'a') {
-    if (!answers['js_basics_advanced']) return getQuestion('js_basics_advanced');
-  }
-
-  // Standard flow: return first unanswered question
-  for (const id of allIds) {
+  for (const id of coreQuestionIds) {
     if (!answers[id]) return getQuestion(id);
   }
+
+  const coreCorrect = coreQuestionIds.reduce((total, id) => {
+    const question = getQuestion(id);
+    return total + (question.options.some(option => option.value === answers[id] && option.correct) ? 1 : 0);
+  }, 0);
+  const adaptiveId = coreCorrect >= 6
+    ? 'architecture_patterns'
+    : coreCorrect >= 3
+      ? 'js_basics_advanced'
+      : 'css_box_model';
+
+  if (!answers[adaptiveId]) return getQuestion(adaptiveId);
 
   return null; // All questions answered
 }
@@ -318,10 +318,10 @@ function getNextQuestion(answers) {
  * Score the assessment based on answers.
  * Each correct answer = 1 point toward the total.
  *
- * Levels (for 16 questions):
- * - foundation: 0-4 correct (new to software engineering)
- * - builder: 5-10 correct (working knowledge)
- * - professional: 11+ correct (experienced)
+ * Levels (for the eight-question diagnostic):
+ * - foundation: 0-2 correct (new to software engineering)
+ * - builder: 3-5 correct (working knowledge)
+ * - professional: 6-8 correct (experienced)
  *
  * @param {object} answers - Map of questionId → selectedValue
  * @returns {{ level: string, score: number, topicScores: object, answers: object }}
@@ -332,6 +332,7 @@ function scoreAssessment(answers) {
 
   for (const q of questions) {
     const answer = answers[q.id];
+    if (!answer) continue;
     const isCorrect = answer && q.options.find(o => o.value === answer)?.correct;
 
     if (!topicScores[q.topic]) {
@@ -346,9 +347,9 @@ function scoreAssessment(answers) {
   }
 
   let level;
-  if (score <= 4) {
+  if (score <= 2) {
     level = 'foundation';
-  } else if (score <= 10) {
+  } else if (score <= 5) {
     level = 'builder';
   } else {
     level = 'professional';
@@ -363,5 +364,6 @@ module.exports = {
   getQuestionsByDifficulty,
   getNextQuestion,
   scoreAssessment,
-  questions
+  questions,
+  assessmentQuestionLimit
 };

@@ -11,7 +11,7 @@ async function createCheckin(user_id, roadmap_id, notes) {
 
 async function getCheckinsByRoadmap(userId, roadmapId) {
     const result = await pool.query(
-        'SELECT * FROM checkins WHERE user_id = $1 AND roadmap_id = $2',
+        'SELECT * FROM checkins WHERE user_id = $1 AND roadmap_id = $2 ORDER BY checkin_date DESC, created_at DESC',
         [userId, roadmapId]
     )
     return result.rows;

@@ -49,17 +49,16 @@ async function createCheckinEntry(req, res) {
     const nextTask = currentDayNumber <= allDays.length ? allDays[currentDayNumber - 1] : null;
     const weeklyProject = roadmap.content.weeks[Math.ceil((currentDayNumber - 1) / 7)]?.project || null;
 
-   let profile = null;
-if (roadmap.assessment_id) {
-  const assessment = await assessmentModel.getAssessmentById(roadmap.assessment_id);
-  if (assessment) {
-    profile = { level: assessment.level, topicScores: assessment.topic_scores };
-  }
-}
+    let profile = null;
+    if (roadmap.assessment_id) {
+      const assessment = await assessmentModel.getAssessmentById(roadmap.assessment_id);
+      if (assessment) {
+        profile = { level: assessment.level, topicScores: assessment.topic_scores };
+      }
+    }
 
-const context = {
-  profile,
-  ...
+    const context = {
+      profile,
       goal: roadmap.goal,
       completedTask,
       checkinNotes: notes,

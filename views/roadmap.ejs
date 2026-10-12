@@ -156,7 +156,7 @@
       </div>
 
       <!-- Latest coach response -->
-      <% const latestCheckin = checkins.length > 0 ? checkins[checkins.length - 1] : null;
+      <% const latestCheckin = checkins.length > 0 ? checkins[0] : null;
          const latestCoach = latestCheckin?.coachResponse;
          if (latestCoach) { %>
         <div class="app-card coach-card">
