@@ -128,4 +128,4 @@ async function sendMessage(req, res) {
   }
 }
 
-module.exports = { mentorPage, sendMessage };
+module.exports = { mentorPage, sendMessage, currentTaskLine };

@@ -23,8 +23,8 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
 // Mock mode fakes successful payments and AI replies — in production that would hand out paid
 // access for free, so refuse to start rather than trust the env to be right.
 if (process.env.NODE_ENV === 'production'
-    && (process.env.PAYSTACK_MOCK === '1' || process.env.MENTOR_MOCK === '1')) {
-  throw new Error('PAYSTACK_MOCK / MENTOR_MOCK must not be set in production — refusing to start.');
+    && (process.env.PAYSTACK_MOCK === '1' || process.env.MENTOR_MOCK === '1' || process.env.COURSE_MOCK === '1')) {
+  throw new Error('PAYSTACK_MOCK / MENTOR_MOCK / COURSE_MOCK must not be set in production — refusing to start.');
 }
 if (!process.env.SESSION_SECRET) {
   console.warn('⚠  SESSION_SECRET is not set — using a dev-only fallback. Set it in production!');
@@ -88,3 +88,7 @@ app.use((err, req, res, next) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log('Server running on port http://localhost:3000');
 });
+
+// Background jobs (Course Library generation) run in this process, one at a time.
+// Set JOBS_DISABLED=1 to keep a process out of the queue.
+require('./utils/jobRunner').start();

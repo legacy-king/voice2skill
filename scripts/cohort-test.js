@@ -16,6 +16,9 @@ process.env.SESSION_SECRET = 'test-secret';
 process.env.MENTOR_DAILY_LIMIT = '3';
 process.env.PREMIUM_DAILY_LIMIT = '2';
 process.env.NODE_ENV = 'test';
+process.env.COURSE_MOCK = '1';
+// Never call the real Gemini API from tests, even if .env has a key (dotenv won't override this).
+process.env.GEMINI_API_KEY = '';
 
 const { spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
@@ -343,6 +346,90 @@ async function main() {
     const tt = await tutor.c.csrf(`/teacher/cohorts/${cohortId}`);
     await tutor.c.req('POST', `/teacher/cohorts/${cohortId}`, { form: { _csrf: tt, name: 'Frontend Nov', price: '5000', accessDays: '30', curriculum: 'x', active: 'on', mentorName: 'Mr. Test' } });
     check('student sees "[tutor name]\'s AI Mentor"', /Mr\. Test’s/.test((await carol.c.req('GET', '/mentor')).text));
+
+    console.log('Course Library (ADR-001)');
+    const courses = (...a) => spawnSync('node', [path.join(__dirname, 'courses.js'), ...a], { env: process.env, encoding: 'utf8' });
+    const daTrack = (await pool.query("SELECT id FROM tracks WHERE name = 'Data Analysis'")).rows[0].id;
+    // Re-runnable on the same database: retire whatever an earlier run published.
+    await pool.query(
+      "UPDATE course_versions SET status = 'retired' WHERE status = 'published' AND course_id IN (SELECT id FROM courses WHERE track_id = $1 AND level = 'foundation' AND cohort_id IS NULL)",
+      [daTrack]
+    );
+    const gen1 = courses('generate', 'Data Analysis', 'foundation');
+    const v1 = Number(gen1.stdout.match(/draft version (\d+)/)?.[1]);
+    check('courses.js generate builds a draft (8 per-week calls, mock AI)', gen1.status === 0 && Number.isInteger(v1), gen1.stdout + gen1.stderr);
+    const v1row = (await pool.query('SELECT status, content, model FROM course_versions WHERE id = $1', [v1])).rows[0];
+    check('draft is 8 weeks x 7 days and not yet published', v1row && v1row.status === 'draft' && v1row.content.weeks.length === 8
+      && v1row.content.weeks.every((w) => w.days.length === 7) && v1row.model === 'mock');
+    check('courses.js list shows the draft', /Data Analysis \/ foundation .*\[draft\]/.test(courses('list').stdout));
+
+    const jobRunner = require('../utils/jobRunner');
+    const courseId = (await pool.query('SELECT course_id FROM course_versions WHERE id = $1', [v1])).rows[0].course_id;
+    const [e1, e2] = await Promise.all([1, 2].map(() => jobRunner.enqueue('course_gen', { courseId: 0 }, { dedupeKey: `dedupe-test-${run}`, maxAttempts: 1 })));
+    check('enqueue is idempotent on dedupe_key (one job for two calls)', e1.job.id === e2.job.id && e1.created !== e2.created);
+    let failedJob;
+    for (let i = 0; i < 20; i++) {
+      await jobRunner.runOnce();
+      failedJob = (await pool.query('SELECT status, attempts, last_error FROM jobs WHERE id = $1', [e1.job.id])).rows[0];
+      if (failedJob.status === 'failed') break;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    check('a failing job ends as failed with last_error after max_attempts', failedJob.status === 'failed' && failedJob.attempts === 1 && /not found/.test(failedJob.last_error), JSON.stringify(failedJob));
+
+    const badDraft = (await pool.query(
+      "INSERT INTO course_versions (course_id, version, status, content) VALUES ($1, 99, 'draft', $2) RETURNING id",
+      [courseId, JSON.stringify({ weeks: [{ week_number: 1, focus: 'x', project: 'y', days: [] }] })]
+    )).rows[0].id;
+    const badPub = courses('publish', String(badDraft));
+    check('publishing an invalid plan is refused', badPub.status !== 0 && (await pool.query('SELECT status FROM course_versions WHERE id = $1', [badDraft])).rows[0].status === 'draft');
+    await pool.query('DELETE FROM course_versions WHERE id = $1', [badDraft]);
+
+    const daUser = await makeUser('libfree');
+    const dt0 = await daUser.c.csrf('/join');
+    const courseModel = require('../models/courseModel');
+    check('a draft is never offered to learners', !(await courseModel.findPublishedLibraryVersion(daTrack, 'foundation'))
+      && (await courseModel.getVersionContent(v1)) === null);
+
+    const pub1 = courses('publish', String(v1));
+    check('courses.js publish publishes the draft', pub1.status === 0 && (await pool.query('SELECT status FROM course_versions WHERE id = $1', [v1])).rows[0].status === 'published', pub1.stdout + pub1.stderr);
+    check('publishing twice is refused', courses('publish', String(v1)).status !== 0);
+    check('published content is immutable (DB trigger)', await pool.query("UPDATE course_versions SET content = '{}' WHERE id = $1", [v1]).then(() => false, () => true));
+
+    const sel = await daUser.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: dt0, goal: 'analyse sales for my shop' } });
+    const libRoadmapId = Number((sel.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    check('free user gets a library roadmap instantly (no AI key needed => 0 AI calls)', Number.isInteger(libRoadmapId), `${sel.status} ${sel.location}`);
+    const libRow = (await pool.query('SELECT content, course_version_id, goal FROM roadmaps WHERE id = $1', [libRoadmapId])).rows[0];
+    check('roadmap references the published version and stores no copy', libRow && libRow.content === null && libRow.course_version_id === v1 && libRow.goal === 'analyse sales for my shop');
+    check('no AI usage recorded for the free user', (await pool.query('SELECT COUNT(*)::int n FROM ai_usage WHERE user_id = $1', [daUser.id])).rows[0].n === 0);
+    check('selecting the track again reuses the same roadmap', (await daUser.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: dt0 } })).location === `/roadmaps/${libRoadmapId}`);
+
+    const lp = await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`);
+    check('reader 1 (roadmap page) renders library content + templated intro', lp.status === 200 && /Library task W1D1/.test(lp.text)
+      && /Day 1 of 56/.test(lp.text) && /class="library-intro"/.test(lp.text) && /analyse sales for my shop/.test(lp.text), lp.text.slice(0, 300));
+    const ci = await daUser.c.req('POST', `/roadmaps/${libRoadmapId}/checkin`, { form: { _csrf: dt0, notes: 'did day 1 of the library plan' } });
+    const libCoach = (await pool.query('SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [libRoadmapId])).rows[0];
+    check('reader 2 (check-in flow) works on a library roadmap, template coach (no AI)', ci.location === `/roadmaps/${libRoadmapId}` && libCoach && libCoach.is_fallback === true, JSON.stringify(libCoach));
+    check('roadmap page advances to day 2', /Library task W1D2/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    const { currentTaskLine } = require('../controllers/mentorController');
+    check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
+    const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: process.env, encoding: 'utf8' });
+    check('reader 4 (migrateRoadmaps) skips library roadmaps', mig.status === 0 && mig.stdout.includes(`Roadmap ${libRoadmapId} uses the Course Library, skipping.`), mig.stdout.slice(-500) + mig.stderr);
+
+    const gen2 = courses('generate', String(daTrack), 'foundation');
+    const v2 = Number(gen2.stdout.match(/draft version (\d+)/)?.[1]);
+    check('a second generate makes v2 as a new draft', gen2.status === 0 && Number.isInteger(v2) && v2 !== v1, gen2.stdout + gen2.stderr);
+    courses('publish', String(v2));
+    const statuses = (await pool.query('SELECT id, status FROM course_versions WHERE id = ANY($1)', [[v1, v2]])).rows;
+    check('publishing v2 retires v1 (one published version per course)', statuses.find((r) => r.id === v1).status === 'retired' && statuses.find((r) => r.id === v2).status === 'published');
+    check('existing learner stays pinned to v1 and still renders', (await pool.query('SELECT course_version_id FROM roadmaps WHERE id = $1', [libRoadmapId])).rows[0].course_version_id === v1
+      && /Library task W1D2/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    const daUser2 = await makeUser('libfree2');
+    const sel2 = await daUser2.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: await daUser2.c.csrf('/join') } });
+    const r2 = Number((sel2.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    check('a new learner gets v2', (await pool.query('SELECT course_version_id FROM roadmaps WHERE id = $1', [r2])).rows[0]?.course_version_id === v2);
+    check('library roadmap without a goal gets the no-goal intro', /Pick project topics you care about/.test((await daUser2.c.req('GET', `/roadmaps/${r2}`)).text));
+    check('another learner cannot open the library roadmap', (await daUser2.c.req('GET', `/roadmaps/${libRoadmapId}`)).status === 404);
+    check('course migration is idempotent (re-run succeeds)', spawnSync('node', [path.join(__dirname, 'migrateCourses.js')], { env: process.env, encoding: 'utf8' }).status === 0);
   } finally {
     server.kill();
     await pool.end();

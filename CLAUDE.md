@@ -6,6 +6,7 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - `npm run migrate` — idempotent DB migrations
 - `npm test` — render smoke test (no DB)
 - `npm run test:cohorts` — end-to-end money/access/mentor tests; needs a DISPOSABLE Postgres: `DATABASE_URL=... DATABASE_SSL=false`
+- `node scripts/courses.js list | generate <track> <level> | generate --all | show <versionId> [week] | publish <versionId>` — Course Library (ADR-001); drafts reach learners only after `publish`
 - `node scripts/createOrg.js "<Bootcamp>" <tutor-email> [pct] [net|gross]` · `node scripts/ledger.js`
 
 ## Non-negotiables

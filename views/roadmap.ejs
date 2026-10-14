@@ -54,6 +54,9 @@
         <span class="goal-chip-text">“<%= roadmap.goal %>”</span>
       </div>
     <% } %>
+    <% if (locals.libraryIntro) { %>
+      <p class="library-intro"><%= libraryIntro %></p>
+    <% } %>
 
     <!-- Progress -->
     <div class="app-card progress-card">

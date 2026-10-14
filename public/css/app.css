@@ -568,6 +568,14 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
   word-break: break-word;
 }
 
+/* Templated intro on Course Library roadmaps */
+.library-intro {
+  margin: -0.4rem 0 1.3rem;
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+  max-width: 60ch;
+}
+
 /* Complete state */
 .done-box {
   text-align: center;

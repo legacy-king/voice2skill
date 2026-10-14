@@ -52,8 +52,9 @@
 ## 4. Product pillars
 
 ### 4.1 Courses (the Course Library)
-- A **Track** (Software Engineering, UI/UX, Data Analysis, Digital Marketing, Cybersecurity) has **Levels** (foundation, builder, professional), and each level is an **8-week plan** of 56 daily items: task, lesson (300–450 words), code example where relevant, quiz question, resource link, video search phrase, plus one **weekly project**. **[Built]** as per-user generation (see 7.3 for why this must change).
-- **[Planned, Phase 2] Course Library:** generate each track×level plan **once**, store it versioned in Postgres, let any user or tutor reuse it. Cohort courses are generated **once per cohort** from the tutor's syllabus and tutor-editable. Per-user personalization becomes a thin layer (goal-aware intro, adaptive "what's next"), not a 40,000-token regeneration.
+- A **Track** (Software Engineering, UI/UX, Data Analysis, Digital Marketing, Cybersecurity) has **Levels** (foundation, builder, professional), and each level is an **8-week plan** of 56 daily items: task, lesson (300–450 words), code example where relevant, quiz question, resource link, video search phrase, plus one **weekly project**. **[Built]**
+- **Course Library [Built, ADR-001]:** each track×level plan is generated **once** (background job, one Gemini call per week), reviewed, published, and stored versioned in Postgres (`courses`, `course_versions`). A new roadmap for a published track×level **references** that version (`roadmaps.course_version_id`, no copy) and is created with **0 AI calls**, for every tier. Personalization is a thin layer: the assessment level picks the course (tracks without an assessment use `foundation`), and a templated, goal-aware intro is shown on the roadmap. **Rollout gap:** until a track×level has a published version, roadmap creation falls back to the old per-user AI generation (with the exact-goal cache), Free users included; the founder must generate, review and publish all 15 plans (`node scripts/courses.js`) to close it.
+- **[Planned, Phase 2] Cohort courses:** generated **once per cohort** from the tutor's syllabus (paid tier, capped per org) and tutor-editable, reusing the same tables and job runner. Adaptive "what's next" is also planned.
 
 ### 4.2 Training (the daily loop)
 - Daily check-in with free-text notes; one per day per roadmap. **[Built]**
@@ -100,7 +101,7 @@
 
 **How Premium is built.** Premium is a built-in cohort (`kind = 'premium'`, owned by the platform organization "Voice2Skill", 0% revenue share), seeded by `db/cohorts.sql`. Buying it is `POST /premium`, which reuses the bootcamp checkout end to end: price from the DB, Paystack, signed webhook, idempotent `settlePayment()`, `access_until` extension. All gating lives in `canUse(state, feature)` in `utils/entitlements.js` (`ai_coach`, `mentor_chat`).
 
-**Known gap:** the 8-week plan itself is still generated per user with AI on the Free tier (finding #1). That AI cost on free users ends with the Course Library (ADR-001).
+**Known gap:** the Course Library is built (ADR-001), so a Free user's plan costs 0 AI calls **once that track×level is published**. Until all 15 plans are published, an unpublished track×level still falls back to per-user AI generation on the Free tier (finding #1).
 
 ### 5.2 Revenue streams
 1. **Cohort subscriptions (core, pilot).** Student pays; bootcamp earns a share (default 20% of the amount after Paystack fees; `net` or `gross` configurable per org).
@@ -203,7 +204,7 @@ At ₦6,000/mo (Premium, no share, no bootcamp cut) margins are higher than the 
                       │                    coach_responses, session, organizations, cohorts,
                       │                    memberships, payments, org_payouts, ai_usage,
                       │                    mentor_messages)
-                      ├──> Gemini API  (roadmap generation, check-in coach, mentor chat)
+                      ├──> Gemini API  (Course Library jobs, roadmap fallback, check-in coach, mentor chat)
                       ├──> Paystack    (checkout, webhook -> /webhooks/paystack)
                       └──> Brevo       (verification, reset, reminder emails)
  External cron ──GET /api/send-reminders?key=CRON_SECRET──> Render
@@ -228,20 +229,24 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 - Mailer links and payment callbacks use `FRONTEND_URL` / `APP_URL`.
 - **When to do the split:** after the first cohort is paying (decision recorded). It buys maintainability and a free static host, not revenue.
 
-### 7.3 Course Library (the key Phase-2 change)
-**Problem found in the code:** `generateRoadmapContent` asks one Gemini call to emit the entire 8-week plan as JSON: 56 lessons of 300–450 words plus code, quizzes and projects, roughly **40,000 output tokens** **[Assumption: estimated from the prompt]**, with no `maxOutputTokens`, no retry, held inside a user's HTTP request. Consequences: ~₦150–₦450 per user at list prices (my earlier ₦72 estimate assumed 6,000 tokens and was **wrong**), long waits, risk of truncated/invalid JSON, and a "we're at capacity" page when it fails.
+### 7.3 Course Library (the key Phase-2 change) **[Built, ADR-001]**
+**Problem found in the code (before ADR-001):** `generateRoadmapContent` asks one Gemini call to emit the entire 8-week plan as JSON: 56 lessons of 300–450 words plus code, quizzes and projects, roughly **40,000 output tokens** **[Assumption: estimated from the prompt]**, with no `maxOutputTokens`, no retry, held inside a user's HTTP request. Consequences: ~₦150–₦450 per user at list prices (my earlier ₦72 estimate assumed 6,000 tokens and was **wrong**), long waits, risk of truncated/invalid JSON, and a "we're at capacity" page when it fails.
 
-**Fix:**
-- Tables: `courses` (track, level, version, status), `course_weeks`, `course_days` (or one JSONB per version), `cohort_courses` (cohort → course version, tutor edits).
-- Generate per track×level (15 plans) once with the free Gemini tier, review, publish. A new user is assigned a version instantly.
-- Personalization = short goal-aware intro + the existing assessment-based level choice.
-- Regeneration only on content updates, as a background job (jobs table), never in a request.
-- Cache published course JSON in process memory (immutable per version → safe).
+**Fix (built; see `docs/adr/ADR-001-course-library.md`):**
+- Tables (`db/courses.sql`, `scripts/migrateCourses.js`, part of `npm run migrate`): `courses` (track, level, optional `cohort_id`, title; unique per track×level), `course_versions` (version, status `draft|published|retired`, one JSONB plan, model; one published version per course; a DB trigger makes published/retired content immutable), `jobs`, and `roadmaps.course_version_id` (content may be NULL when it is set). Indexes `roadmaps(user_id)` and `roadmaps(course_version_id)`.
+- Generation (`utils/courseGenerator.js`) runs as a background job, never in a request: one Gemini call per week (8 per plan), JSON response schema, `COURSE_MAX_OUTPUT_TOKENS`, `COURSE_TIMEOUT_MS`, `COURSE_RETRIES` with backoff, model `COURSE_MODEL`. Finished weeks are saved as job progress, so a retried job resumes instead of paying again. The plan must be exactly 8 weeks × 7 days before it is saved as a draft, and again before it is published.
+- Job runner (`utils/jobRunner.js`) inside the web process: `FOR UPDATE SKIP LOCKED`, one job at a time, heartbeat + stale-job reclaim, exponential backoff, `max_attempts`, idempotent enqueue (`dedupe_key`). `JOBS_DISABLED=1` keeps a process out of the queue.
+- Founder workflow: `node scripts/courses.js generate --all` (or `generate <track> <level>`) → `show <versionId> [week]` to review → `publish <versionId>`. `list` shows every course, version, status and how many roadmaps use it.
+- Read path: `roadmapModel` fills `content` from the version when a row's own content is NULL, so the roadmap page, check-ins, the mentor's current task and `migrateRoadmaps.js` work unchanged. Published versions are cached in process memory (LRU, `COURSE_CACHE_SIZE`, default 50), deep-frozen.
+- Versions: a roadmap stays pinned to the version it started on; publishing a new version retires the old one and gives new roadmaps the new one. Every version is 8×7, so check-in day numbers never shift.
+- `selectTrack`: published version for track×level → library roadmap, 0 AI calls, templated intro. Otherwise the old per-user path runs (rollout fallback; to be removed once all 15 are published).
+- Tier: library prompts contain no personal data (track name/description and level only). The ADR recommends the paid tier for predictability; it uses the same `GEMINI_API_KEY`.
 
 ### 7.4 Data model (current; ✓ = migrated)
 `users` (+`role`) · `tracks` · `assessments` · `roadmaps` · `checkins` · `coach_responses` · `session` ·
 `organizations`(owner, revenue_share_pct, share_basis) ✓ · `cohorts`(org, invite_code, price_kobo, access_days, curriculum, active) ✓ · `memberships`(user, cohort, role teacher|student, status, access_until) ✓ · `payments`(reference UNIQUE, amount_kobo, fee, org_share, status) ✓ · `org_payouts` ✓ · `ai_usage`(user, day, kind, count) ✓ · `mentor_messages`(client_msg_id UNIQUE per user, reply_to) ✓.
-**Planned:** `courses*`, `jobs`, `subscriptions` (recurring), `announcements`, `tutor_questions`, `email_log`(sent-per-day idempotency), `audit_log`.
+`courses` ✓ · `course_versions`(status draft|published|retired, JSONB content, immutable once published) ✓ · `jobs`(kind, payload, status, attempts, run_after, dedupe_key) ✓ · `roadmaps.course_version_id` ✓.
+**Planned:** `subscriptions` (recurring), `announcements`, `tutor_questions`, `email_log`(sent-per-day idempotency), `audit_log`.
 
 ### 7.5 Key flows
 1. **Join + pay:** `POST /join` (code) → pending membership → `POST /pay/:cohortId` → Paystack → (a) webhook `charge.success` and/or (b) `/pay/callback` verify → `settlePayment()` (row lock, amount match, idempotent) → membership active, `access_until` extended by `access_days` from the later of now or current expiry. **[Built, 67 e2e checks]**
@@ -251,7 +256,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 
 ### 7.6 Caching, idempotency, concurrency, scaling
 - **Idempotency [Built]:** Paystack `reference` UNIQUE + row lock; chat `(user_id, client_msg_id)` UNIQUE; one check-in per user/roadmap/day; one roadmap per user/track. **[Planned]:** `email_log` so reminders can't double-send.
-- **Caching:** HTTP cache headers on static assets; in-process cache of published course versions (Phase 2). No Redis yet.
+- **Caching:** HTTP cache headers on static assets; in-process LRU cache of published course versions **[Built]**. No Redis yet.
 - **Redis:** only needed when running ≥2 web instances (shared rate limits) or heavy queues. Until then, Postgres (jobs table / `pg-boss`) covers it for free. Upstash free tier (500K cmds/mo) is the fallback.
 - **Load balancing:** Render fronts the service. One $7/$25 instance should handle a class because requests are I/O-bound on the AI call; **load-test before promising >100 concurrent students** **[Assumption]**. Scaling to 2 instances requires moving the in-memory rate limiter first.
 - **Rate limiting:** per user when logged in, per IP otherwise (a whole class shares one IP). Auth limit is 60/15 min/IP (`AUTH_RATE_MAX`).
@@ -269,11 +274,11 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 
 | # | Finding | Severity | Fix | Phase |
 |---|---|---|---|---|
-| 1 | Roadmap generated per user in one ~40k-token synchronous call; no output cap/retry | **High (cost + reliability)** | Course Library (7.3) | 2 |
+| 1 | Roadmap generated per user in one ~40k-token synchronous call; no output cap/retry | **High (cost + reliability)** | Course Library (7.3) **built**; closes per track×level as plans are published, then remove the fallback | 2 |
 | 2 | Reminder job emails *everyone with any roadmap and no check-in today*, sequentially, including completed or inactive users, inside one request; hits Brevo's 300/day cap past ~250 users; cron secret is a URL query param | High at scale | Limit to active users; batch/queue; per-day `email_log`; move secret to a header | 1.5 |
 | 3 | Session store + last-active writes keep Neon awake, burning CU-hours | Medium | Accept, monitor; consider longer `touchLastActive` throttle | 1.5 |
 | 4 | In-memory rate limiter | Medium | Fine for 1 instance; Postgres/Redis if scaling | 3 |
-| 5 | No indexes beyond PKs/uniques/session (e.g., `roadmaps.user_id`, `assessments(user_id, track_id)`) | Medium as data grows | Add indexes in a migration | 1.5 |
+| 5 | No indexes beyond PKs/uniques/session (e.g., `roadmaps.user_id`, `assessments(user_id, track_id)`) | Medium as data grows | `roadmaps(user_id)` and `roadmaps(course_version_id)` **added** (`db/courses.sql`); `assessments(user_id, track_id)` still to do | 1.5 |
 | 6 | Mentor default monthly cap 600 is loss-making on dearer models | High (economics) | Default → 300; model via env | **Done in this release** |
 | 7 | `APP_URL` default still `voice2skill.onrender.com` | Low | Set `APP_URL=https://voice2skill.com` in Render | 1 |
 | 8 | Brevo sender domain not authenticated; SPF record already exists for Namecheap forwarding, and a domain may have only one SPF record | Medium (spam folder) | Merge Brevo's include into the single SPF TXT; add DKIM | 1 |
@@ -300,7 +305,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | F7 | Mentor chat grounded in syllabus with caps | Built | 4th msg at cap=3 → 429; replay not double-billed |
 | F8 | Teacher roster + earnings + nudge flag | Built | Teacher can't see notes; students can't open teacher pages |
 | F9 | Ledger + payouts scripts | Built | Owed = share − payouts |
-| F10 | Course Library (versioned, reusable, tutor-editable) | Planned P2 | New user gets plan with 0 AI calls |
+| F10 | Course Library (versioned, reusable, tutor-editable) | **Built** (library); tutor-editable cohort courses Planned P2 | New user on a published track×level gets a plan with 0 AI calls (e2e: `npm run test:cohorts`, "Course Library"); drafts never reach learners; invalid plans cannot be published; a new version does not change existing learners' plans |
 | F11 | Premium individual tier (₦6,000/30 days; AI coach + mentor); Free has no AI | **Built** | `canUse` (`ai_coach`, `mentor_chat`); free check-in gets template coach; `POST /premium` → Paystack → access |
 | F12 | React frontend + JSON API on Cloudflare Pages/Render | Planned P2 | All pages ported; cookies work cross-subdomain |
 | F13 | Recurring billing, auto split payments | Planned P3 | Paystack plan renews; subaccount split matches ledger |

@@ -200,6 +200,22 @@ const cases = [
     },
     ['Your goal', 'build websites for my small business', 'search_query=build%20websites%20small%20business%20JavaScript%20functions%20crash%20course', '_csrf']],
 
+  ['roadmap (Course Library intro)', 'roadmap.ejs',
+    {
+      roadmap: { id: 42, goal: 'get a junior dev job', course_version_id: 7 },
+      trackName: 'Software Engineering',
+      checkins: [],
+      message: null,
+      streak: 0,
+      todayTask: weekdayTask,
+      currentDayNumber: 1,
+      totalDays: 56,
+      isComplete: false,
+      videoSearchPhrase: '',
+      libraryIntro: require('../controllers/roadmapController').libraryIntro('Software Engineering', 'get a junior dev job')
+    },
+    ['Your goal', 'get a junior dev job', 'class="library-intro"', 'Your 8-week Software Engineering plan', 'Shape each weekly project around your goal']],
+
   ['roadmap (empty notes message)', 'roadmap.ejs',
     {
       roadmap: { id: 42, goal: null },
@@ -482,9 +498,54 @@ if (!topicAnalysis.strengths.includes('javascript') || !topicAnalysis.weaknesses
   console.log('✓ analyzeTopicScores correctly identifies strengths and weaknesses');
 }
 
-console.log('');
-if (failures > 0) {
-  console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
-  process.exit(1);
+// ---- Course Library generator checks (COURSE_MOCK: no AI, no DB) ----
+async function courseChecks() {
+  process.env.COURSE_MOCK = '1';
+  const gen = require('../utils/courseGenerator');
+  const expect = (label, cond) => {
+    if (cond) console.log(`✓ course: ${label}`);
+    else { failures++; console.error(`✗ course: ${label}`); }
+  };
+  const throws = (fn) => { try { fn(); return false; } catch { return true; } };
+
+  let saves = 0;
+  const course = await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', onWeek: async () => { saves++; } });
+  const days = course.weeks.flatMap((w) => w.days);
+  expect('mock plan is 8 weeks x 7 days', course.weeks.length === 8 && course.weeks.every((w) => w.days.length === 7));
+  expect('day_number runs 1..56 across the plan', days.every((d, i) => d.day_number === i + 1));
+  expect('days 6-7 are weekend', course.weeks.every((w) => w.days[5].day_type === 'weekend' && w.days[4].day_type === 'weekday'));
+  expect('progress saved after every generated week', saves === 8);
+  expect('validateCourse accepts it', !throws(() => gen.validateCourse(course)));
+
+  let resumed = 0;
+  await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', done: course.weeks.slice(0, 3), onWeek: async () => { resumed++; } });
+  expect('a retried job resumes after finished weeks (5 new weeks)', resumed === 5);
+
+  const clone = () => JSON.parse(JSON.stringify(course));
+  const seven = clone(); seven.weeks.pop();
+  const sixDays = clone(); sixDays.weeks[2].days.pop();
+  const badUrl = clone(); badUrl.weeks[0].days[0].resource_url = 'javascript:alert(1)';
+  const noLesson = clone(); noLesson.weeks[7].days[6].lesson = '  ';
+  const shifted = clone(); shifted.weeks[1].days[0].day_number = 1;
+  expect('rejects 7 weeks', throws(() => gen.validateCourse(seven)));
+  expect('rejects a 6-day week', throws(() => gen.validateCourse(sixDays)));
+  expect('rejects a non-http resource_url', throws(() => gen.validateCourse(badUrl)));
+  expect('rejects an empty lesson', throws(() => gen.validateCourse(noLesson)));
+  expect('rejects day numbers that do not run 1..56', throws(() => gen.validateCourse(shifted)));
+  expect('rejects an unknown level', await gen.generateCourse({ trackName: 'X', level: 'expert' }).then(() => false, () => true));
+
+  const prompt = gen.weekPrompt({ trackName: 'Cybersecurity', trackDescription: 'd', level: 'professional', weekNumber: 8, previousWeeks: course.weeks.slice(0, 7) });
+  expect('week prompt carries level, prior weeks and capstone note', /professional/.test(prompt) && /Week 7:/.test(prompt) && /capstone/.test(prompt));
+  expect('response schema forces exactly 7 days', gen.WEEK_SCHEMA.properties.days.minItems === 7 && gen.WEEK_SCHEMA.properties.days.maxItems === 7);
+  delete process.env.COURSE_MOCK;
 }
-console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks OK.`);
+
+courseChecks().catch((err) => { failures++; console.error('✗ course checks crashed:', err.message); }).then(() => {
+  console.log('');
+  if (failures > 0) {
+    console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
+    process.exit(1);
+  }
+  console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks + course library checks OK.`);
+  process.exit(0);
+});

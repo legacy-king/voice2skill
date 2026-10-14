@@ -8,6 +8,11 @@ async function migrateOldRoadmaps() {
   const allRoadmaps = result.rows;
 
   for (const roadmap of allRoadmaps) {
+    // Library-backed roadmaps hold no content of their own (ADR-001); fixes ship as a new course version.
+    if (roadmap.content == null) {
+      console.log(`Roadmap ${roadmap.id} uses the Course Library, skipping.`);
+      continue;
+    }
     const firstWeek = roadmap.content.weeks[0];
     const isOldFormat =
       firstWeek?.daily_topics !== undefined ||   // original pre-day-by-day format

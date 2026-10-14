@@ -22,7 +22,8 @@ Change the Premium price with SQL (no deploy): `UPDATE cohorts SET price_kobo = 
 
 ## Deploy checklist
 
-1. **Database:** `npm run migrate` (now includes `migrateCohorts.js`; idempotent).
+1. **Database:** `npm run migrate` (now includes `migrateCohorts.js` and `migrateCourses.js`; idempotent).
+   **Course Library (ADR-001):** until a track x level has a published plan, new roadmaps for it still use per-user AI, Free users included. Run `node scripts/courses.js generate --all` (8 Gemini calls per plan, 15 plans), review each draft with `node scripts/courses.js show <versionId> [week]`, then `node scripts/courses.js publish <versionId>`. `node scripts/courses.js list` shows what is published.
 2. **Render env vars:** see `.env.example`. New ones: `APP_URL=https://voice2skill.com`, `PAYSTACK_SECRET_KEY`, optional `MENTOR_MODEL`, `MENTOR_DAILY_LIMIT` (default 40), `MENTOR_MONTHLY_LIMIT` (default 300; keep it low, it is the profit guardrail, see PRD 5.4), `AUTH_RATE_MAX`.
    Also: `SUPPORT_EMAIL` (shown on privacy/terms and the landing page), `PREMIUM_DAILY_LIMIT` (default 10).
    **Gemini billing must be ON** for the project behind `GEMINI_API_KEY`: the privacy policy promises student text is only sent to the paid tier (not used for training).

@@ -185,19 +185,19 @@ becomes two systems.
 
 1. [ ] Merge prerequisites first: the cohort branch, the VOICE2-001 roadmap-cache branch, and the
        PRD bundle's doc/config changes (keep the 4 review fixes; the bundle does not contain them).
-2. [ ] `db/courses.sql` + `scripts/migrateCourses.js` (courses, course_versions, jobs,
+2. [x] `db/courses.sql` + `scripts/migrateCourses.js` (courses, course_versions, jobs,
        `roadmaps.course_version_id`); register in `scripts/migrate.js`.
-3. [ ] `roadmapModel`: resolve `content` from `course_version_id` when the row's content is NULL;
+3. [x] `roadmapModel`: resolve `content` from `course_version_id` when the row's content is NULL;
        bounded in-memory cache of published versions. Tests: all four readers render a
        library-backed roadmap unchanged.
-4. [ ] `utils/courseGenerator.js`: per-week generation with JSON schema, `maxOutputTokens`,
+4. [x] `utils/courseGenerator.js`: per-week generation with JSON schema, `maxOutputTokens`,
        timeout, retry; `COURSE_MODEL` env var; validate 8 weeks × 7 days before saving a draft.
-5. [ ] In-process job runner (`FOR UPDATE SKIP LOCKED`, one job at a time, attempts + backoff).
-6. [ ] `scripts/courses.js generate|list|publish` for the founder; generate and review the 15
-       `track × level` drafts.
-7. [ ] `selectTrack`: if a published course exists for `track × level`, create the roadmap
+5. [x] In-process job runner (`FOR UPDATE SKIP LOCKED`, one job at a time, attempts + backoff).
+6. [~] `scripts/courses.js generate|list|show|publish` for the founder **(built)**; generate and
+       review the 15 `track × level` drafts **(founder, not done)**.
+7. [x] `selectTrack`: if a published course exists for `track × level`, create the roadmap
        pointing at it (0 AI calls) with a templated goal intro; otherwise the current path.
-8. [ ] Indexes: `roadmaps(user_id)`, `roadmaps(course_version_id)` (PRD finding #5).
+8. [x] Indexes: `roadmaps(user_id)`, `roadmaps(course_version_id)` (PRD finding #5).
 9. [ ] Cohort courses (F10, phase 2 proper): generate from syllabus via a job, capped per org in
        `ai_usage`, paid tier, editable draft → publish on the teacher page.
 10. [ ] After all 15 are published: remove the per-user generation path and the exact-goal cache;
