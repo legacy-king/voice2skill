@@ -1,5 +1,7 @@
 # Cohorts, payments & AI mentor (pilot build)
 
+Product spec, pricing, costs and roadmap: see [PRD.md](PRD.md).
+
 What this adds on top of the original app (EJS/Express is unchanged for existing free users):
 
 | Feature | Where |
@@ -17,7 +19,7 @@ Free users (no cohort) see no change: roadmap + daily check-ins stay free.
 ## Deploy checklist
 
 1. **Database:** `npm run migrate` (now includes `migrateCohorts.js`; idempotent).
-2. **Render env vars:** see `.env.example`. New ones: `APP_URL=https://voice2skill.com`, `PAYSTACK_SECRET_KEY`, optional `MENTOR_MODEL`, `MENTOR_DAILY_LIMIT`, `MENTOR_MONTHLY_LIMIT`, `AUTH_RATE_MAX`.
+2. **Render env vars:** see `.env.example`. New ones: `APP_URL=https://voice2skill.com`, `PAYSTACK_SECRET_KEY`, optional `MENTOR_MODEL`, `MENTOR_DAILY_LIMIT` (default 40), `MENTOR_MONTHLY_LIMIT` (default 300; keep it low, it is the profit guardrail, see PRD 5.4), `AUTH_RATE_MAX`.
 3. **Paystack:** create an account, start with the TEST secret key (`sk_test_...`). In the dashboard set the webhook URL to `https://voice2skill.com/webhooks/paystack`. Run a test payment with Paystack's test card before going live, then swap in the live key.
 4. **Register the tutor:** he signs up and verifies his email, then you run
    `node scripts/createOrg.js "His Bootcamp" his@email.com 20 net`

@@ -7,7 +7,7 @@ const { generateReply } = require('../utils/mentorService');
 
 const KIND = 'mentor';
 const DAILY_LIMIT = () => Number(process.env.MENTOR_DAILY_LIMIT) || 40;
-const MONTHLY_LIMIT = () => Number(process.env.MENTOR_MONTHLY_LIMIT) || 600;
+const MONTHLY_LIMIT = () => Number(process.env.MENTOR_MONTHLY_LIMIT) || 300;
 const MAX_MESSAGE_CHARS = 1000;
 const STALE_PENDING_MS = 60 * 1000;
 
