@@ -50,7 +50,8 @@ const weekendTask = { ...weekdayTask, day_type: 'weekend', day_number: 6 };
 // ---- Case list: (label, template file, locals, expected content strings) ----
 const cases = [
   ['landing', 'landing.ejs', {},
-    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Web Development', 'Cybersecurity',
+    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Software Engineering', 'Cybersecurity',
+     'For bootcamps', 'Join with a code', 'href="/join"', 'href="/privacy"', 'href="/terms"',
      'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
 
   ['login (no error)', 'login.ejs', {},
@@ -335,6 +336,20 @@ for (const [goal, expected] of matcherCases) {
     console.error(`✗ goal "${goal}" → got ${JSON.stringify(got)}, expected ${JSON.stringify(expected)}`);
   } else {
     console.log(`✓ goal "${goal}" → ${got}`);
+  }
+}
+
+// Production track name since syncTracks' rename: software goals must still match it.
+{
+  const liveTracks = tracks.map((t) => (t.name === 'Web Development' ? { ...t, name: 'Software Engineering' } : t));
+  for (const goal of ['I want to become a frontend developer', 'learn html and javascrit', 'software engineering']) {
+    const got = (matchTrackToGoal(goal, liveTracks) || {}).name || null;
+    if (got !== 'Software Engineering') {
+      failures++;
+      console.error(`✗ live track name: goal "${goal}" → got ${JSON.stringify(got)}, expected "Software Engineering"`);
+    } else {
+      console.log(`✓ live track name: goal "${goal}" → ${got}`);
+    }
   }
 }
 

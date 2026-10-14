@@ -15,7 +15,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const MIGRATIONS = [
-  'migrateGoals.js',             // roadmaps.goal column
+  'migrateBase.js',               // db/schema.sql: base tables (no-op on an existing database)
+  'migrateGoals.js',              // roadmaps.goal column
   'migrateVerification.js',       // users.email_verified + verification token columns
   'migratePasswordReset.js',      // users.password_reset_token columns
   'migrateSessions.js',           // session table + users.password_changed_at

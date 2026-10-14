@@ -8,9 +8,9 @@
  */
 
 const KEYWORDS = {
-  'Web Development': [
-    'web development', 'front end', 'frontend', 'back end', 'backend',
-    'full stack', 'fullstack', 'web', 'html', 'css', 'javascript', 'js',
+  'Software Engineering': [
+    'software engineering', 'software engineer', 'web development', 'front end', 'frontend',
+    'back end', 'backend', 'full stack', 'fullstack', 'web', 'html', 'css', 'javascript', 'js',
     'react', 'node', 'developer', 'software', 'coding', 'programming',
     'code', 'build websites', 'website', 'api', 'app', 'apps'
   ],
@@ -35,6 +35,8 @@ const KEYWORDS = {
     'threat', 'vulnerability', 'privacy', 'defensive security'
   ]
 };
+// Pre-rename name of the Software Engineering track (older databases, test fixtures).
+KEYWORDS['Web Development'] = KEYWORDS['Software Engineering'];
 
 /** Escape regex special chars so keywords match literally. */
 function escapeRegex(str) {

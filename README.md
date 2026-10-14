@@ -130,7 +130,7 @@ Migrations are idempotent — safe to run repeatedly against an existing databas
 | `node scripts/syncTracks.js` | Syncs the 5 landing-page tracks (renames legacy "Software Development" → "Software Engineering") |
 | `node scripts/migrateCapabilityCoach.js` | `assessments` table, `coach_responses` table, `roadmaps.assessment_id` column |
 
-**`npm run migrate`** runs all six migrations in order against the configured database (each is idempotent, so it's safe to run repeatedly). `db/schema.sql` is the canonical schema for fresh installs.
+**`npm run migrate`** runs every migration in order against the configured database: it first applies `db/schema.sql` (base tables, no-op on an existing database), then the column/table migrations above, the roadmap cache, and the cohort/payment/mentor tables (`db/cohorts.sql`). Each step is idempotent, so it works on a fresh database and is safe to re-run on production.
 
 ---
 
