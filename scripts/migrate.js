@@ -20,7 +20,8 @@ const MIGRATIONS = [
   'migratePasswordReset.js',      // users.password_reset_token columns
   'migrateSessions.js',           // session table + users.password_changed_at
   'syncTracks.js',                // syncs the 5 landing-page tracks (+ rename to Software Engineering)
-  'migrateCapabilityCoach.js'     // assessments, coach_responses tables + roadmaps.assessment_id
+  'migrateCapabilityCoach.js',    // assessments, coach_responses tables + roadmaps.assessment_id
+  'migrateCohorts.js'             // organizations, cohorts, memberships, payments, ai_usage, mentor_messages
 ];
 
 const TIMEOUT_MS = 120 * 1000; // guard against a hanging DB connection

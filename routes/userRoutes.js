@@ -3,7 +3,7 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const { rateLimiter } = require('../middleware/security');
 
-const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: 20, message: 'Too many attempts. Please wait a few minutes and try again.' });
+const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: Number(process.env.AUTH_RATE_MAX) || 60, message: 'Too many attempts. Please wait a few minutes and try again.' });
 
 router.post('/signup', authLimiter, userController.signup);
 router.post('/login', authLimiter, userController.login);

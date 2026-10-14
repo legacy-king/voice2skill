@@ -32,7 +32,8 @@ function csrfProtection(req, res, next) {
     return next();
   }
 
-  const sent = req.body && req.body._csrf;
+  // Forms send a hidden `_csrf` field; fetch() calls send the same token in a header.
+  const sent = (req.body && req.body._csrf) || req.get('x-csrf-token');
   if (typeof sent !== 'string' || sent !== req.session.csrfToken) {
     return res.status(403).send('Invalid or missing CSRF token. Please refresh and try again.');
   }
@@ -79,7 +80,11 @@ function rateLimiter({ windowMs = 15 * 60 * 1000, max = 100, message = 'Too many
   }
 
   return function rateLimit(req, res, next) {
-    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    // Logged-in users are limited per account, not per IP: a whole bootcamp class often shares
+    // one campus/wifi IP, and one student's burst must not lock out the rest.
+    const ip = (req.session && req.session.userId)
+      ? `u:${req.session.userId}`
+      : (req.ip || req.connection.remoteAddress || 'unknown');
     const now = Date.now();
 
     // Keep the map bounded: occasionally sweep stale keys.

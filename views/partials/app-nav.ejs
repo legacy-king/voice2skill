@@ -18,6 +18,14 @@
       <ul class="app-nav-links">
         <li><a href="/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>" <%= active === 'dashboard' ? 'aria-current="page"' : '' %>>Dashboard</a></li>
         <li><a href="/tracks" class="<%= active === 'tracks' ? 'active' : '' %>" <%= active === 'tracks' ? 'aria-current="page"' : '' %>>Skill Tracks</a></li>
+        <% if (typeof ent !== 'undefined' && ent.hasMentor) { %>
+          <li><a href="/mentor" class="<%= active === 'mentor' ? 'active' : '' %>" <%= active === 'mentor' ? 'aria-current="page"' : '' %>>AI Mentor</a></li>
+        <% } else { %>
+          <li><a href="/join" class="<%= active === 'join' ? 'active' : '' %>" <%= active === 'join' ? 'aria-current="page"' : '' %>>Join a bootcamp</a></li>
+        <% } %>
+        <% if (typeof ent !== 'undefined' && ent.isTeacher) { %>
+          <li><a href="/teacher" class="<%= active === 'teacher' ? 'active' : '' %>" <%= active === 'teacher' ? 'aria-current="page"' : '' %>>Teacher</a></li>
+        <% } %>
         <li><a href="/security" class="<%= active === 'security' ? 'active' : '' %>" <%= active === 'security' ? 'aria-current="page"' : '' %>>Security</a></li>
         <% if (typeof roadmapUrl !== 'undefined' && roadmapUrl) { %>
           <li><a href="<%= roadmapUrl %>" class="<%= active === 'roadmap' ? 'active' : '' %>" <%= active === 'roadmap' ? 'aria-current="page"' : '' %>>My Roadmap</a></li>

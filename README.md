@@ -19,6 +19,10 @@ Many people want to learn digital skills — Software Engineering, UI/UX design,
 - 📚 Follow a structured weekly and daily focus, not a random collection of tutorials
 - ✅ Log daily check-ins to track consistency and progress
 
+## Bootcamp cohorts, payments & AI mentor
+
+Tutors can run a paid cohort: students join with an invite code, pay via Paystack, and get an AI mentor grounded in the tutor's syllabus; the tutor gets a roster/progress dashboard and a revenue share. See [docs/COHORTS.md](docs/COHORTS.md) for setup, env vars and the deploy checklist.
+
 ## Tech Stack
 
 - **Backend:** Node.js, Express

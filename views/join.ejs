@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Join a bootcamp - Voice2Skill</title>
+  <%- include('partials/head-app') %>
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'join' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <section class="co-hero">
+      <span class="app-eyebrow">Bootcamp cohorts</span>
+      <h1>Join your <span class="grad-text">bootcamp cohort</span></h1>
+      <p>Enter the code your tutor gave you to unlock the AI mentor, trained on your tutor's syllabus.</p>
+
+      <% if (message) { %><div class="co-note" role="status"><%= message %></div><% } %>
+      <% if (error) { %><div class="goal-error" role="alert"><%= error %></div><% } %>
+
+      <form class="co-code-form" action="/join" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="visually-hidden" for="code">Cohort code</label>
+        <input type="text" id="code" name="code" value="<%= code %>" placeholder="e.g. KJ7M-Q2XD" maxlength="14" autocomplete="off" autocapitalize="characters" required>
+        <button type="submit" class="btn btn-gold">Join cohort</button>
+      </form>
+      <p class="co-fine">By joining, your tutor can see your name, email and check-in progress (never your private check-in notes).</p>
+    </section>
+
+    <% if (memberships.length) { %>
+    <section class="co-section">
+      <h2>Your cohorts</h2>
+      <div class="co-cards">
+        <% memberships.forEach(function (m) {
+             const active = m.status === 'active' && m.access_until && new Date(m.access_until) > new Date();
+             const expired = m.status === 'active' && !active; %>
+          <article class="co-card">
+            <h3><%= m.cohort_name %></h3>
+            <p class="co-muted"><%= m.org_name %></p>
+            <% if (active) { %>
+              <p class="co-pill co-pill-ok">Active until <%= new Date(m.access_until).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></p>
+              <div class="co-actions">
+                <a class="btn btn-gold" href="/mentor">Open AI mentor</a>
+                <% if (m.price_kobo > 0) { %>
+                <form action="/pay/<%= m.cohort_id %>" method="POST">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-ghost">Renew +<%= m.access_days %> days (<%= naira(m.price_kobo) %>)</button>
+                </form>
+                <% } %>
+              </div>
+            <% } else if (!m.active && !m.access_until) { %>
+              <p class="co-pill co-pill-warn">Cohort closed</p>
+              <p class="co-fine">This cohort is no longer taking new payments. Check with your tutor.</p>
+            <% } else if (m.price_kobo === 0) { %>
+              <p class="co-pill"><%= expired ? 'Access expired' : 'Not activated' %></p>
+              <form action="/join" method="POST" class="co-actions">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="code" value="<%= m.invite_code %>">
+                <button type="submit" class="btn btn-gold"><%= expired ? 'Renew' : 'Activate' %> free access (<%= m.access_days %> days)</button>
+              </form>
+            <% } else if (m.price_kobo > 0) { %>
+              <p class="co-pill <%= expired ? 'co-pill-warn' : '' %>"><%= expired ? 'Access expired' : 'Payment needed' %></p>
+              <form action="/pay/<%= m.cohort_id %>" method="POST" class="co-actions">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn btn-gold">Pay <%= naira(m.price_kobo) %> for <%= m.access_days %> days</button>
+              </form>
+              <p class="co-fine">Secure checkout by Paystack. Access activates automatically once payment is confirmed.</p>
+            <% } %>
+          </article>
+        <% }) %>
+      </div>
+    </section>
+    <% } %>
+  </main>
+</body>
+</html>
