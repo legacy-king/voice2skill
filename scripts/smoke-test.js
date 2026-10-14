@@ -157,6 +157,13 @@ const cases = [
     error: null
   }, ['Capability Assessment', 'Question 1 of 8', 'What does the', 'tag do in HTML', 'Creates a hyperlink', '_csrf', 'noindex']],
 
+  ['assessment result', 'assessment-result.ejs', {
+    track: { id: 1, name: 'Software Engineering', description: 'Build reliable, scalable software systems.' },
+    goal: 'become a backend engineer',
+    level: 'builder',
+    score: 4
+  }, ['Assessment complete', 'Builder', '4 out of 8', 'become a backend engineer', 'Build my roadmap', 'action="/tracks/1/select"', 'name="goal"', '_csrf']],
+
   ['roadmap (active weekday)', 'roadmap.ejs',
     {
       roadmap: { id: 42 },
@@ -375,7 +382,7 @@ for (const [goal, expected] of searchCases) {
 const { scoreAssessment, getNextQuestion } = require('../utils/capabilityAssessment');
 const { getLevelContext, analyzeTopicScores } = require('../utils/coachService');
 
-// Foundation level (0-4 correct)
+// Foundation level (0-2 correct)
 const foundationAnswers = { html_basics: 'a', css_box_model: 'a' };
 const foundationResult = scoreAssessment(foundationAnswers);
 if (foundationResult.level !== 'foundation') {
@@ -385,15 +392,10 @@ if (foundationResult.level !== 'foundation') {
   console.log(`✓ foundation level (${foundationResult.score} correct)`);
 }
 
-// Professional level (11+ correct)
+// Professional level (6+ correct in the eight-question diagnostic)
 const professionalAnswers = {
-  html_basics: 'a', css_box_model: 'a', css_selectors: 'a',
-  js_basics: 'a', js_basics_advanced: 'a', js_async: 'a', js_frameworks: 'a',
-  git_basics: 'a', git_branching: 'a', git_collaboration: 'a',
-  debugging: 'a', debugging_tools: 'a',
-  apis: 'a', api_methods: 'a',
-  testing: 'a', testing_types: 'a',
-  architecture: 'a', architecture_patterns: 'a'
+  html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a',
+  apis: 'a', testing: 'a', architecture: 'a', architecture_patterns: 'a'
 };
 const professionalResult = scoreAssessment(professionalAnswers);
 if (professionalResult.level !== 'professional') {
@@ -403,8 +405,8 @@ if (professionalResult.level !== 'professional') {
   console.log(`✓ professional level (${professionalResult.score} correct)`);
 }
 
-// Builder level (5-10 correct)
-const builderAnswers = { html_basics: 'a', css_box_model: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a', apis: 'a' };
+// Builder level (3-5 correct)
+const builderAnswers = { html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a' };
 const builderResult = scoreAssessment(builderAnswers);
 if (builderResult.level !== 'builder') {
   failures++;
@@ -413,14 +415,17 @@ if (builderResult.level !== 'builder') {
   console.log(`✓ builder level (${builderResult.score} correct)`);
 }
 
-// Adaptive follow-up: wrong HTML should offer css_box_model next
-const adaptiveAnswers = { html_basics: 'b' };
+// Adaptive follow-up: strong core answers should earn an architecture question.
+const adaptiveAnswers = {
+  html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a',
+  apis: 'a', testing: 'a', architecture: 'a'
+};
 const nextQ = getNextQuestion(adaptiveAnswers);
-if (!nextQ || nextQ.id !== 'css_box_model') {
+if (!nextQ || nextQ.id !== 'architecture_patterns') {
   failures++;
-  console.error(`✗ adaptive follow-up: expected css_box_model, got ${nextQ?.id}`);
+  console.error(`✗ adaptive follow-up: expected architecture_patterns, got ${nextQ?.id}`);
 } else {
-  console.log('✓ adaptive follow-up → css_box_model after wrong HTML answer');
+  console.log('✓ adaptive follow-up → architecture_patterns after strong core answers');
 }
 
 // ---- Coach service unit checks ----

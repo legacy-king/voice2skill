@@ -43,6 +43,7 @@ CREATE TABLE roadmaps (
   goal TEXT,
   content JSONB NOT NULL,
   assessment_id INTEGER REFERENCES assessments(id),
+  is_cached BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

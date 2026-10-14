@@ -49,6 +49,8 @@ router.get('/robots.txt', (req, res) => {
     `Sitemap: ${base}/sitemap.xml\n`
   );
 });
+router.get('/privacy', (req, res) => res.render('privacy', {}));
+router.get('/terms', (req, res) => res.render('terms', {}));
 
 // POST, not GET: destroying a session is a state change and must be CSRF-protected.
 router.post('/logout', rateLimiter({ max: 30 }), userController.logout);

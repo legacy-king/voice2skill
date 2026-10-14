@@ -99,7 +99,6 @@ async function selectTrack(req, res) {
     if (!assessmentId) {
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
-    // Verify assessment belongs to this user and track
     const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
     if (!assessment || assessment.id !== assessmentId) {
       return res.redirect(`/tracks/${trackId}/assessment`);
@@ -107,28 +106,39 @@ async function selectTrack(req, res) {
   }
 
   const goal = typeof req.body.goal === 'string' ? req.body.goal.trim().slice(0, 200) : '';
+  const normalizedGoal = goal.toLowerCase();
 
-  try {
-    // Get assessment context for Software Engineering
-    let assessmentContext = null;
-    if (track.name === 'Software Engineering') {
-      const assessmentId = req.query.assessmentId ? Number.parseInt(req.query.assessmentId, 10) : req.session.assessmentId;
-      if (assessmentId) {
-        const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
-        if (assessment) {
-          assessmentContext = {
-            level: assessment.level,
-            topicScores: assessment.topic_scores
-          };
-        }
+  // Resolve assessment context once — used for both cache-key correctness and generation
+  let assessmentContext = null;
+  let assessmentLevel = null;
+  let resolvedAssessmentId = null;
+  if (track.name === 'Software Engineering') {
+    const assessmentId = req.query.assessmentId ? Number.parseInt(req.query.assessmentId, 10) : req.session.assessmentId;
+    if (assessmentId) {
+      const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
+      if (assessment) {
+        assessmentContext = { level: assessment.level, topicScores: assessment.topic_scores };
+        assessmentLevel = assessment.level;
+        resolvedAssessmentId = assessmentId;
       }
     }
+  }
 
+  // Cache check — only for non-empty goals, exact match after trim/lowercase, same track + level
+  if (goal) {
+    const cached = await roadmapModel.findCachedRoadmap(trackId, normalizedGoal, assessmentLevel);
+    if (cached) {
+      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cached.content, goal, resolvedAssessmentId, true);
+      delete req.session.assessmentId;
+      delete req.session.assessmentLevel;
+      return res.redirect(`/roadmaps/${newRoadmap.id}`);
+    }
+  }
+
+  try {
     const content = await generateRoadmapContent(track.name, track.description, goal || null, assessmentContext);
-    const assessmentId = track.name === 'Software Engineering' ? (req.session.assessmentId || null) : null;
-    const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, content, goal || null, assessmentId);
+    const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, content, goal || null, resolvedAssessmentId, false);
 
-    // Clear assessment from session
     delete req.session.assessmentId;
     delete req.session.assessmentLevel;
 
