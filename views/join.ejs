@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Join a bootcamp - Voice2Skill</title>
+  <title>Upgrade - Voice2Skill</title>
   <%- include('partials/head-app') %>
 </head>
 <body class="app">
@@ -9,13 +9,36 @@
 
   <main class="app-wrap app-main" id="main">
     <section class="co-hero">
-      <span class="app-eyebrow">Bootcamp cohorts</span>
-      <h1>Join your <span class="grad-text">bootcamp cohort</span></h1>
-      <p>Enter the code your tutor gave you to unlock the AI mentor, trained on your tutor's syllabus.</p>
+      <span class="app-eyebrow">Learn with AI</span>
+      <h1>Go <span class="grad-text">Premium</span>, or join your bootcamp</h1>
+      <p>Your plan and free resources stay free. The AI coach and AI mentor come with Premium or a bootcamp cohort.</p>
 
       <% if (message) { %><div class="co-note" role="status"><%= message %></div><% } %>
       <% if (error) { %><div class="goal-error" role="alert"><%= error %></div><% } %>
+    </section>
 
+    <% if (premiumOffer) { %>
+    <section class="co-section">
+      <article class="co-card co-premium">
+        <h2>Premium</h2>
+        <p class="co-price"><%= naira(premiumOffer.price_kobo) %> <span class="co-muted">for <%= premiumOffer.access_days %> days</span></p>
+        <ul class="co-list">
+          <li>AI coach feedback on every check-in</li>
+          <li>AI mentor chat about your lessons, errors and projects</li>
+          <li>Everything in Free: your 8-week plan, check-ins, streaks, reminders</li>
+        </ul>
+        <form action="/premium" method="POST" class="co-actions">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-gold">Upgrade for <%= naira(premiumOffer.price_kobo) %></button>
+        </form>
+        <p class="co-fine">Secure checkout by Paystack. One payment = <%= premiumOffer.access_days %> days of access; it does not renew automatically.</p>
+      </article>
+    </section>
+    <% } %>
+
+    <section class="co-section">
+      <h2>In a bootcamp?</h2>
+      <p>Enter the code your tutor gave you to unlock your tutor’s AI mentor, trained on their syllabus.</p>
       <form class="co-code-form" action="/join" method="POST">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <label class="visually-hidden" for="code">Cohort code</label>
@@ -27,7 +50,7 @@
 
     <% if (memberships.length) { %>
     <section class="co-section">
-      <h2>Your cohorts</h2>
+      <h2>Your plans</h2>
       <div class="co-cards">
         <% memberships.forEach(function (m) {
              const active = m.status === 'active' && m.access_until && new Date(m.access_until) > new Date();

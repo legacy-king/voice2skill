@@ -10,7 +10,10 @@ router.get('/join', cohortController.joinPage);
 router.post('/join', rateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many attempts. Please wait a few minutes.' }), cohortController.joinCohort);
 
 // Payments (webhook is mounted separately in server.js, before sessions/CSRF).
-router.post('/pay/:cohortId', rateLimiter({ max: 10 }), cohortController.startPayment);
+// One limiter for both entry points, so Premium and cohort checkouts share the same budget.
+const payLimiter = rateLimiter({ max: 10 });
+router.post('/premium', payLimiter, cohortController.startPremium);
+router.post('/pay/:cohortId', payLimiter, cohortController.startPayment);
 router.get('/pay/callback', cohortController.paymentCallback);
 
 // AI mentor.

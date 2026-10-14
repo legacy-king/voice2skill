@@ -20,7 +20,7 @@
 
 **Why it exists.** Free learning material is everywhere; structure and accountability are not. The founder built it because he needed a mentor while self-teaching and often didn't have one.
 
-**How it makes money.** Bootcamps and tutors bring cohorts of students. Each student pays a monthly fee for the AI mentor and tutor-visible progress; the bootcamp earns a revenue share. Individuals can also subscribe directly. Free users get the structured plan and daily check-ins as the acquisition funnel.
+**How it makes money.** Bootcamps and tutors bring cohorts of students. Each student pays a monthly fee for the AI mentor and tutor-visible progress; the bootcamp earns a revenue share. Individuals can also subscribe directly. Free users get the structured plan through free resources and daily check-ins (no AI) as the acquisition funnel; learning with AI is paid: Premium for individuals (₦6,000/month) or through a bootcamp.
 
 **First customer.** A tutor who proposed the idea and plans to start a bootcamp; students use Voice2Skill after class to keep learning daily. Target: working pilot within about two weeks.
 
@@ -84,25 +84,27 @@
 
 ### 5.1 Tiers
 
-All prices are **[Assumption]** to be validated with the tutor's first cohort; they are structured so a wrong price is a config change, not a rebuild.
+**The tier rule (founder decision, 14 Oct 2026): Free = free resources, no AI. Learning with AI is paid**: either Premium (individuals) or through a bootcamp, where the AI mentor carries the tutor's name. Prices live in the database (Premium: `cohorts` row with `kind = 'premium'`; bootcamps: set by the tutor), so a price change is an `UPDATE`, not a deploy.
 
-| | **Free** | **Premium** (individual) | **Cohort** (bootcamp student) | **Organization** (bootcamp) |
+| | **Free** | **Premium** (individual) | **Bootcamp** (cohort student) | **Organization** (bootcamp/school) |
 |---|---|---|---|---|
-| Price | ₦0 | ~₦3,000/mo (test ₦2,500–5,000) | Set by tutor, ~₦5,000–8,000/mo | Free in pilot; later flat fee (see 5.3) |
-| Structured 8-week plan | 1 track, library version | Multiple tracks, goal-personalized | Tutor's syllabus-based plan | n/a |
-| Daily check-ins + streak + reminders | Yes | Yes | Yes | n/a |
-| AI check-in coach | Cheap/templated | Full | Full | n/a |
-| AI mentor chat | 10 msgs/month (taster) | 300 msgs/month, 10/day | 300 msgs/month, 40/day [Built default 600/month, change to 300] | n/a |
-| Grounded in tutor's syllabus | No | No | **Yes** | Tutor manages it |
+| Price | ₦0 | **₦6,000 / 30 days** **[Built]** | Set by tutor, ~₦5,000–8,000/mo | Free in pilot; later flat fee (see 5.3); "Contact us" on the landing page |
+| Structured 8-week plan (daily lesson, quiz, free resource, weekly project) | Yes | Yes | Yes (tutor's syllabus-based plan **[Planned]**) | n/a |
+| Daily check-ins (type or speak) + streak + reminders | Yes | Yes | Yes | n/a |
+| AI check-in coach | **No** — template reply, no AI call **[Built]** | Yes **[Built]** | Yes **[Built]** | n/a |
+| AI mentor chat | **No** | 300 msgs/month, 10/day **[Built]** | 300 msgs/month, 40/day **[Built]** | n/a |
+| Mentor identity | n/a | "Voice2Skill AI mentor", grounded in the learner's roadmap | "**[Tutor name]'s AI mentor**" (`cohorts.mentor_name`, default the tutor's account name), grounded in the tutor's syllabus; always says it is an AI **[Built]**. Tutor photo/avatar **[Planned]** | Tutor manages it |
 | Project feedback (AI rubric) | No | 4 per month **[Planned]** | 4 per month **[Planned]** | n/a |
-| Tutor sees progress | No | No | **Yes** (name, email, counts; never notes) | Yes |
-| Access model | Always | 30 days per payment, renew | `access_days` per payment (default 30) | n/a |
+| Tutor sees progress | No | No | **Yes** (name, email, counts; never notes or mentor chats) | Yes |
+| Access model | Always | 30 days per payment, manual renewal, no auto-charge | `access_days` per payment (default 30) | n/a |
 
-Free-tier mentor taster and Premium are **[Planned]**; today only Cohort entitlement exists. The entitlement function `canUse(state, feature)` in `utils/entitlements.js` is where all gating lives.
+**How Premium is built.** Premium is a built-in cohort (`kind = 'premium'`, owned by the platform organization "Voice2Skill", 0% revenue share), seeded by `db/cohorts.sql`. Buying it is `POST /premium`, which reuses the bootcamp checkout end to end: price from the DB, Paystack, signed webhook, idempotent `settlePayment()`, `access_until` extension. All gating lives in `canUse(state, feature)` in `utils/entitlements.js` (`ai_coach`, `mentor_chat`).
+
+**Known gap:** the 8-week plan itself is still generated per user with AI on the Free tier (finding #1). That AI cost on free users ends with the Course Library (ADR-001).
 
 ### 5.2 Revenue streams
 1. **Cohort subscriptions (core, pilot).** Student pays; bootcamp earns a share (default 20% of the amount after Paystack fees; `net` or `gross` configurable per org).
-2. **Individual Premium.** Direct-to-consumer; no share. Cheap to serve once the Course Library exists.
+2. **Individual Premium (₦6,000 / 30 days) [Built].** Direct-to-consumer; no share. Cheap to serve once the Course Library exists.
 3. **Organization plan (later).** Flat monthly fee for branding, multiple teachers, analytics export, and/or bulk seat billing.
 4. **Not now:** ads, employer placement fees, certificates for sale. Revisit with traction.
 
@@ -123,7 +125,7 @@ Your margin per paying student at **₦5,000/mo**, per month, after Paystack, bo
 | Gemini 3.5 Flash-Lite ($0.30/$2.50) | ₦3,635 (73%) | ₦2,951 (59%) | ₦2,096 (42%) |
 | Claude Haiku 5.5 ($0.10/$0.50) | ₦3,802 (76%) | ₦3,622 (72%) | ₦3,396 (68%) |
 
-At ₦3,000/mo (Premium, no share) the same models leave 17–74% margin at the 300 cap; at ₦8,000/mo margins rise to 33–77%.
+At ₦6,000/mo (Premium, no share, no bootcamp cut) margins are higher than the ₦5,000 cohort column above at every cap; at ₦8,000/mo margins rise to 33–77%.
 
 **Findings:**
 1. **The message cap is the real profit guardrail.** At the old default of 600 messages/month on Gemini 3.6 Flash after its scheduled price rise, a heavy student *loses* money. Set `MENTOR_MONTHLY_LIMIT=300` and use a Flash-Lite-class or Haiku-class model for chat. (Code default changes to 300 in this release.)
@@ -299,7 +301,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | F8 | Teacher roster + earnings + nudge flag | Built | Teacher can't see notes; students can't open teacher pages |
 | F9 | Ledger + payouts scripts | Built | Owed = share − payouts |
 | F10 | Course Library (versioned, reusable, tutor-editable) | Planned P2 | New user gets plan with 0 AI calls |
-| F11 | Free taster (10 msgs/mo) + Premium individual tier | Planned P2 | Entitlements per plan in `canUse` |
+| F11 | Premium individual tier (₦6,000/30 days; AI coach + mentor); Free has no AI | **Built** | `canUse` (`ai_coach`, `mentor_chat`); free check-in gets template coach; `POST /premium` → Paystack → access |
 | F12 | React frontend + JSON API on Cloudflare Pages/Render | Planned P2 | All pages ported; cookies work cross-subdomain |
 | F13 | Recurring billing, auto split payments | Planned P3 | Paystack plan renews; subaccount split matches ledger |
 | F14 | Project submission + AI rubric feedback | Planned P3 | Capped per month; stored per user |
@@ -325,7 +327,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 |---|---|---|---|
 | **1 — Pilot** | Now → ~2 weeks | Deploy cohort build; Render $7; Paystack test then live; create the tutor's org; load his syllabus; set `APP_URL`, `MENTOR_MODEL`, caps; Brevo domain auth; privacy policy/terms | Tutor's first cohort can join, pay, chat; tutor sees roster; ledger correct |
 | **1.5 — Hardening** | Weeks 2–4 | Fix reminder job (#2), add indexes (#5), Sentry, load test, refund process, cost review | No incidents in a full week of daily use |
-| **2 — Scale content & UX** | Month 2 | Course Library, free taster + Premium, React/API split + Cloudflare Pages, admin cost dashboard | Per-user AI cost ≈ chat only; site fast on mobile |
+| **2 — Scale content & UX** | Month 2 | Course Library, React/API split + Cloudflare Pages, admin cost dashboard | Per-user AI cost ≈ chat only; site fast on mobile |
 | **3 — Monetize deeper** | Month 3+ | Recurring billing, auto split, projects + AI feedback, tutor tools, org plan, 2nd bootcamp | 3+ bootcamps; positive monthly profit |
 
 **Decision gate after Phase 1:** if the tutor's cohort does not reach ~70% of enrolled students active in week 2, fix retention (reminders, tutor nudges, content) before building Phase 2.
@@ -364,7 +366,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 2. Choose the mentor model after a quality test on the tutor's syllabus (Flash-Lite vs Haiku vs Flash).
 3. Obtain the tutor's real syllabus (even rough notes). The mentor is only as good as this text.
 4. Decide launch legal entity and Paystack account type; draft privacy policy and terms.
-5. Premium price and the free-taster size.
+5. Premium price: **₦6,000 / 30 days (decided 14 Oct 2026)**; revisit after the first month of data.
 6. Branding level for the organization plan.
 
 ---
@@ -372,7 +374,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 ## 15. Instructions for Claude Code (build rules)
 
 1. **Read first:** this PRD, `docs/COHORTS.md`, `.env.example`.
-2. **Never break free users.** Anyone with no cohort must keep the roadmap + check-in experience unchanged.
+2. **Never break free users, and never give them AI.** Anyone with no paid plan keeps the plan + check-in experience; AI features (coach, mentor, any new one) are gated through `canUse` to Premium/bootcamp.
 3. **Money is integer kobo.** No floats for currency. Every paid-state change goes through `settlePayment`.
 4. **Gate features only through `canUse(state, feature)`** in `utils/entitlements.js`. Add features there, not inline.
 5. **Every migration idempotent** (`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`); add new tables to `db/cohorts.sql` or a new `db/*.sql` run by a `scripts/migrate*.js` registered in `scripts/migrate.js`.

@@ -50,9 +50,14 @@ const weekendTask = { ...weekdayTask, day_type: 'weekend', day_number: 6 };
 // ---- Case list: (label, template file, locals, expected content strings) ----
 const cases = [
   ['landing', 'landing.ejs', {},
-    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Software Engineering', 'Cybersecurity',
-     'For bootcamps', 'Join with a code', 'href="/join"', 'href="/privacy"', 'href="/terms"',
+    ['Speak it.', 'Learn it. Earn it.', 'Start free', 'Software Engineering', 'Cybersecurity',
+     'For bootcamps', 'Join with a code', 'Premium', '₦6,000', 'Organizations', 'Contact us', 'href="/join"', 'href="/privacy"', 'href="/terms"',
      'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
+
+  ['privacy', 'privacy.ejs', {},
+    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023']],
+  ['terms', 'terms.ejs', {},
+    ['Terms of Service', 'Premium', 'does <strong>not</strong> renew automatically', 'Refunds', 'help@voice2skill.test']],
 
   ['login (no error)', 'login.ejs', {},
     ['Welcome back', 'Log in', 'Sign up free', '_csrf', 'Skip to content', 'noindex', 'id="main"']],
@@ -273,8 +278,8 @@ const cases = [
 
 let failures = 0;
 
-// Mirrors what the real app always provides via res.locals (csrf middleware + appUrl).
-const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token', appUrl: 'https://voice2skill.test' };
+// Mirrors what the real app always provides via res.locals (csrf middleware, appUrl, supportEmail).
+const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token', appUrl: 'https://voice2skill.test', supportEmail: 'help@voice2skill.test' };
 
 for (const [label, file, locals, expect] of cases) {
   const fullPath = path.join(VIEWS_DIR, file);

@@ -35,21 +35,27 @@ async function getCohort(id) {
   return rows[0];
 }
 
+/** The built-in individual Premium plan (seeded by db/cohorts.sql). */
+async function getPremiumCohort() {
+  const { rows } = await pool.query("SELECT * FROM cohorts WHERE kind = 'premium' LIMIT 1");
+  return rows[0];
+}
+
 async function getOrgByOwner(userId) {
   const { rows } = await pool.query('SELECT * FROM organizations WHERE owner_user_id = $1 ORDER BY id LIMIT 1', [userId]);
   return rows[0];
 }
 
 /** Create a cohort (retrying on the astronomically unlikely code collision) + teacher membership for the creator. */
-async function createCohort({ orgId, creatorId, name, priceKobo, accessDays, curriculum }) {
+async function createCohort({ orgId, creatorId, name, priceKobo, accessDays, curriculum, mentorName }) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const { rows } = await client.query(
-        `INSERT INTO cohorts (org_id, name, invite_code, price_kobo, access_days, curriculum)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [orgId, name, generateInviteCode(), priceKobo, accessDays, curriculum]
+        `INSERT INTO cohorts (org_id, name, invite_code, price_kobo, access_days, curriculum, mentor_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        [orgId, name, generateInviteCode(), priceKobo, accessDays, curriculum, mentorName || null]
       );
       await client.query(
         `INSERT INTO memberships (user_id, cohort_id, role, status)
@@ -69,11 +75,13 @@ async function createCohort({ orgId, creatorId, name, priceKobo, accessDays, cur
   throw new Error('Could not generate a unique invite code');
 }
 
-async function updateCohort(id, { name, priceKobo, accessDays, curriculum, active }) {
+async function updateCohort(id, { name, priceKobo, accessDays, curriculum, active, mentorName }) {
+  // kind = 'bootcamp': the platform's Premium plan is never editable from a teacher page.
   const { rows } = await pool.query(
-    `UPDATE cohorts SET name = $2, price_kobo = $3, access_days = $4, curriculum = $5, active = $6
-      WHERE id = $1 RETURNING *`,
-    [id, name, priceKobo, accessDays, curriculum, active]
+    `UPDATE cohorts SET name = $2, price_kobo = $3, access_days = $4, curriculum = $5, active = $6,
+                        mentor_name = $7
+      WHERE id = $1 AND kind = 'bootcamp' RETURNING *`,
+    [id, name, priceKobo, accessDays, curriculum, active, mentorName || null]
   );
   return rows[0];
 }
@@ -135,6 +143,6 @@ async function getOrgLedger(orgId) {
 }
 
 module.exports = {
-  generateInviteCode, normalizeCode, findActiveByCode, getCohort, getOrgByOwner,
+  generateInviteCode, normalizeCode, findActiveByCode, getCohort, getPremiumCohort, getOrgByOwner,
   createCohort, updateCohort, listManagedCohorts, getRoster, getOrgLedger
 };

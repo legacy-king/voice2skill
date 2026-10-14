@@ -10,8 +10,13 @@
   <main class="app-wrap app-main co-chat-main" id="main">
     <header class="co-chat-head">
       <div>
-        <span class="app-eyebrow"><%= orgName %></span>
-        <h1>AI Mentor · <span class="grad-text"><%= cohortName %></span></h1>
+        <% if (kind === 'premium') { %>
+          <span class="app-eyebrow">Voice2Skill Premium</span>
+          <h1>Your <span class="grad-text">AI Mentor</span></h1>
+        <% } else { %>
+          <span class="app-eyebrow"><%= orgName %> · <%= cohortName %></span>
+          <h1><%= mentorName %>’s <span class="grad-text">AI Mentor</span></h1>
+        <% } %>
       </div>
       <p class="co-muted" id="remaining" aria-live="polite"><%= remainingToday %> of <%= dailyLimit %> messages left today</p>
     </header>
@@ -20,7 +25,11 @@
 
     <div class="co-chat" id="chat" role="log" aria-live="polite" aria-label="Conversation with your AI mentor">
       <% if (history.length === 0) { %>
-        <div class="co-msg co-msg-bot" id="welcome">Hi! I'm your study mentor for <%= cohortName %>. Ask me about anything from class, paste an error you're stuck on, or tell me what you're working on today.</div>
+        <% if (kind === 'premium') { %>
+          <div class="co-msg co-msg-bot" id="welcome">Hi! I'm your Voice2Skill AI mentor. Ask me about today's lesson, paste an error you're stuck on, or tell me what you're working on.</div>
+        <% } else { %>
+          <div class="co-msg co-msg-bot" id="welcome">Hi! I'm <%= mentorName %>'s AI mentor for <%= cohortName %>. Ask me about anything from class, paste an error you're stuck on, or tell me what you're working on today. (I'm an AI — for grades or admin, ask <%= mentorName %> directly.)</div>
+        <% } %>
       <% } %>
       <% history.forEach(function (h) { %>
         <div class="co-msg <%= h.role === 'user' ? 'co-msg-me' : 'co-msg-bot' %>"><%= h.content %></div>

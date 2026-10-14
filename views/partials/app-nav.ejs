@@ -21,7 +21,7 @@
         <% if (typeof ent !== 'undefined' && ent.hasMentor) { %>
           <li><a href="/mentor" class="<%= active === 'mentor' ? 'active' : '' %>" <%= active === 'mentor' ? 'aria-current="page"' : '' %>>AI Mentor</a></li>
         <% } else { %>
-          <li><a href="/join" class="<%= active === 'join' ? 'active' : '' %>" <%= active === 'join' ? 'aria-current="page"' : '' %>>Join a bootcamp</a></li>
+          <li><a href="/join" class="<%= active === 'join' ? 'active' : '' %>" <%= active === 'join' ? 'aria-current="page"' : '' %>>Go Premium</a></li>
         <% } %>
         <% if (typeof ent !== 'undefined' && ent.isTeacher) { %>
           <li><a href="/teacher" class="<%= active === 'teacher' ? 'active' : '' %>" <%= active === 'teacher' ? 'aria-current="page"' : '' %>>Teacher</a></li>

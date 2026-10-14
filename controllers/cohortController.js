@@ -10,8 +10,9 @@ const APP_URL = () => (process.env.APP_URL || 'https://voice2skill.onrender.com'
 
 const MESSAGES = {
   already: 'You are already in that cohort.',
-  need_access: 'The AI mentor is part of a bootcamp cohort. Enter your cohort code to unlock it.',
+  need_access: 'The AI mentor and AI coach come with Premium or a bootcamp cohort. Upgrade below, or enter your tutor\'s cohort code.',
   paid: 'Payment received. Your mentor access is active.',
+  premium_unavailable: 'Premium is not available right now. Please try again later.',
   not_paid_yet: 'We have not received your payment yet. If you were charged, it will activate within a few minutes.',
   failed: 'That payment did not go through. You were not charged. Please try again.',
   pay_error: 'We could not start the payment. Please try again in a moment.',
@@ -24,11 +25,14 @@ const ERRORS = {
   empty_code: 'Enter the cohort code your tutor gave you.'
 };
 
-/** GET /join — enter a code, see your cohorts, pay / renew. */
+/** GET /join — upgrade to Premium, enter a cohort code, see your plans, pay / renew. */
 async function joinPage(req, res) {
   if (!req.session.userId) return res.redirect('/login');
-  const state = await loadState(req.session.userId);
+  const [state, premium] = await Promise.all([loadState(req.session.userId), cohortModel.getPremiumCohort()]);
+  const hasPremiumRow = state.memberships.some((m) => m.kind === 'premium');
   res.render('join', {
+    // Once someone has a Premium membership it is listed (and renewed) like any other plan.
+    premiumOffer: premium && premium.active && !hasPremiumRow ? premium : null,
     memberships: state.memberships.filter((m) => m.role === 'student'),
     message: MESSAGES[req.query.message] || null,
     error: ERRORS[req.query.error] || null,
@@ -109,6 +113,26 @@ async function startPayment(req, res) {
 }
 
 /**
+ * POST /premium — individual Premium. Premium is a built-in cohort (kind 'premium'), so this only
+ * ensures a pending membership and then runs the normal checkout: same price-from-DB rule, same
+ * webhook, same idempotent settlePayment(), same 30-day access_until extension.
+ */
+async function startPremium(req, res) {
+  if (!req.session.userId) return res.redirect('/login');
+  const premium = await cohortModel.getPremiumCohort();
+  if (!premium || !premium.active || premium.price_kobo === 0) return res.redirect('/join?message=premium_unavailable');
+  await pool.query(
+    `INSERT INTO memberships (user_id, cohort_id, role, status)
+     VALUES ($1, $2, 'student', 'pending_payment')
+     ON CONFLICT (user_id, cohort_id) DO NOTHING`,
+    [req.session.userId, premium.id]
+  );
+  req.session.entStale = true;
+  req.params.cohortId = String(premium.id);
+  return startPayment(req, res);
+}
+
+/**
  * GET /pay/callback — where Paystack sends the browser back. Verifies server-side and settles
  * (same idempotent function the webhook uses, so either one alone is enough).
  */
@@ -163,4 +187,4 @@ async function paystackWebhook(req, res) {
   }
 }
 
-module.exports = { joinPage, joinCohort, startPayment, paymentCallback, paystackWebhook };
+module.exports = { joinPage, joinCohort, startPayment, startPremium, paymentCallback, paystackWebhook };

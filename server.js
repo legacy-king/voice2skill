@@ -41,6 +41,8 @@ app.use(express.static('public'));
 // Public base URL for canonical/OG tags and the sitemap (same default as mailer).
 app.use((req, res, next) => {
   res.locals.appUrl = process.env.APP_URL || 'https://voice2skill.onrender.com';
+  // Shown on privacy/terms and the landing page's Organizations contact.
+  res.locals.supportEmail = process.env.SUPPORT_EMAIL || 'support@voice2skill.com';
   next();
 });
 app.use(securityHeaders);

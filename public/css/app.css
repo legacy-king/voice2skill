@@ -1566,3 +1566,6 @@ body.app form.auth-form {
 .streak-banner .flame svg {
   animation: pulse 1.5s ease-in-out infinite;
 }
+/* Free-tier note under the template coach reply */
+.coach-upsell { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted, #9B9891); }
+.coach-upsell a { color: var(--gold-2, #F0D27A); }

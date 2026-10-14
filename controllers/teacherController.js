@@ -7,6 +7,7 @@ const ERRORS = {
   price: 'Enter a price in naira between 0 and 1,000,000.',
   days: 'Access days must be a whole number between 1 and 365.',
   curriculum: 'The syllabus is too long (20,000 characters max).',
+  mentor_name: 'The mentor name can be at most 80 characters.',
   no_org: 'Your account is not linked to a bootcamp yet. Contact Voice2Skill.'
 };
 const STUCK_AFTER_DAYS = 3;
@@ -16,11 +17,14 @@ function parseCohortForm(body) {
   const priceKobo = nairaToKobo(body.price);
   const accessDays = Number.parseInt(body.accessDays, 10);
   const curriculum = typeof body.curriculum === 'string' ? body.curriculum.trim() : '';
+  // Optional: the name the AI mentor goes by. Blank = the tutor's own account name.
+  const mentorName = typeof body.mentorName === 'string' ? body.mentorName.trim() : '';
   if (name.length < 3 || name.length > 150) return { error: 'name' };
   if (priceKobo === null) return { error: 'price' };
   if (!Number.isInteger(accessDays) || accessDays < 1 || accessDays > 365) return { error: 'days' };
   if (curriculum.length > 20000) return { error: 'curriculum' };
-  return { value: { name, priceKobo, accessDays, curriculum } };
+  if (mentorName.length > 80) return { error: 'mentor_name' };
+  return { value: { name, priceKobo, accessDays, curriculum, mentorName } };
 }
 
 async function requireTeacher(req, res) {

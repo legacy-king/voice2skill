@@ -1,5 +1,6 @@
 /**
- * AI mentor: answers a student's question grounded in THEIR tutor's syllabus.
+ * AI mentor. Bootcamp: carries the tutor's name and answers from THEIR syllabus.
+ * Premium: the Voice2Skill mentor, grounded in the student's own roadmap.
  *
  * Cost levers (see docs/COHORTS.md): MENTOR_MODEL env var picks the model, replies are capped
  * at MAX_OUTPUT_TOKENS, only the last few messages are sent, and the syllabus is truncated.
@@ -13,13 +14,24 @@ const MAX_HISTORY_CHARS = 800;
 const MAX_OUTPUT_TOKENS = 700;
 const TIMEOUT_MS = 25000;
 
-function systemPrompt({ orgName, cohortName, studentName, curriculum, todayTask }) {
+function systemPrompt({ kind, mentorName, orgName, cohortName, studentName, curriculum, todayTask }) {
   const syllabus = (curriculum || '').trim().slice(0, MAX_CURRICULUM_CHARS);
+  const premium = kind === 'premium';
+  // Bootcamp: the mentor carries the tutor's name, but is always honest that it is an AI.
+  const intro = premium
+    ? `You are the Voice2Skill AI mentor. You help ${studentName} learn the skill in their 8-week Voice2Skill plan.`
+    : `You are ${mentorName}'s AI mentor for "${cohortName}", a programme run by ${orgName}. You help ${studentName} keep learning between classes. You speak for ${mentorName}'s course, but you are an AI assistant, not ${mentorName}; if asked, say so, and suggest asking ${mentorName} directly for anything personal, grading or admin.`;
+  const grounding = premium
+    ? '- Ground answers in the student\'s current roadmap focus below and good practice for that skill.'
+    : '- Ground answers in the programme syllabus below. If the question is outside it, you may still help if it is clearly related to the same skill, but say it is outside the syllabus.';
+  const source = premium
+    ? ''
+    : (syllabus ? `PROGRAMME SYLLABUS (from the tutor):\n${syllabus}` : 'The tutor has not added a syllabus yet; answer from general good practice for the skill.');
   return [
-    `You are the AI study mentor for "${cohortName}", a programme run by ${orgName}. You help ${studentName} keep learning between classes.`,
+    intro,
     '',
     'Rules:',
-    '- Ground answers in the programme syllabus below. If the question is outside it, you may still help if it is clearly related to the same skill, but say it is outside the syllabus.',
+    grounding,
     '- Teach; do not just hand over finished homework. Prefer a short explanation, one example, and a question or next step for the student.',
     '- Be concise (under 200 words unless code is needed), warm, and direct. Plain text, minimal markdown.',
     '- If the student seems stuck or discouraged, acknowledge it briefly and give the single smallest next step.',
@@ -27,7 +39,7 @@ function systemPrompt({ orgName, cohortName, studentName, curriculum, todayTask 
     '- If you are unsure of a fact, say so instead of guessing.',
     '',
     todayTask ? `Student's current roadmap focus: ${todayTask}\n` : '',
-    syllabus ? `PROGRAMME SYLLABUS (from the tutor):\n${syllabus}` : 'The tutor has not added a syllabus yet; answer from general good practice for the skill.'
+    source
   ].join('\n');
 }
 
@@ -48,7 +60,7 @@ function buildContents(history, message) {
   return merged.map((t) => ({ role: t.role, parts: [{ text: t.text }] }));
 }
 
-async function generateReply({ orgName, cohortName, studentName, curriculum, todayTask, history, message }) {
+async function generateReply({ kind, mentorName, orgName, cohortName, studentName, curriculum, todayTask, history, message }) {
   if (process.env.MENTOR_MOCK === '1') {
     return `[mock mentor] You asked: "${message.slice(0, 80)}". Next step: write down what you already know, then try one small example.`;
   }
@@ -57,7 +69,7 @@ async function generateReply({ orgName, cohortName, studentName, curriculum, tod
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
     model: process.env.MENTOR_MODEL || 'gemini-3.6-flash',
-    systemInstruction: systemPrompt({ orgName, cohortName, studentName, curriculum, todayTask }),
+    systemInstruction: systemPrompt({ kind, mentorName, orgName, cohortName, studentName, curriculum, todayTask }),
     generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.4 }
   });
 

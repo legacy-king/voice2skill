@@ -178,6 +178,9 @@
             <h4>Next action</h4>
             <p><%= latestCoach.next_action %></p>
           </div>
+          <% if (latestCoach.is_fallback && typeof ent !== 'undefined' && !ent.hasMentor) { %>
+            <p class="coach-upsell">Want personal feedback on every check-in and an AI mentor to ask questions? <a href="/join">Go Premium</a></p>
+          <% } %>
         </div>
       <% } %>
     <% } %>

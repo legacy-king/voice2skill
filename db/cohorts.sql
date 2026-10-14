@@ -92,3 +92,33 @@ CREATE TABLE IF NOT EXISTS mentor_messages (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_mentor_msg_idem
   ON mentor_messages (user_id, client_msg_id) WHERE client_msg_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_mentor_msg_user ON mentor_messages (user_id, id DESC);
+
+-- ---------------------------------------------------------------------------------------------
+-- Tiers. Free = no AI. Premium (individual) and Bootcamp cohorts = paid, with the AI coach and
+-- mentor. Premium is a built-in cohort of kind 'premium' owned by the platform organization, so it
+-- reuses the same checkout, webhook, settlePayment() and access_until expiry as bootcamp cohorts.
+-- ---------------------------------------------------------------------------------------------
+ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'bootcamp';
+DO $$ BEGIN
+  ALTER TABLE cohorts ADD CONSTRAINT cohorts_kind_check CHECK (kind IN ('bootcamp', 'premium'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_one_premium_cohort ON cohorts (kind) WHERE kind = 'premium';
+
+-- Name the AI mentor goes by for this cohort ("Tunde's AI mentor"). NULL = the org owner's name.
+ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS mentor_name VARCHAR(80);
+
+-- The platform organization (owner of the Premium cohort) has no owning tutor.
+ALTER TABLE organizations ALTER COLUMN owner_user_id DROP NOT NULL;
+
+-- Seed Premium once: ₦6,000 (600000 kobo) for 30 days, no revenue share. The price lives in the
+-- DB, so changing it is `UPDATE cohorts SET price_kobo = ... WHERE kind = 'premium'`, not a deploy.
+DO $$
+DECLARE platform_org INTEGER;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM cohorts WHERE kind = 'premium') THEN
+    INSERT INTO organizations (name, owner_user_id, revenue_share_pct, share_basis)
+      VALUES ('Voice2Skill', NULL, 0, 'gross') RETURNING id INTO platform_org;
+    INSERT INTO cohorts (org_id, name, invite_code, price_kobo, access_days, kind, mentor_name)
+      VALUES (platform_org, 'Voice2Skill Premium', 'V2SPREMIUM', 600000, 30, 'premium', 'Voice2Skill');
+  END IF;
+END $$;

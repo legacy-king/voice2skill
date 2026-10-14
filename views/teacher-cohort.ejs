@@ -72,6 +72,9 @@
           <label>Price per period (₦)<input type="number" name="price" min="0" max="1000000" step="1" value="<%= cohort.price_kobo / 100 %>" required></label>
           <label>Access days per payment<input type="number" name="accessDays" min="1" max="365" value="<%= cohort.access_days %>" required></label>
         </div>
+        <label>AI mentor name <span class="co-muted">(students chat with “[this name]’s AI mentor”; leave blank to use your account name)</span>
+          <input type="text" name="mentorName" maxlength="80" value="<%= cohort.mentor_name || '' %>" placeholder="e.g. Mr. Tunde">
+        </label>
         <label>Syllabus <span class="co-muted">(the AI mentor answers from this; first ~6,000 characters are used)</span>
           <textarea name="curriculum" rows="14" maxlength="20000"><%= cohort.curriculum %></textarea>
         </label>

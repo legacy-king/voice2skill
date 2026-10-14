@@ -1,7 +1,8 @@
 const checkinModel = require('../models/checkinModel');
 const roadmapModel = require('../models/roadmapModel');
 const coachResponseModel = require('../models/coachResponseModel');
-const { createCoachResponse } = require('../utils/coachService');
+const { createCoachResponse, createFallbackCoachResponse } = require('../utils/coachService');
+const { loadState, canUse } = require('../utils/entitlements');
 const assessmentModel = require('../models/assessmentModel');
 
 async function createCheckinEntry(req, res) {
@@ -66,7 +67,10 @@ async function createCheckinEntry(req, res) {
       nextTask
     };
 
-    const coachResponse = await createCoachResponse(context);
+    // The AI coach is a paid feature (Premium or a bootcamp cohort); Free gets the template reply
+    // and costs no AI call.
+    const paid = canUse(await loadState(userId), 'ai_coach');
+    const coachResponse = paid ? await createCoachResponse(context) : createFallbackCoachResponse(nextTask);
     await coachResponseModel.createCoachResponse(
       checkin.id,
       coachResponse.acknowledgement,

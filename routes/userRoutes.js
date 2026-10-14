@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { rateLimiter } = require('../middleware/security');
+const cohortModel = require('../models/cohortModel');
+const { naira } = require('../utils/format');
 
 const authLimiter = rateLimiter({ windowMs: 15 * 60 * 1000, max: Number(process.env.AUTH_RATE_MAX) || 60, message: 'Too many attempts. Please wait a few minutes and try again.' });
 
@@ -25,8 +27,17 @@ router.post('/security/revoke', rateLimiter({ max: 30 }), userController.revokeS
 router.get('/dashboard', userController.dashboard);
 router.get('/login', userController.loginPage);
 router.get('/signup', userController.signupPage);
-router.get('/', (req, res) => {
-  res.render('landing');
+router.get('/', async (req, res) => {
+  // Premium's price lives in the DB (cohorts.kind = 'premium'); the page falls back to the
+  // launch price if the DB is unreachable, so the landing page never fails to render.
+  let premiumPrice = null;
+  try {
+    const premium = await cohortModel.getPremiumCohort();
+    if (premium && premium.active) premiumPrice = naira(premium.price_kobo);
+  } catch (err) {
+    console.error('Landing: premium price lookup failed:', err.message);
+  }
+  res.render('landing', { premiumPrice });
 });
 
 // SEO — sitemap and robots.txt, built from the same appUrl used by OG/canonical tags.

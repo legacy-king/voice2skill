@@ -12,34 +12,43 @@
   <main class="app-wrap app-main" id="main">
     <div class="app-card">
       <h1>Privacy Policy</h1>
-      <p style="color:#9B9891;">Last updated: <%= new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %></p>
+      <p style="color:#9B9891;">Last updated: 14 October 2026</p>
 
       <h2>What we collect</h2>
-      <p>When you use Voice2Skill, we collect: your name and email address (at signup), your password (stored as an irreversible hash, never in readable form), the learning goal you describe to us, your selected track and skill level (if you complete our assessment), your daily check-in notes, and basic device/session information (browser type, IP address) used for account security.</p>
+      <p>When you use Voice2Skill, we collect: your name and email address (at signup), your password (stored as an irreversible hash, never in readable form), the learning goal you describe to us, your selected track and skill level (if you complete our assessment), your daily check-in notes, your messages to the AI mentor (Premium and bootcamp plans), records of your payments (amount, date, status and a payment reference — never your card details), and basic device/session information (browser type, IP address) used for account security.</p>
 
       <h2>Why we collect it</h2>
-      <p>We use this information to: create and secure your account, generate your personalized AI learning roadmap, provide daily AI coaching based on your check-ins, send you account-related emails (verification, password reset, security alerts, and optional daily reminders), and detect suspicious account activity.</p>
+      <p>We use this information to: create and secure your account, build your learning plan, provide AI coaching and the AI mentor on paid plans, process and record payments, give bootcamp tutors the progress view described below, send you account-related emails (verification, password reset, security alerts, and optional daily reminders), and detect suspicious account activity.</p>
+
+      <h2>Payments</h2>
+      <p>Payments for Premium and bootcamp plans are processed by Paystack. Your card or bank details are entered on Paystack's checkout and are never sent to or stored by Voice2Skill. We keep a record of each payment (amount, status, date and reference) so we can activate your access, handle questions and keep accounting records.</p>
 
       <h2>How your data is used with AI</h2>
-      <p>Your stated learning goal and daily check-in notes are sent to our AI provider (Google Gemini) to generate your roadmap and coaching responses. We do not use your data to train AI models, and your check-in notes are treated as data to respond to, not as instructions the AI follows.</p>
+      <p>Your stated learning goal is used to build your plan. On Premium and bootcamp plans, your check-in notes, your messages to the AI mentor and your current lesson are sent to our AI provider (Google Gemini) to generate coaching and mentor replies; for bootcamp students, your tutor's syllabus is used too. We use Gemini's paid service, under which your content is not used to train Google's models, and we never use your data to train AI models ourselves. Your messages are treated as content to respond to, not as instructions the AI follows. Free-plan check-ins are not sent to the AI.</p>
+
+      <h2>What your tutor can see (bootcamp plans)</h2>
+      <p>If you join a bootcamp cohort, your tutor and their organization can see your name, email address, plan status, number of check-ins and the date of your last check-in. They cannot see your check-in notes or your conversations with the AI mentor.</p>
 
       <h2>Who we share data with</h2>
-      <p>We do not sell your personal data. We share data only with the service providers necessary to run Voice2Skill: our database host (Neon), our hosting provider (Render), our email provider (Brevo), and our AI provider (Google Gemini). Each of these providers processes data only to provide their service to us.</p>
+      <p>We do not sell your personal data. We share data only with the service providers necessary to run Voice2Skill: our database host (Neon), our hosting provider (Render), our email provider (Brevo), our payment processor (Paystack), and our AI provider (Google Gemini). Each of these providers processes data only to provide their service to us. Bootcamp tutors see only what is described above.</p>
 
       <h2>Data storage and security</h2>
-      <p>Your password is hashed using bcrypt and cannot be reversed, even by us. Email verification and password reset links use single-use, time-limited tokens stored as cryptographic hashes. Your account session is protected with secure, encrypted cookies.</p>
+      <p>Your password is hashed using bcrypt and cannot be reversed, even by us. Email verification and password reset links use single-use, time-limited tokens stored as cryptographic hashes. Your account session is protected with secure, HTTP-only cookies, and every form is protected against cross-site request forgery. Payment notifications from Paystack are verified with a cryptographic signature before any access is granted.</p>
 
       <h2>Your rights</h2>
-      <p>Under the Nigeria Data Protection Regulation (NDPR), you have the right to access the personal data we hold about you, request correction of inaccurate data, and request deletion of your account and associated data. To exercise any of these rights, contact us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+      <p>Under the Nigeria Data Protection Act 2023, you have the right to access the personal data we hold about you, request correction of inaccurate data, object to certain processing, and request deletion of your account and associated data. To exercise any of these rights, contact us at <%= supportEmail %>.</p>
 
       <h2>Data retention</h2>
-      <p>We retain your account data for as long as your account remains active. If you request account deletion, we will remove your personal data within a reasonable time, except where retention is required for legal or security purposes (e.g., fraud prevention records).</p>
+      <p>We retain your account data, check-ins and mentor conversations for as long as your account remains active. If you request account deletion, we will remove your personal data within a reasonable time, except where we must keep it for legal, tax, accounting or security purposes — for example, payment records.</p>
+
+      <h2>Children</h2>
+      <p>Voice2Skill is intended for users aged 18 and over. Younger learners may use it only with the consent of a parent or guardian, for example through a bootcamp that has obtained that consent.</p>
 
       <h2>Changes to this policy</h2>
-      <p>We may update this policy as Voice2Skill evolves. We'll update the date above when changes are made. Continued use of Voice2Skill after changes means you accept the updated policy.</p>
+      <p>We may update this policy as Voice2Skill evolves. We'll update the date above when changes are made and tell you about significant changes by email. Continued use of Voice2Skill after changes means you accept the updated policy.</p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy or your data? Reach us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+      <p>Questions about this policy or your data? Reach us at <%= supportEmail %>.</p>
     </div>
   </main>
 </body>

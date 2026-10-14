@@ -13,13 +13,19 @@ What this adds on top of the original app (EJS/Express is unchanged for existing
 | AI mentor chat grounded in the tutor's syllabus | `/mentor`, `utils/mentorService.js` |
 | Teacher dashboard (roster, stuck students, earnings, syllabus editor) | `/teacher`, `/teacher/cohorts/:id` |
 | Revenue-share ledger | `scripts/ledger.js` |
+| Premium (individual, ₦6,000 / 30 days): AI coach + mentor | `POST /premium`, built-in cohort `kind = 'premium'` seeded by `db/cohorts.sql` |
+| AI mentor carries the tutor's name | `cohorts.mentor_name` (teacher cohort settings) |
 
-Free users (no cohort) see no change: roadmap + daily check-ins stay free.
+Free users keep the roadmap + daily check-ins (type or speak), but **no AI**: check-ins get the template coach reply. AI coach and mentor need Premium or a bootcamp.
+
+Change the Premium price with SQL (no deploy): `UPDATE cohorts SET price_kobo = 600000 WHERE kind = 'premium';`
 
 ## Deploy checklist
 
 1. **Database:** `npm run migrate` (now includes `migrateCohorts.js`; idempotent).
 2. **Render env vars:** see `.env.example`. New ones: `APP_URL=https://voice2skill.com`, `PAYSTACK_SECRET_KEY`, optional `MENTOR_MODEL`, `MENTOR_DAILY_LIMIT` (default 40), `MENTOR_MONTHLY_LIMIT` (default 300; keep it low, it is the profit guardrail, see PRD 5.4), `AUTH_RATE_MAX`.
+   Also: `SUPPORT_EMAIL` (shown on privacy/terms and the landing page), `PREMIUM_DAILY_LIMIT` (default 10).
+   **Gemini billing must be ON** for the project behind `GEMINI_API_KEY`: the privacy policy promises student text is only sent to the paid tier (not used for training).
 3. **Paystack:** create an account, start with the TEST secret key (`sk_test_...`). In the dashboard set the webhook URL to `https://voice2skill.com/webhooks/paystack`. Run a test payment with Paystack's test card before going live, then swap in the live key.
 4. **Register the tutor:** he signs up and verifies his email, then you run
    `node scripts/createOrg.js "His Bootcamp" his@email.com 20 net`

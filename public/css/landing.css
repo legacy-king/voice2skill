@@ -1037,13 +1037,13 @@ body.landing nav {
 /* ---------- Plans ---------- */
 .landing .plans {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.4rem;
-  max-width: 860px;
-  margin: 0 auto;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.2rem;
+  align-items: stretch;
 }
 
 .landing .plan {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 2rem 1.8rem;
@@ -1084,6 +1084,44 @@ body.landing nav {
 }
 
 .landing .plan .btn { align-self: flex-start; }
+
+.landing .plan-per { font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+.landing .plan-for { font-size: 0.85rem; color: var(--muted); margin-top: -0.4rem; }
+
+.landing .plan-badge {
+  position: absolute;
+  top: -0.7rem;
+  left: 1.8rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #16130A;
+  background: linear-gradient(120deg, var(--gold-2), var(--gold));
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+/* Free / Premium tag on feature cards */
+.landing .feat { position: relative; }
+.landing .feat-tag {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.landing .feat-tag-paid { color: var(--gold-2); border-color: rgba(212, 175, 55, 0.45); }
+
+@media (max-width: 1100px) {
+  .landing .plans { grid-template-columns: repeat(2, 1fr); }
+}
 
 @media (max-width: 760px) {
   .landing .plans { grid-template-columns: 1fr; }
@@ -1146,6 +1184,11 @@ body.landing nav {
 
 @media (max-width: 420px) {
   .landing .skills-grid { grid-template-columns: 1fr; }
+  /* small phones (320–420px): keep the stats and nav inside the screen */
+  .landing .stat { padding: 0 0.4rem; }
+  .landing .stat .num { font-size: 1.35rem; }
+  .landing .nav .btn { padding: 0.45rem 0.8rem; font-size: 0.78rem; }
+  .landing .brand { font-size: 0.95rem; }
   .landing .hero-cta { flex-direction: column; align-items: stretch; }
   .landing .hero-cta .btn { width: 100%; }
 }

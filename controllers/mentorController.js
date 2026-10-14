@@ -6,7 +6,10 @@ const { loadState, canUse } = require('../utils/entitlements');
 const { generateReply } = require('../utils/mentorService');
 
 const KIND = 'mentor';
-const DAILY_LIMIT = () => Number(process.env.MENTOR_DAILY_LIMIT) || 40;
+// Daily cap per tier (PRD 5.1): bootcamp students 40/day, individual Premium 10/day. Monthly cap is shared.
+const DAILY_LIMIT = (m) => (m && m.kind === 'premium'
+  ? Number(process.env.PREMIUM_DAILY_LIMIT) || 10
+  : Number(process.env.MENTOR_DAILY_LIMIT) || 40);
 const MONTHLY_LIMIT = () => Number(process.env.MENTOR_MONTHLY_LIMIT) || 300;
 const MAX_MESSAGE_CHARS = 1000;
 const STALE_PENDING_MS = 60 * 1000;
@@ -26,8 +29,10 @@ async function mentorPage(req, res) {
     orgName: m.org_name,
     accessUntil: m.role === 'teacher' ? null : m.access_until,
     history,
-    remainingToday: Math.max(0, DAILY_LIMIT() - usage.today),
-    dailyLimit: DAILY_LIMIT(),
+    remainingToday: Math.max(0, DAILY_LIMIT(m) - usage.today),
+    dailyLimit: DAILY_LIMIT(m),
+    kind: m.kind,
+    mentorName: m.mentor_name,
     justPaid: req.query.paid === '1'
   });
 }
@@ -81,9 +86,9 @@ async function sendMessage(req, res) {
   // Reserve budget first (atomic) so concurrent requests can't blow past the cap.
   const usedToday = await mentorModel.bumpUsage(userId, KIND);
   const usage = await mentorModel.getUsage(userId, KIND);
-  if (usedToday > DAILY_LIMIT() || usage.month > MONTHLY_LIMIT()) {
+  if (usedToday > DAILY_LIMIT(m) || usage.month > MONTHLY_LIMIT()) {
     await mentorModel.refundUsage(userId, KIND);
-    return res.status(429).json({ error: usedToday > DAILY_LIMIT() ? 'daily_limit' : 'monthly_limit' });
+    return res.status(429).json({ error: usedToday > DAILY_LIMIT(m) ? 'daily_limit' : 'monthly_limit' });
   }
 
   const userMsgId = await mentorModel.insertUserMessage({ userId, cohortId: m.cohort_id, content: message, clientMsgId });
@@ -102,6 +107,8 @@ async function sendMessage(req, res) {
     const prior = history.filter((h) => h.id !== userMsgId);
 
     const reply = await generateReply({
+      kind: m.kind,
+      mentorName: m.mentor_name,
       orgName: m.org_name,
       cohortName: m.cohort_name,
       studentName: user.name,
@@ -111,7 +118,7 @@ async function sendMessage(req, res) {
       message
     });
     await mentorModel.insertAssistantMessage({ userId, cohortId: m.cohort_id, content: reply, replyTo: userMsgId });
-    return res.json({ reply, remainingToday: Math.max(0, DAILY_LIMIT() - usedToday) });
+    return res.json({ reply, remainingToday: Math.max(0, DAILY_LIMIT(m) - usedToday) });
   } catch (err) {
     console.error('Mentor reply failed:', err.message);
     // Undo so the student can retry the same text without losing budget.

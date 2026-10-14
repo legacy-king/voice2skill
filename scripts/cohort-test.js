@@ -14,6 +14,7 @@ process.env.EMAIL_MODE = 'log';
 process.env.PAYSTACK_SECRET_KEY = 'sk_test_cohort_suite';
 process.env.SESSION_SECRET = 'test-secret';
 process.env.MENTOR_DAILY_LIMIT = '3';
+process.env.PREMIUM_DAILY_LIMIT = '2';
 process.env.NODE_ENV = 'test';
 
 const { spawn, spawnSync } = require('child_process');
@@ -302,6 +303,46 @@ async function main() {
     const freshId = crypto.randomBytes(8).toString('hex');
     await pool.query("INSERT INTO mentor_messages (user_id, cohort_id, role, content, client_msg_id) VALUES ($1,$2,'user','fresh',$3)", [carol.id, cohortId, freshId]);
     check('a genuinely in-flight message still answers 202', (await carol.c.req('POST', '/mentor/message', { json: { message: 'fresh', clientMsgId: freshId }, headers: { 'x-csrf-token': ct } })).status === 202);
+
+    console.log('Tiers: Free has no AI');
+    const fred = await makeUser('fred');
+    const frm = await pool.query(
+      "INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 1, $2) RETURNING id",
+      [fred.id, JSON.stringify({ weeks: [{ focus: 'Basics', days: [{ task: 'Day 1 task' }, { task: 'Day 2 task' }] }] })]
+    );
+    const fct = await fred.c.csrf('/join');
+    await fred.c.req('POST', `/roadmaps/${frm.rows[0].id}/checkin`, { form: { _csrf: fct, notes: 'did day 1' } });
+    const fcoach = (await pool.query(
+      'SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.user_id = $1', [fred.id]
+    )).rows[0];
+    check('free check-in gets the template coach reply (no AI)', fcoach && fcoach.is_fallback === true);
+    check('free user cannot open the mentor', (await fred.c.req('GET', '/mentor')).location === '/join?message=need_access');
+
+    console.log('Premium (individual)');
+    const premiumRow = (await pool.query("SELECT * FROM cohorts WHERE kind = 'premium'")).rows[0];
+    check('premium plan seeded by migration (₦6,000 / 30 days)', premiumRow && premiumRow.price_kobo === 600000 && premiumRow.access_days === 30);
+    const pam = await makeUser('pam');
+    const pt = await pam.c.csrf('/join');
+    check('join page offers Premium with the DB price', /Upgrade for ₦6,000/.test((await pam.c.req('GET', '/join')).text));
+    check('POST /premium without CSRF is rejected', (await pam.c.req('POST', '/premium', { form: {} })).status === 403);
+    const ppay = await pam.c.req('POST', '/premium', { form: { _csrf: pt } });
+    check('POST /premium starts a Paystack checkout', /\/pay\/callback\?reference=/.test(ppay.location || ''), ppay.location);
+    const pref = decodeURIComponent((ppay.location || '').split('reference=')[1] || '');
+    const pcb = await pam.c.req('GET', new URL(ppay.location).pathname + new URL(ppay.location).search);
+    check('premium payment settles and opens the mentor', pcb.location === '/mentor?paid=1', pcb.location);
+    const prow = (await pool.query('SELECT * FROM payments WHERE reference = $1', [pref])).rows[0];
+    check('premium charged ₦6,000 from the DB, 0% revenue share', prow.status === 'success' && prow.amount_kobo === 600000 && prow.org_share_kobo === 0);
+    const pmentor = await pam.c.req('GET', '/mentor');
+    check('premium mentor is the Voice2Skill mentor', /Voice2Skill Premium/.test(pmentor.text) && /Voice2Skill AI mentor/.test(pmentor.text));
+    check('premium daily cap comes from PREMIUM_DAILY_LIMIT', /of 2 messages left today/.test(pmentor.text));
+    check('join page stops offering Premium once bought', !/Upgrade for/.test((await pam.c.req('GET', '/join')).text));
+    check('tutor cannot open or edit the Premium plan', (await tutor.c.req('GET', `/teacher/cohorts/${premiumRow.id}`)).status === 404
+      && (await tutor.c.req('POST', `/teacher/cohorts/${premiumRow.id}`, { form: { _csrf: await tutor.c.csrf('/teacher'), name: 'Hacked', price: '1', accessDays: '365', curriculum: '', active: 'on' } })).status === 404);
+
+    console.log('Bootcamp mentor carries the tutor\'s name');
+    const tt = await tutor.c.csrf(`/teacher/cohorts/${cohortId}`);
+    await tutor.c.req('POST', `/teacher/cohorts/${cohortId}`, { form: { _csrf: tt, name: 'Frontend Nov', price: '5000', accessDays: '30', curriculum: 'x', active: 'on', mentorName: 'Mr. Test' } });
+    check('student sees "[tutor name]\'s AI Mentor"', /Mr\. Test’s/.test((await carol.c.req('GET', '/mentor')).text));
   } finally {
     server.kill();
     await pool.end();
