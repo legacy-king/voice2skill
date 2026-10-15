@@ -39,12 +39,9 @@
     <div class="app-head">
       <span class="app-eyebrow"><%= trackName ? trackName : 'Your roadmap' %></span>
       <h1>Your learning <span class="grad-text">roadmap</span></h1>
-      <div class="app-head">
-  <span class="app-eyebrow"><%= trackName ? trackName : 'Your roadmap' %></span>
-  <h1>Your learning <span class="grad-text">roadmap</span></h1>
-  <% if (roadmap.is_cached) { %>
-    <span class="task-day" style="background:#1C2A10; color:#8FD14F; display:inline-block; margin-top:0.5rem;">⚡ Previously generated</span>
-  <% } %>
+      <% if (roadmap.is_cached) { %>
+        <span class="task-day" style="background:#1C2A10; color:#8FD14F; display:inline-block; margin-top:0.5rem;">⚡ Previously generated</span>
+      <% } %>
       <p>Day <%= currentDayNumber %> of <%= totalDays %><% if (todayTask) { %> — Week <%= todayTask.week_number %><% } %>. One step at a time.</p>
     </div>
 
@@ -203,7 +200,7 @@
         <ul class="history-list">
           <% checkins.forEach(checkin => { %>
             <li>
-              <span class="h-date"><%= checkin.checkin_date %></span>
+              <span class="h-date"><%= new Date(checkin.checkin_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) %></span>
               <span class="h-notes"><%= checkin.notes %></span>
               <% if (checkin.coachResponse) { %>
                 <div class="coach-mini">
