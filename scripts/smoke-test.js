@@ -194,7 +194,8 @@ const cases = [
       isComplete: false
     },
     ['12-day streak', 'JavaScript Fundamentals', 'MDN Web Docs', '/roadmaps/42/checkin',
-     'Day 22 of 56', 'Week 4', '2 check-ins completed', 'noindex', 'visually-hidden', 'Skip to content']],
+     'Day 22 of 56', 'Week 4', '2 check-ins completed', 'noindex', 'visually-hidden', 'Skip to content',
+     'Thu, 30 Jul 2026']],
 
   ['roadmap (with persisted goal + video phrase)', 'roadmap.ejs',
     {
@@ -341,6 +342,14 @@ for (const [label, file, locals, expect] of cases) {
     if (strayTags > 0) {
       failures++;
       console.error(`✗ ${label}: ${strayTags} stray EJS tag(s) leaked into rendered HTML`);
+      continue;
+    }
+
+    // A page heading rendered twice (e.g. a block duplicated by a merge) shows up as a second <h1>.
+    const h1Count = (rendered.match(/<h1[\s>]/g) || []).length;
+    if (h1Count > 1) {
+      failures++;
+      console.error(`✗ ${label}: ${h1Count} <h1> elements, expected at most 1`);
       continue;
     }
 

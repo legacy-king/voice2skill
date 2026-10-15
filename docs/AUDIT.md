@@ -66,7 +66,7 @@ Severity: **H** high, **M** medium, **L** low.
 | A14 | No events table, so a retention mechanic can't be added cleanly later. | L | — |
 | A15 | Mentor memory: the last 6 messages × 800 chars, no rolling summary. Context grows with neither cost nor quality control past ~6 turns. | L | `mentorService.js` |
 | A16 | Missing indexes: `assessments(user_id, track_id)`, `checkins(roadmap_id, checkin_date)`, `checkins(checkin_date)` (reminders). `roadmaps(user_id)` was added on the Course Library branch. | M | `db/schema.sql` |
-| A17 | The roadmap page heading block (eyebrow + h1) renders twice. | L | `roadmap.ejs:39–47` |
+| A17 | The roadmap page heading block (eyebrow + h1) renders twice. **Fixed (fix/roadmap-heading-and-dates).** | L | `roadmap.ejs:39–47` |
 | A18 | Repo clutter: root `preview-*.html`, `docs/superpowers/`. **Removed (chore/cleanup-dead-files).** | L | — |
 | A19 | `GET /pay/callback` grants access after a **server-to-server verify** with Paystack (not by trusting the redirect). This is Paystack's documented pattern and safe, but the brief says "entitlements only from verified webhooks". Decision in PLAN §0. | Info | `cohortController.js:136` |
 
