@@ -5,14 +5,21 @@
  *   const mock = await startMockLlm();            // mock.url('groq') -> base URL
  *   mock.setMode('groq', '429' | '500' | '400' | 'timeout' | 'badjson' | 'ok')
  *   mock.setResponder('groq', (body) => 'reply text')
- *   mock.requests                                  // [{ provider, body }]
+ *   mock.setTranscript('groq', 'text')             // reply for /audio/transcriptions ('' = silence)
+ *   mock.requests                                  // [{ provider, kind, body, bytes, contentType, raw }]
  *
- * Default replies: JSON requests get a coach-shaped object; chat gets "[mock mentor] You asked: …".
+ * Default replies: JSON requests get a coach-shaped object; chat gets "[mock mentor] You asked: …";
+ * audio (Whisper endpoint or an input_audio chat part) gets "[mock transcript:<provider>]".
  * Streams use SSE chunks like the real APIs, with a final usage chunk when asked for.
  */
 const http = require('http');
 
 function defaultReply(provider, body) {
+  const msgs = body.messages || [];
+  const lastMsg = msgs[msgs.length - 1];
+  if (lastMsg && Array.isArray(lastMsg.content) && lastMsg.content.some((c) => c.type === 'input_audio')) {
+    return `[mock transcript:${provider}]`;
+  }
   if (body.response_format) {
     return JSON.stringify({
       acknowledgement: `[mock coach:${provider}] Nice work today.`,
@@ -20,7 +27,7 @@ function defaultReply(provider, body) {
       next_action: 'Do the next task tomorrow.'
     });
   }
-  const lastUser = [...(body.messages || [])].reverse().find((m) => m.role === 'user');
+  const lastUser = [...msgs].reverse().find((m) => m.role === 'user');
   const asked = lastUser ? String(lastUser.content).slice(0, 80) : '';
   return `[mock mentor] You asked: "${asked}". Next step: write down what you already know, then try one small example.`;
 }
@@ -28,25 +35,38 @@ function defaultReply(provider, body) {
 function startMockLlm({ port = 0 } = {}) {
   const modes = new Map();
   const responders = new Map();
+  const transcripts = new Map();
   const requests = [];
   const sockets = new Set();
 
   const server = http.createServer((req, res) => {
-    const m = req.url.match(/^\/([a-z]+)\/chat\/completions$/);
-    let raw = '';
-    req.on('data', (c) => { raw += c; });
+    const m = req.url.match(/^\/([a-z]+)\/(chat\/completions|audio\/transcriptions)$/);
+    const chunks = [];
+    req.on('data', (c) => { chunks.push(c); });
     req.on('end', () => {
       if (!m || req.method !== 'POST') { res.writeHead(404); return res.end(); }
       const provider = m[1];
+      const kind = m[2] === 'chat/completions' ? 'chat' : 'transcription';
+      const raw = Buffer.concat(chunks);
       let body = {};
-      try { body = JSON.parse(raw); } catch { /* keep {} */ }
-      requests.push({ provider, body, auth: req.headers.authorization });
+      if (kind === 'chat') {
+        try { body = JSON.parse(raw.toString('utf8')); } catch { /* keep {} */ }
+      }
+      requests.push({
+        provider, kind, body, bytes: raw.length, contentType: req.headers['content-type'],
+        raw: kind === 'transcription' ? raw : null, auth: req.headers.authorization
+      });
       const mode = modes.get(provider) || 'ok';
 
       if (mode === 'timeout') return; // never answer; the client must give up
       if (/^\d{3}$/.test(mode)) {
         res.writeHead(Number(mode), { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ error: { message: `mock ${mode}`, type: 'mock' } }));
+      }
+      if (kind === 'transcription') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        const t = transcripts.has(provider) ? transcripts.get(provider) : `[mock transcript:${provider}]`;
+        return res.end(JSON.stringify({ text: t }));
       }
       const text = mode === 'badjson' ? 'this is not json {' : (responders.get(provider) || ((b) => defaultReply(provider, b)))(body);
       const usage = { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 };
@@ -82,7 +102,8 @@ function startMockLlm({ port = 0 } = {}) {
         url: (name) => `http://127.0.0.1:${actual}/${name}`,
         setMode: (name, mode) => modes.set(name, mode),
         setResponder: (name, fn) => (fn ? responders.set(name, fn) : responders.delete(name)),
-        reset: () => { modes.clear(); responders.clear(); requests.length = 0; },
+        setTranscript: (name, text) => (text === undefined ? transcripts.delete(name) : transcripts.set(name, text)),
+        reset: () => { modes.clear(); responders.clear(); transcripts.clear(); requests.length = 0; },
         requests,
         close: () => new Promise((r) => { for (const s of sockets) s.destroy(); server.close(() => r()); })
       });

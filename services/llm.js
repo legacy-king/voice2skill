@@ -3,6 +3,7 @@
  *
  *   complete({ task, system, messages, schema | jsonSchema | validate, userId })  -> { text, data, provider, model }
  *   stream({ task, system, messages, userId, onDelta })                          -> { text, provider, model }
+ *   transcribe({ audio, mime, userId })                                          -> { text, provider, model }
  *
  * - Providers are OpenAI-compatible endpoints (openai SDK with a per-provider baseURL); routes,
  *   models and timeouts come from config/llm.js.
@@ -253,4 +254,69 @@ async function stream({ task, system, messages, userId = null, onDelta, maxToken
   throw new LlmUnavailableError(task, attempts);
 }
 
-module.exports = { complete, stream, redact, setLogger, LlmUnavailableError, LlmRequestError };
+const AUDIO_EXT = { 'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'mp4' };
+
+/**
+ * Speech-to-text (task 'stt'). `audio` is a Buffer that stays in memory: it is never written to
+ * disk or logged, and the caller drops it after this returns. `mime` must be one of AUDIO_EXT
+ * (the voice endpoint checks magic bytes first). Same failover and logging rules as complete().
+ * Resolves with { text, provider, model }; text may be '' for silence.
+ */
+async function transcribe({ audio, mime, userId = null }) {
+  const cfg = taskConfig('stt');
+  const ext = AUDIO_EXT[mime];
+  if (!ext) throw new Error(`unsupported audio type "${mime}"`);
+  const attempts = [];
+
+  for (const p of cfg.providers) {
+    const started = Date.now();
+    let timedOut = false;
+    const ac = new AbortController();
+    const timer = setTimeout(() => { timedOut = true; ac.abort(); }, cfg.timeoutMs);
+    try {
+      let text;
+      let usage = null;
+      if (p.stt === 'whisper') {
+        const file = await OpenAI.toFile(audio, `clip.${ext}`, { type: mime });
+        const res = await client(p).audio.transcriptions.create(
+          { file, model: p.model, response_format: 'json', temperature: 0 },
+          { signal: ac.signal, timeout: cfg.timeoutMs }
+        );
+        text = typeof res.text === 'string' ? res.text : '';
+      } else {
+        const res = await client(p).chat.completions.create({
+          model: p.model,
+          max_tokens: cfg.maxTokens,
+          temperature: 0,
+          messages: [
+            { role: 'system', content: 'Transcribe the speech in the audio exactly, in the language spoken. Reply with the transcript text only, no commentary. If there is no speech, reply with nothing.' },
+            { role: 'user', content: [{ type: 'input_audio', input_audio: { data: audio.toString('base64'), format: ext } }] }
+          ]
+        }, { signal: ac.signal, timeout: cfg.timeoutMs });
+        const choice = res.choices && res.choices[0];
+        text = choice && choice.message && typeof choice.message.content === 'string' ? choice.message.content : '';
+        usage = res.usage || null;
+      }
+      await logCall({
+        provider: p.name, model: p.model, task: 'stt', streamed: false, latencyMs: Date.now() - started,
+        promptTokens: usage?.prompt_tokens ?? null, completionTokens: usage?.completion_tokens ?? null,
+        ok: true, errorCode: null, userId
+      });
+      return { text: text.trim().slice(0, 5000), provider: p.name, model: p.model };
+    } catch (err) {
+      const { code, failover } = classify(err, timedOut);
+      attempts.push({ provider: p.name, code });
+      await logCall({
+        provider: p.name, model: p.model, task: 'stt', streamed: false, latencyMs: Date.now() - started,
+        promptTokens: null, completionTokens: null, ok: false, errorCode: code, userId
+      });
+      if (!failover) throw new LlmRequestError('stt', p.name, code, err.message);
+      console.error(`LLM stt: ${p.name} failed (${code}), trying next provider`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new LlmUnavailableError('stt', attempts);
+}
+
+module.exports = { complete, stream, transcribe, redact, setLogger, LlmUnavailableError, LlmRequestError, AUDIO_EXT };

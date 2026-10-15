@@ -160,6 +160,44 @@ async function main() {
     mock.setMode('groq', 'timeout');
     r = await llm.stream({ task: 'mentor', system: 's', messages: [{ role: 'user', content: 'x' }], onDelta: () => {} });
     check('stream timeout fails over', r.provider === 'gemini' && logs[0].errorCode === 'timeout');
+
+    console.log('Speech-to-text');
+    const clip = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(2000, 7)]);
+    fresh();
+    r = await llm.transcribe({ audio: clip, mime: 'audio/webm', userId: 5 });
+    const sttReq = mock.requests[0];
+    check('Groq Whisper transcribes first', r.provider === 'groq' && r.text === '[mock transcript:groq]' && sttReq.kind === 'transcription');
+    check('  multipart upload with whisper-large-v3-turbo and the audio bytes', /multipart\/form-data/.test(sttReq.contentType)
+      && sttReq.raw.includes('whisper-large-v3-turbo') && sttReq.raw.includes('clip.webm') && sttReq.raw.includes(clip));
+    check('  logged as task stt, no audio in the log', logs.length === 1 && logs[0].task === 'stt' && logs[0].ok && logs[0].userId === 5 && JSON.stringify(logs).length < 400);
+    fresh();
+    mock.setMode('groq', '503');
+    r = await llm.transcribe({ audio: clip, mime: 'audio/webm' });
+    const gReq = mock.requests[1];
+    const part = gReq.body.messages[1].content[0];
+    check('Groq down => Gemini transcribes from an input_audio part', r.provider === 'gemini' && r.text === '[mock transcript:gemini]'
+      && part.type === 'input_audio' && part.input_audio.format === 'webm' && part.input_audio.data === clip.toString('base64'));
+    fresh();
+    mock.setMode('groq', '400');
+    check('STT 400 fails fast', await llm.transcribe({ audio: clip, mime: 'audio/webm' }).then(() => false, (e) => e instanceof llm.LlmRequestError) && hit() === 'groq');
+    fresh();
+    mock.setTranscript('groq', '');
+    r = await llm.transcribe({ audio: clip, mime: 'audio/ogg' });
+    check('silence returns an empty transcript (no failover)', r.text === '' && hit() === 'groq');
+    check('unsupported audio type is refused before any request', await llm.transcribe({ audio: clip, mime: 'audio/wav' }).then(() => false, () => true));
+    fresh();
+    process.env.LLM_ROUTE_STT = 'openrouter,groq';
+    process.env.LLM_MODEL_OPENROUTER = 'x:free';
+    r = await llm.transcribe({ audio: clip, mime: 'audio/mp4' });
+    check('providers without audio support or student-text clearance are skipped', r.provider === 'groq' && hit() === 'groq');
+    check('  mp4 clips are sent as clip.mp4', mock.requests[0].raw.includes('clip.mp4'));
+    delete process.env.LLM_ROUTE_STT;
+    delete process.env.LLM_MODEL_OPENROUTER;
+    fresh();
+    process.env.LLM_MODEL_GROQ = 'llama-for-chat';
+    await llm.transcribe({ audio: clip, mime: 'audio/webm' });
+    check('a chat model override does not replace the Whisper model', mock.requests[0].raw.includes('whisper-large-v3-turbo'));
+    delete process.env.LLM_MODEL_GROQ;
   } finally {
     await mock.close();
   }
