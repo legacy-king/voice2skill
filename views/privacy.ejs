@@ -30,7 +30,7 @@
       <p>Your password is hashed using bcrypt and cannot be reversed, even by us. Email verification and password reset links use single-use, time-limited tokens stored as cryptographic hashes. Your account session is protected with secure, encrypted cookies.</p>
 
       <h2>Your rights</h2>
-      <p>Under the Nigeria Data Protection Regulation (NDPR), you have the right to access the personal data we hold about you, request correction of inaccurate data, and request deletion of your account and associated data. To exercise any of these rights, contact us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+      <p>Under the Nigeria Data Protection Regulation (NDPR), you have the right to access the personal data we hold about you, request correction of inaccurate data, and request deletion of your account and associated data. To exercise any of these rights, contact us at <%= locals.supportEmail || 'hello@voice2skill.com' %>.</p>
 
       <h2>Data retention</h2>
       <p>We retain your account data for as long as your account remains active. If you request account deletion, we will remove your personal data within a reasonable time, except where retention is required for legal or security purposes (e.g., fraud prevention records).</p>
@@ -39,7 +39,7 @@
       <p>We may update this policy as Voice2Skill evolves. We'll update the date above when changes are made. Continued use of Voice2Skill after changes means you accept the updated policy.</p>
 
       <h2>Contact</h2>
-      <p>Questions about this policy or your data? Reach us at <%= supportEmail || 'support@voice2skill.com' %>.</p>
+      <p>Questions about this policy or your data? Reach us at <%= locals.supportEmail || 'hello@voice2skill.com' %>.</p>
     </div>
   </main>
 </body>

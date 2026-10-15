@@ -22,7 +22,7 @@ const VIEWS_DIR = path.join(__dirname, '..', 'views');
 const user = { name: 'Maya', email: 'maya@example.com' };
 
 const tracks = [
-  { id: 1, name: 'Web Development', description: 'HTML, CSS, JavaScript — build and ship real sites.' },
+  { id: 1, name: 'Software Engineering', description: 'HTML, CSS, JavaScript — build and ship real sites.' },
   { id: 2, name: 'UI/UX Design', description: 'Design thinking, Figma, and interfaces people love.' },
   { id: 3, name: 'Data Analysis', description: 'Spreadsheets, SQL, and insights that drive decisions.' },
   { id: 4, name: 'Digital Marketing', description: 'Content, SEO, and campaigns that reach people.' },
@@ -126,10 +126,10 @@ const cases = [
     ['Session revoked']],
 
   ['dashboard', 'dashboard.ejs', { user, tracks, goalError: null, goalValue: '' },
-    ['Maya', 'maya@example.com', 'Map my goal', 'Browse all tracks', 'I want to learn', '8', 'tracks', 'check-in', 'Web Development', 'Speak your goal', 'noindex', 'Skip to content']],
+    ['Maya', 'maya@example.com', 'Map my goal', 'Browse all tracks', 'I want to learn', '8', 'tracks', 'check-in', 'Software Engineering', 'Speak your goal', 'noindex', 'Skip to content']],
 
   ['goal confirm', 'goal-confirm.ejs', { goal: 'design a mobile app interface', track: tracks[1], alternatives: [tracks[0], tracks[3]], glyphs: ['</>', '✦', '∑', '◎', '⚿'] },
-    ['design a mobile app interface', 'UI/UX Design', 'Build my 8-week roadmap', 'Pick a different track', 'Edit my goal', 'action="/tracks/2/select"', 'name="goal"', 'Not quite it?', 'Web Development', 'Digital Marketing', 'action="/tracks/1/select"', 'action="/tracks/4/select"', '_csrf']],
+    ['design a mobile app interface', 'UI/UX Design', 'Build my 8-week roadmap', 'Pick a different track', 'Edit my goal', 'action="/tracks/2/select"', 'name="goal"', 'Not quite it?', 'Software Engineering', 'Digital Marketing', 'action="/tracks/1/select"', 'action="/tracks/4/select"', '_csrf']],
 
   ['goal confirm (no alternatives)', 'goal-confirm.ejs', { goal: 'design a mobile app interface', track: tracks[1], alternatives: [], glyphs: ['</>', '✦', '∑', '◎', '⚿'] },
     ['design a mobile app interface', 'UI/UX Design', 'Build my 8-week roadmap']],
@@ -141,7 +141,7 @@ const cases = [
     ['Tell us what you want to learn first']],
 
   ['tracks', 'tracks.ejs', { tracks },
-    ['Choose your', 'Web Development', 'UI/UX Design', 'Data Analysis', 'Digital Marketing', 'Cybersecurity',
+    ['Choose your', 'Software Engineering', 'UI/UX Design', 'Data Analysis', 'Digital Marketing', 'Cybersecurity',
      'action="/tracks/1/select"', 'action="/tracks/5/select"', '_csrf', 'noindex', 'id="main"']],
 
   ['assessment (question 1)', 'assessment.ejs', {
@@ -167,7 +167,7 @@ const cases = [
   ['roadmap (active weekday)', 'roadmap.ejs',
     {
       roadmap: { id: 42 },
-      trackName: 'Web Development',
+      trackName: 'Software Engineering',
       checkins,
       message: null,
       streak: 12,
@@ -182,7 +182,7 @@ const cases = [
   ['roadmap (with persisted goal + video phrase)', 'roadmap.ejs',
     {
       roadmap: { id: 42, goal: 'build websites for my small business' },
-      trackName: 'Web Development',
+      trackName: 'Software Engineering',
       checkins: [],
       message: null,
       streak: 0,
@@ -197,7 +197,7 @@ const cases = [
   ['roadmap (empty notes message)', 'roadmap.ejs',
     {
       roadmap: { id: 42, goal: null },
-      trackName: 'Web Development',
+      trackName: 'Software Engineering',
       checkins: [],
       message: 'empty_notes',
       streak: 0,
@@ -225,7 +225,7 @@ const cases = [
   ['roadmap (already checked in)', 'roadmap.ejs',
     {
       roadmap: { id: 42 },
-      trackName: 'Web Development',
+      trackName: 'Software Engineering',
       checkins,
       message: 'already_checked_in',
       streak: 12,
@@ -268,6 +268,11 @@ const cases = [
       totalDays: 56,
       isComplete: false
     }, ['Your coach', 'AI Coach', 'Great work on the todo app', 'hooks next', 'Built a todo app']],
+
+  // The /privacy and /terms routes render with {} — only DEFAULT_LOCALS exist.
+  ['privacy (route locals only)', 'privacy.ejs', {}, ['Privacy Policy', 'hello@voice2skill.com']],
+  ['terms (route locals only)', 'terms.ejs', {}, ['hello@voice2skill.com']],
+  ['privacy (custom support email)', 'privacy.ejs', { supportEmail: 'help@example.com' }, ['help@example.com']],
 ];
 
 let failures = 0;
@@ -306,21 +311,23 @@ for (const [label, file, locals, expect] of cases) {
 const { matchTrackToGoal, rankTracksForGoal, goalToSearchPhrase } = require('../utils/goalMatcher');
 
 const matcherCases = [
-  ['I want to learn how to build websites', 'Web Development'],
-  ['make me an app for my business', 'Web Development'],
+  ['I want to learn how to build websites', 'Software Engineering'],
+  ['become a software engineer', 'Software Engineering'],
+  ['learn react and node', 'Software Engineering'],
+  ['make me an app for my business', 'Software Engineering'],
   ['learn python and sql', 'Data Analysis'],
   ['data analysis with spreadsheets', 'Data Analysis'],
   ['design a mobile app interface', 'UI/UX Design'],
   ['run instagram ads for my shop', 'Digital Marketing'],
   ['learn ethical hacking', 'Cybersecurity'],
-  ['build a responsive website with css', 'Web Development'],
+  ['build a responsive website with css', 'Software Engineering'],
   // typo tolerance
   ['i want to learn pythin', 'Data Analysis'],
-  ['build websits', 'Web Development'],
+  ['build websits', 'Software Engineering'],
   ['run markteing campaigns', 'Digital Marketing'],
   ['learn ethical hackng', 'Cybersecurity'],
   ['desgn a mobile app', 'UI/UX Design'],
-  ['learn html and javascrit', 'Web Development'],
+  ['learn html and javascrit', 'Software Engineering'],
   // exact beats fuzzy on a points tie: UI/UX fuzzy 'design' (1pt) vs Data exact 'data' (1pt)
   ['desgin data', 'Data Analysis'],
   ['fly a plane', null],
@@ -353,14 +360,24 @@ function expectRanked(goal, expectedTop, expectedCount) {
 
 expectRanked('design a mobile app interface', 'UI/UX Design', 2);
 const altNames = rankTracksForGoal('design a mobile app interface', tracks).map(e => e.track.name);
-if (!altNames.includes('Web Development')) {
+if (!altNames.includes('Software Engineering')) {
   failures++;
-  console.error('✗ alternatives should include Web Development for "design a mobile app interface"');
+  console.error('✗ alternatives should include Software Engineering for "design a mobile app interface"');
 } else {
-  console.log('✓ alternatives include Web Development for "design a mobile app interface"');
+  console.log('✓ alternatives include Software Engineering for "design a mobile app interface"');
 }
 
 expectRanked('fly a plane', null, 0);
+
+// Databases that haven't run syncTracks.js may still call the track "Web Development".
+const legacyTracks = [{ id: 1, name: 'Web Development' }, ...tracks.slice(1)];
+const legacyTop = matchTrackToGoal('I want to learn how to build websites', legacyTracks);
+if (!legacyTop || legacyTop.name !== 'Web Development') {
+  failures++;
+  console.error('✗ legacy "Web Development" track name should still match website goals');
+} else {
+  console.log('✓ legacy "Web Development" track name still matches');
+}
 
 const searchCases = [
   ['I want to learn how to build websites', 'learn build websites'],

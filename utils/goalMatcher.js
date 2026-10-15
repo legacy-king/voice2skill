@@ -3,17 +3,25 @@
  *
  * Scoring: each keyword hit adds points (multi-word phrases score higher),
  * matched on word boundaries so "web" doesn't match "website" accidentally
- * (well — "website" SHOULD map to Web Development, so it has its own keyword).
+ * (well — "website" SHOULD map to Software Engineering, so it has its own keyword).
  * Returns the track object with the highest score, or null if nothing matched.
+ *
+ * Keys must match tracks.name exactly — a track with no entry here can never
+ * be matched from a typed goal.
  */
 
+const SOFTWARE_KEYWORDS = [
+  'software engineering', 'software engineer', 'web development',
+  'front end', 'frontend', 'back end', 'backend',
+  'full stack', 'fullstack', 'web', 'html', 'css', 'javascript', 'js',
+  'react', 'node', 'developer', 'software', 'coding', 'programming',
+  'code', 'build websites', 'website', 'api', 'app', 'apps'
+];
+
 const KEYWORDS = {
-  'Web Development': [
-    'web development', 'front end', 'frontend', 'back end', 'backend',
-    'full stack', 'fullstack', 'web', 'html', 'css', 'javascript', 'js',
-    'react', 'node', 'developer', 'software', 'coding', 'programming',
-    'code', 'build websites', 'website', 'api', 'app', 'apps'
-  ],
+  'Software Engineering': SOFTWARE_KEYWORDS,
+  // Legacy name — databases that haven't run scripts/syncTracks.js yet.
+  'Web Development': SOFTWARE_KEYWORDS,
   'UI/UX Design': [
     'ui/ux', 'ui ux', 'ux design', 'ui design', 'design', 'figma',
     'user interface', 'interface', 'user experience', 'prototype', 'wireframe',
