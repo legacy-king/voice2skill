@@ -101,6 +101,12 @@ const cases = [
     ['Password must be at least 8 characters.']],
   ['signup (taken error)', 'signup.ejs', { error: 'taken' },
     ['already registered']],
+  ['signup (with bootcamp code)', 'signup.ejs', { code: 'KJ7MQ2XD' },
+    ['Bootcamp code (optional)', 'value="KJ7MQ2XD"', 'enter code <strong>KJ7MQ2XD</strong>']],
+  ['signup (cohort full)', 'signup.ejs', { error: 'code_full', code: 'KJ7MQ2XD' },
+    ['That cohort is full']],
+  ['signup (code expired)', 'signup.ejs', { error: 'code_expired' },
+    ['bootcamp code has expired']],
 
   ['change-password (default)', 'change-password.ejs', { user, error: null, success: false },
     ['Change password', 'Current password', 'New password (min 8 chars)', 'Update password', '_csrf', 'Back to dashboard', 'noindex', 'Skip to content']],
@@ -290,6 +296,29 @@ const cases = [
       totalDays: 56,
       isComplete: false
     }, ['Your coach', 'AI Coach', 'Great work on the todo app', 'hooks next', 'Built a todo app']],
+
+  ['admin (founder view)', 'admin.ejs', {
+    naira: (k) => '₦' + (k / 100).toLocaleString('en-NG'),
+    ent: { isAdmin: true, isTeacher: false, hasMentor: false },
+    atRiskDays: 3,
+    overview: { users: 40, verifiedUsers: 35, payingStudents: 22, active7d: 18, gross: 11000000, fees: 165000, orgShare: 2000000, platformNet: 8835000, paidOut: 500000, owed: 1500000 },
+    orgs: [{ name: 'Tunde Code Academy', owner_name: 'Tunde', owner_email: 'tunde@example.com', revenue_share_pct: '20.00', share_basis: 'net', cohorts: 2, gross: 10000000, orgShare: 2000000, paidOut: 500000, owed: 1500000, payments: 20 },
+           { name: 'Voice2Skill', owner_name: null, owner_email: null, revenue_share_pct: '0.00', share_basis: 'gross', cohorts: 1, gross: 1000000, orgShare: 0, paidOut: 0, owed: 0, payments: 2 }],
+    cohorts: [{ id: 9, name: 'Frontend Nov', org_name: 'Tunde Code Academy', kind: 'bootcamp', price_kobo: 500000, access_days: 30, max_seats: 30, seats_taken: 30, invite_code: 'KJ7MQ2XD', codeExpired: true, active: true, activeStudents: 25, atRisk: 4, avgStreak: 3.5 },
+              { id: 1, name: 'Voice2Skill Premium', org_name: 'Voice2Skill', kind: 'premium', price_kobo: 600000, access_days: 30, max_seats: null, seats_taken: 2, invite_code: 'V2SPREMIUM', codeExpired: false, active: false, activeStudents: 2, atRisk: 0, avgStreak: 1 }]
+  }, ['Founder admin', 'Tunde Code Academy', 'tunde@example.com', '20% of net', '₦15,000', 'platform', '30 / 30', 'Full', 'Expired', '4 at risk', 'href="/admin/cohorts/9"', 'Premium · closed', '<td>25</td>', 'never shown here', 'Admin']],
+
+  ['admin cohort roster', 'admin-cohort.ejs', {
+    naira: (k) => '₦' + (k / 100).toLocaleString('en-NG'),
+    atRiskDays: 3,
+    cohort: { name: 'Frontend Nov', org_name: 'Tunde Code Academy', kind: 'bootcamp', invite_code: 'KJ7MQ2XD', price_kobo: 500000, access_days: 30, seats_taken: 2, max_seats: 30, active: true },
+    ledger: { owed: 1500000 },
+    summary: { activeStudents: 2, atRisk: 1 },
+    students: [
+      { name: 'Ada', email: 'ada@example.com', paid: true, status: 'active', checkin_count: 4, streak: 0, progressPct: 7, daysSince: 5, atRisk: true },
+      { name: 'Bayo', email: 'bayo@example.com', paid: true, status: 'active', checkin_count: 10, streak: 6, progressPct: 18, daysSince: 0, atRisk: false }
+    ]
+  }, ['Frontend Nov', 'Ada', 'at risk', '5 days ago', '6 days', 'today', 'seats 2 of 30', '₦15,000']],
 ];
 
 let failures = 0;

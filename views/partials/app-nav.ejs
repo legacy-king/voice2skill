@@ -26,6 +26,9 @@
         <% if (typeof ent !== 'undefined' && ent.isTeacher) { %>
           <li><a href="/teacher" class="<%= active === 'teacher' ? 'active' : '' %>" <%= active === 'teacher' ? 'aria-current="page"' : '' %>>Teacher</a></li>
         <% } %>
+        <% if (typeof ent !== 'undefined' && ent.isAdmin) { %>
+          <li><a href="/admin" class="<%= active === 'admin' ? 'active' : '' %>" <%= active === 'admin' ? 'aria-current="page"' : '' %>>Admin</a></li>
+        <% } %>
         <li><a href="/security" class="<%= active === 'security' ? 'active' : '' %>" <%= active === 'security' ? 'aria-current="page"' : '' %>>Security</a></li>
         <% if (typeof roadmapUrl !== 'undefined' && roadmapUrl) { %>
           <li><a href="<%= roadmapUrl %>" class="<%= active === 'roadmap' ? 'active' : '' %>" <%= active === 'roadmap' ? 'aria-current="page"' : '' %>>My Roadmap</a></li>

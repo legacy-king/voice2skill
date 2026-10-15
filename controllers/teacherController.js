@@ -1,6 +1,7 @@
 const cohortModel = require('../models/cohortModel');
 const { loadState, canUse, canManageCohort } = require('../services/entitlements');
 const { nairaToKobo } = require('../utils/format');
+const { annotate, AT_RISK_DAYS } = require('../services/studentStatus');
 
 const ERRORS = {
   name: 'Give the cohort a name (3–150 characters).',
@@ -8,9 +9,10 @@ const ERRORS = {
   days: 'Access days must be a whole number between 1 and 365.',
   curriculum: 'The syllabus is too long (20,000 characters max).',
   mentor_name: 'The mentor name can be at most 80 characters.',
+  seats: 'Seats must be a whole number between 1 and 10,000, or blank for no limit.',
+  code_expiry: 'Enter the code expiry as a date (YYYY-MM-DD), or leave it blank.',
   no_org: 'Your account is not linked to a bootcamp yet. Contact Voice2Skill.'
 };
-const STUCK_AFTER_DAYS = 3;
 
 function parseCohortForm(body) {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -19,12 +21,35 @@ function parseCohortForm(body) {
   const curriculum = typeof body.curriculum === 'string' ? body.curriculum.trim() : '';
   // Optional: the name the AI mentor goes by. Blank = the tutor's own account name.
   const mentorName = typeof body.mentorName === 'string' ? body.mentorName.trim() : '';
+  // Optional seat limit (blank = unlimited) and invite-code expiry date (blank = never).
+  const seatsRaw = typeof body.maxSeats === 'string' ? body.maxSeats.trim() : '';
+  const maxSeats = seatsRaw === '' ? null : (/^\d+$/.test(seatsRaw) ? Number(seatsRaw) : NaN);
+  const expiryRaw = typeof body.codeExpires === 'string' ? body.codeExpires.trim() : '';
+  const codeExpiresAt = expiryRaw === '' ? null : parseExpiryDate(expiryRaw);
   if (name.length < 3 || name.length > 150) return { error: 'name' };
   if (priceKobo === null) return { error: 'price' };
   if (!Number.isInteger(accessDays) || accessDays < 1 || accessDays > 365) return { error: 'days' };
   if (curriculum.length > 20000) return { error: 'curriculum' };
   if (mentorName.length > 80) return { error: 'mentor_name' };
-  return { value: { name, priceKobo, accessDays, curriculum, mentorName } };
+  if (maxSeats !== null && !(Number.isInteger(maxSeats) && maxSeats >= 1 && maxSeats <= 10000)) return { error: 'seats' };
+  if (codeExpiresAt === undefined) return { error: 'code_expiry' };
+  return { value: { name, priceKobo, accessDays, curriculum, mentorName, maxSeats, codeExpiresAt } };
+}
+
+/** "2026-11-30" -> the END of that day in Lagos time (UTC+1, no DST), so the code works all day. */
+function parseExpiryDate(raw) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!m) return undefined;
+  const [y, mo, day] = m.slice(1).map(Number);
+  const check = new Date(Date.UTC(y, mo - 1, day));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== day) return undefined; // e.g. 2026-02-30
+  return new Date(`${raw}T23:59:59+01:00`);
+}
+
+/** Date input value (YYYY-MM-DD, Lagos time) for a stored expiry. */
+function expiryInputValue(date) {
+  if (!date) return '';
+  return new Date(new Date(date).getTime() + 3600000).toISOString().slice(0, 10);
 }
 
 async function requireTeacher(req, res) {
@@ -69,19 +94,7 @@ async function cohortPage(req, res) {
   const [cohort, roster] = await Promise.all([cohortModel.getCohort(cohortId), cohortModel.getRoster(cohortId)]);
   const ledger = await cohortModel.getOrgLedger(cohort.org_id);
   const now = Date.now();
-  const students = roster.map((s) => {
-    const last = s.last_checkin ? new Date(s.last_checkin).getTime() : null;
-    const daysSince = last === null ? null : Math.floor((now - last) / 86400000);
-    const joinedDays = Math.floor((now - new Date(s.joined_at).getTime()) / 86400000);
-    const paid = s.status === 'active' && s.access_until && new Date(s.access_until).getTime() > now;
-    return {
-      ...s,
-      paid,
-      daysSince,
-      progressPct: Math.min(100, Math.round((s.checkin_count / 56) * 100)),
-      stuck: paid && (daysSince === null ? joinedDays >= 2 : daysSince >= STUCK_AFTER_DAYS)
-    };
-  });
+  const students = roster.map((s) => annotate(s, now));
   res.render('teacher-cohort', {
     cohort,
     students,
@@ -90,7 +103,9 @@ async function cohortPage(req, res) {
     created: req.query.created === '1',
     saved: req.query.saved === '1',
     error: ERRORS[req.query.error] || null,
-    stuckAfterDays: STUCK_AFTER_DAYS
+    stuckAfterDays: AT_RISK_DAYS(),
+    codeExpiresValue: expiryInputValue(cohort.code_expires_at),
+    codeExpired: !!cohort.code_expires_at && new Date(cohort.code_expires_at).getTime() <= now
   });
 }
 
@@ -106,4 +121,4 @@ async function updateCohort(req, res) {
   res.redirect(`/teacher/cohorts/${cohortId}?saved=1`);
 }
 
-module.exports = { teacherHome, createCohort, cohortPage, updateCohort };
+module.exports = { teacherHome, createCohort, cohortPage, updateCohort, parseCohortForm, parseExpiryDate };

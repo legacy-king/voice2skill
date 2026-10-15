@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
+const cohortModel = require('../models/cohortModel');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
 const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../services/mailer');
@@ -59,35 +60,51 @@ async function maybeAlertNewDevice(user, req) {
   }
 }
 
+// Bootcamp code problems at signup -> signup page error key.
+const SIGNUP_CODE_ERRORS = { invalid: 'code_invalid', full: 'code_full', expired: 'code_expired' };
+
 async function signup(req, res) {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
+  // Optional bootcamp invite code. Checked now for quick feedback; the seat is only taken when the
+  // email is verified (confirmEmail), so unverified sign-ups can't fill a cohort.
+  const code = cohortModel.normalizeCode(req.body.code);
+  const back = (error) => res.redirect(`/signup?error=${error}${code ? `&code=${code}` : ''}`);
 
   if (!name || name.length > 100) {
-    return res.redirect('/signup?error=name');
+    return back('name');
   }
   if (!EMAIL_RE.test(email) || email.length > 150) {
-    return res.redirect('/signup?error=email');
+    return back('email');
   }
   if (password.length < 8) {
-    return res.redirect('/signup?error=password');
+    return back('password');
+  }
+  let signupCohortId = null;
+  if (code) {
+    const { cohort, reason } = await cohortModel.checkCode(code);
+    if (reason) return back(SIGNUP_CODE_ERRORS[reason]);
+    signupCohortId = cohort.id;
   }
 
   const existingUser = await userModel.findUserByEmail(email);
   if (existingUser && existingUser.email_verified) {
-    return res.redirect('/signup?error=taken');
+    return back('taken');
   }
 
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + VERIFY_TTL_MS);
 
+  let userId;
   if (existingUser) {
     await userModel.setVerificationToken(existingUser.id, token, expiresAt);
+    userId = existingUser.id;
   } else {
     const passwordHash = await bcrypt.hash(password, 10);
-    await userModel.createUser(name, email, passwordHash, token, expiresAt);
+    userId = (await userModel.createUser(name, email, passwordHash, token, expiresAt)).id;
   }
+  if (signupCohortId) await userModel.setSignupCohort(userId, signupCohortId);
 
   // Fire the email in the background — don't make the user wait on it.
   sendVerificationEmail(email, name, token).catch(err => {
@@ -155,6 +172,17 @@ async function confirmEmail(req, res) {
 
   await userModel.markEmailVerified(user.id);
 
+  // Signed up with a bootcamp code: join that cohort now (seat + expiry checked under a lock).
+  let next = '/dashboard';
+  if (user.signup_cohort_id) {
+    const cohort = await cohortModel.getCohort(user.signup_cohort_id);
+    const joined = cohort ? await cohortModel.joinByCode(user.id, cohort.invite_code) : { result: 'invalid' };
+    if (joined.result === 'joined') next = joined.free ? '/mentor' : '/join';
+    else if (joined.result === 'full') next = '/join?error=cohort_full';
+    else if (joined.result === 'expired') next = '/join?error=expired_code';
+    else if (joined.result === 'invalid') next = '/join?error=invalid_code';
+  }
+
   // Alert the owner if this confirmation comes from a new device.
   maybeAlertNewDevice(user, req);
 
@@ -163,7 +191,7 @@ async function confirmEmail(req, res) {
     if (err) return res.status(500).send('Something went wrong on our end.');
     req.session.userId = user.id;
     stampSession(req);
-    res.redirect('/dashboard');
+    res.redirect(next);
   });
 }
 
@@ -420,7 +448,10 @@ function loginPage(req, res) {
 }
 
 function signupPage(req, res) {
-  res.render('signup');
+  res.render('signup', {
+    error: typeof req.query.error === 'string' ? req.query.error : null,
+    code: cohortModel.normalizeCode(req.query.code)
+  });
 }
 
 function logout(req, res) {

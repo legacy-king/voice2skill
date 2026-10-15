@@ -17,6 +17,8 @@
       <% if (error) { %><div class="goal-error" role="alert"><%= error %></div><% } %>
       <div class="co-invite">
         <div><div class="co-muted">Invite code</div><span class="co-code co-code-lg"><%= cohort.invite_code %></span></div>
+        <div><div class="co-muted">Seats</div><strong><%= cohort.seats_taken %><%= cohort.max_seats ? ' of ' + cohort.max_seats : '' %></strong><% if (cohort.max_seats && cohort.seats_taken >= cohort.max_seats) { %> <span class="co-pill co-pill-warn">Full</span><% } %></div>
+        <% if (cohort.code_expires_at) { %><div><div class="co-muted">Code <%= codeExpired ? 'expired' : 'expires' %></div><strong><%= codeExpiresValue %></strong><% if (codeExpired) { %> <span class="co-pill co-pill-warn">Expired</span><% } %></div><% } %>
         <div class="co-invite-link"><div class="co-muted">Or share this link</div><input type="text" readonly value="<%= inviteUrl %>" onclick="this.select()" aria-label="Invite link"></div>
       </div>
     </section>
@@ -26,10 +28,10 @@
       <% if (students.length === 0) { %><p class="co-muted">Nobody has joined yet. Send them the code.</p><% } else { %>
       <div class="co-table-wrap">
         <table class="co-table">
-          <thead><tr><th>Student</th><th>Status</th><th>Check-ins</th><th>Progress</th><th>Last check-in</th></tr></thead>
+          <thead><tr><th>Student</th><th>Status</th><th>Check-ins</th><th>Streak</th><th>Progress</th><th>Last check-in</th></tr></thead>
           <tbody>
             <% students.forEach(function (s) { %>
-              <tr class="<%= s.stuck ? 'co-row-stuck' : '' %>">
+              <tr class="<%= s.atRisk ? 'co-row-stuck' : '' %>">
                 <td><strong><%= s.name %></strong><div class="co-muted"><%= s.email %></div></td>
                 <td>
                   <% if (s.paid) { %><span class="co-pill co-pill-ok">Active</span>
@@ -37,12 +39,13 @@
                   <% } else { %><span class="co-pill">Not paid</span><% } %>
                 </td>
                 <td><%= s.checkin_count %></td>
+                <td><%= s.streak %> day<%= s.streak === 1 ? '' : 's' %></td>
                 <td><div class="co-bar" aria-label="<%= s.progressPct %>% of the 8-week roadmap"><span style="width: <%= s.progressPct %>%"></span></div></td>
                 <td>
                   <% if (s.daysSince === null) { %><span class="co-muted">never</span>
                   <% } else if (s.daysSince === 0) { %>today
                   <% } else { %><%= s.daysSince %> day<%= s.daysSince === 1 ? '' : 's' %> ago<% } %>
-                  <% if (s.stuck) { %><span class="co-pill co-pill-warn">needs a nudge</span><% } %>
+                  <% if (s.atRisk) { %><span class="co-pill co-pill-warn">needs a nudge</span><% } %>
                 </td>
               </tr>
             <% }) %>
@@ -71,6 +74,8 @@
         <div class="co-row">
           <label>Price per period (₦)<input type="number" name="price" min="0" max="1000000" step="1" value="<%= cohort.price_kobo / 100 %>" required></label>
           <label>Access days per payment<input type="number" name="accessDays" min="1" max="365" value="<%= cohort.access_days %>" required></label>
+          <label>Seats (blank = no limit)<input type="number" name="maxSeats" min="1" max="10000" step="1" value="<%= cohort.max_seats || '' %>"></label>
+          <label>Code expires on (blank = never)<input type="date" name="codeExpires" value="<%= codeExpiresValue %>"></label>
         </div>
         <label>AI mentor name <span class="co-muted">(students chat with “[this name]’s AI mentor”; leave blank to use your account name)</span>
           <input type="text" name="mentorName" maxlength="80" value="<%= cohort.mentor_name || '' %>" placeholder="e.g. Mr. Tunde">

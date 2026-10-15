@@ -122,3 +122,25 @@ BEGIN
       VALUES (platform_org, 'Voice2Skill Premium', 'V2SPREMIUM', 600000, 30, 'premium', 'Voice2Skill');
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- Phase 4: seat limits, invite-code expiry, signup attribution, founder admin.
+-- ---------------------------------------------------------------------------------------------
+-- NULL = unlimited. A seat is any student membership that is not cancelled (paid, pending or
+-- expired), so a class sold as 30 seats never takes a 31st NEW student. Renewals are not new seats.
+ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS max_seats INTEGER;
+DO $$ BEGIN
+  ALTER TABLE cohorts ADD CONSTRAINT cohorts_max_seats_check CHECK (max_seats IS NULL OR max_seats > 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+-- After this moment the invite code takes no NEW students (existing members can still pay/renew).
+ALTER TABLE cohorts ADD COLUMN IF NOT EXISTS code_expires_at TIMESTAMPTZ;
+
+-- The cohort whose code a student signed up with (revenue attribution; the membership itself is
+-- created when the email is verified, so unverified sign-ups never hold a seat).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_cohort_id INTEGER REFERENCES cohorts(id) ON DELETE SET NULL;
+
+-- Founder admin view (/admin). A flag, not users.role: createOrg.js sets role = 'teacher', which
+-- must not silently remove admin access. Set with: node scripts/makeAdmin.js <email>
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_memberships_cohort_role_status ON memberships (cohort_id, role, status);
+CREATE INDEX IF NOT EXISTS idx_checkins_user_date ON checkins (user_id, checkin_date);

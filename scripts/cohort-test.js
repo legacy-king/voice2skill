@@ -577,6 +577,118 @@ async function main() {
     check('mentor has voice input and the read-aloud preference', mpage.text.includes('data-voice-target="msg"') && mpage.text.includes('id="readAloud"') && mpage.text.includes('/js/voice.js'));
     const vjs = await fred.c.req('GET', '/js/voice.js');
     check('voice.js is served', vjs.status === 200 && vjs.text.includes('/api/voice/transcribe'));
+
+    console.log('Phase 4: seats and code expiry');
+    const tt4 = await tutor.c.csrf('/teacher');
+    const cohortForm = (extra) => ({ _csrf: tt4, name: 'Seat test', price: '0', accessDays: '30', curriculum: 'x', ...extra });
+    check('seats must be a positive whole number', (await tutor.c.req('POST', '/teacher/cohorts', { form: cohortForm({ maxSeats: '0' }) })).location === '/teacher?error=seats');
+    check('code expiry must be a real date', (await tutor.c.req('POST', '/teacher/cohorts', { form: cohortForm({ codeExpires: '2026-02-30' }) })).location === '/teacher?error=code_expiry');
+    const seatMade = await tutor.c.req('POST', '/teacher/cohorts', { form: cohortForm({ maxSeats: '2' }) });
+    const seatId = Number((seatMade.location || '').match(/cohorts\/(\d+)/)?.[1]);
+    const seatCode = (await pool.query('SELECT invite_code, max_seats FROM cohorts WHERE id = $1', [seatId])).rows[0];
+    check('cohort created with a seat limit', seatCode && seatCode.max_seats === 2);
+    check('teacher page shows seats taken', /0 of 2/.test((await tutor.c.req('GET', `/teacher/cohorts/${seatId}`)).text));
+    const st1 = await makeUser('seat1');
+    const st2 = await makeUser('seat2');
+    const st3 = await makeUser('seat3');
+    const joinWith = async (u, code) => (await u.c.req('POST', '/join', { form: { _csrf: await u.c.csrf('/join'), code } })).location;
+    check('seat 1 of 2 taken', (await joinWith(st1, seatCode.invite_code)) === '/mentor');
+    check('seat 2 of 2 taken', (await joinWith(st2, seatCode.invite_code)) === '/mentor');
+    check('third student is refused: cohort full', (await joinWith(st3, seatCode.invite_code)) === '/join?error=cohort_full');
+    check('join page explains the cohort is full', /That cohort is full/.test((await st3.c.req('GET', '/join?error=cohort_full')).text));
+    check('an existing member is never blocked by the seat limit', (await joinWith(st1, seatCode.invite_code)) === '/join?message=already');
+    check('teacher page flags the cohort as full', /2 of 2<\/strong> <span class="co-pill co-pill-warn">Full/.test((await tutor.c.req('GET', `/teacher/cohorts/${seatId}`)).text));
+
+    const oneMade = await tutor.c.req('POST', '/teacher/cohorts', { form: cohortForm({ name: 'One seat', maxSeats: '1' }) });
+    const oneId = Number(oneMade.location.match(/cohorts\/(\d+)/)[1]);
+    const oneCode = (await pool.query('SELECT invite_code FROM cohorts WHERE id = $1', [oneId])).rows[0].invite_code;
+    const racers = await Promise.all([1, 2, 3, 4, 5].map((i) => makeUser(`racer${i}`)));
+    const raced = await Promise.all(racers.map((u) => joinWith(u, oneCode)));
+    check('5 students racing for the last seat: exactly 1 gets it', raced.filter((l) => l === '/mentor').length === 1
+      && raced.filter((l) => l === '/join?error=cohort_full').length === 4
+      && (await pool.query("SELECT COUNT(*)::int n FROM memberships WHERE cohort_id = $1 AND role = 'student'", [oneId])).rows[0].n === 1, raced.join(','));
+
+    const lagosDay = (offsetDays) => new Date(Date.now() + 3600000 + offsetDays * 86400000).toISOString().slice(0, 10);
+    const upd4 = await tutor.c.req('POST', `/teacher/cohorts/${seatId}`, { form: cohortForm({ maxSeats: '10', codeExpires: lagosDay(-1), active: 'on' }) });
+    check('tutor can set a code expiry date', upd4.location === `/teacher/cohorts/${seatId}?saved=1`);
+    const stored = (await pool.query('SELECT code_expires_at FROM cohorts WHERE id = $1', [seatId])).rows[0].code_expires_at;
+    check('expiry stored as the end of that day in Lagos (23:59:59 +01:00)', new Date(stored).toISOString() === `${lagosDay(-1)}T22:59:59.000Z`, String(stored));
+    check('new students are refused once the code has expired', (await joinWith(st3, seatCode.invite_code)) === '/join?error=expired_code');
+    check('join page explains the code expired', /invite code has expired/.test((await st3.c.req('GET', '/join?error=expired_code')).text));
+    await pool.query("UPDATE memberships SET access_until = NOW() - INTERVAL '1 day' WHERE user_id = $1 AND cohort_id = $2", [st1.id, seatId]);
+    check('an existing member can still renew after the code expired', (await joinWith(st1, seatCode.invite_code)) === '/mentor');
+    check('teacher page shows the code as expired', /Code expired/.test((await tutor.c.req('GET', `/teacher/cohorts/${seatId}`)).text));
+    await tutor.c.req('POST', `/teacher/cohorts/${seatId}`, { form: cohortForm({ maxSeats: '', codeExpires: '', active: 'on' }) });
+    check('blank seats / expiry clear the limits', (await pool.query('SELECT max_seats, code_expires_at FROM cohorts WHERE id = $1', [seatId])).rows[0].max_seats === null
+      && (await joinWith(st3, seatCode.invite_code)) === '/mentor');
+
+    console.log('Phase 4: signup with a bootcamp code');
+    const scMade = await tutor.c.req('POST', '/teacher/cohorts', { form: cohortForm({ name: 'Signup cohort', maxSeats: '1' }) });
+    const scId = Number(scMade.location.match(/cohorts\/(\d+)/)[1]);
+    const scCode = (await pool.query('SELECT invite_code FROM cohorts WHERE id = $1', [scId])).rows[0].invite_code;
+    const anon4 = client();
+    const dashed = scCode.toLowerCase().replace(/^(.{4})/, '$1-');
+    check('invite link without an account goes to signup with the code', (await anon4.req('GET', `/join?code=${dashed}`)).location === `/signup?code=${scCode}`);
+    check('signup page is prefilled with the code', (await anon4.req('GET', `/signup?code=${scCode}`)).text.includes(`value="${scCode}"`));
+    const signupWith = async (who, code) => {
+      const c = client();
+      const t = await c.csrf('/signup');
+      const r = await c.req('POST', '/signup', { form: { _csrf: t, name: who, email: `${who}.${run}@example.com`, password: 'password123', code } });
+      return { c, r, email: `${who}.${run}@example.com` };
+    };
+    const badSign = await signupWith('badcode', 'ZZZZ-ZZZZ');
+    check('signup with an unknown code is refused (no account created)', badSign.r.location === '/signup?error=code_invalid&code=ZZZZZZZZ'
+      && (await pool.query('SELECT COUNT(*)::int n FROM users WHERE email = $1', [badSign.email])).rows[0].n === 0);
+    check('signup page shows the code error', /bootcamp code was not found/.test((await badSign.c.req('GET', '/signup?error=code_invalid&code=ZZZZZZZZ')).text));
+    const tia = await signupWith('tia', scCode);
+    const sam = await signupWith('sam', dashed);
+    check('signup with a valid code goes to email verification', tia.r.location === '/verify-email?sent=1' && sam.r.location === '/verify-email?sent=1');
+    const samRow = (await pool.query('SELECT id, signup_cohort_id FROM users WHERE email = $1', [sam.email])).rows[0];
+    check('signup records the bootcamp for attribution', samRow.signup_cohort_id === scId);
+    check('no seat is taken before the email is verified', (await pool.query('SELECT COUNT(*)::int n FROM memberships WHERE cohort_id = $1', [scId])).rows[0].n === 1); // the tutor's teacher row
+    await new Promise((r) => setTimeout(r, 300));
+    const tokenFor = (email) => (serverLog.match(new RegExp(`verify ${email.replace(/[.]/g, '\\.')} token=([a-f0-9]+)`)) || [])[1];
+    const samConfirm = await sam.c.req('GET', `/verify-email/confirm?token=${tokenFor(sam.email)}`);
+    check('verifying joins the bootcamp (free cohort => mentor)', samConfirm.location === '/mentor'
+      && (await pool.query("SELECT status FROM memberships WHERE user_id = $1 AND cohort_id = $2", [samRow.id, scId])).rows[0]?.status === 'active', samConfirm.location);
+    const tiaConfirm = await tia.c.req('GET', `/verify-email/confirm?token=${tokenFor(tia.email)}`);
+    check('if the cohort filled up meanwhile, the account is still verified and told why', tiaConfirm.location === '/join?error=cohort_full'
+      && (await pool.query('SELECT email_verified FROM users WHERE email = $1', [tia.email])).rows[0].email_verified === true);
+    await pool.query("UPDATE cohorts SET code_expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1", [scId]);
+    check('signup with an expired code is refused', (await signupWith('late', scCode)).r.location === `/signup?error=code_expired&code=${scCode}`);
+
+    console.log('Phase 4: founder admin view');
+    const boss = await makeUser('boss');
+    check('non-admins get 404 on /admin (student, tutor)', (await fred.c.req('GET', '/admin')).status === 404 && (await tutor.c.req('GET', '/admin')).status === 404);
+    check('anonymous visitors are sent to login', (await client().req('GET', '/admin')).location === '/login');
+    check('makeAdmin refuses unknown emails', spawnSync('node', [path.join(__dirname, 'makeAdmin.js'), `nobody.${run}@example.com`], { env: NO_LLM_ENV, encoding: 'utf8' }).status !== 0);
+    check('makeAdmin grants admin', spawnSync('node', [path.join(__dirname, 'makeAdmin.js'), boss.email], { env: NO_LLM_ENV, encoding: 'utf8' }).status === 0);
+    const adminHome = await boss.c.req('GET', '/admin');
+    check('admin sees every bootcamp with owner and share', adminHome.status === 200 && adminHome.text.includes(tutor.email) && /20% of net/.test(adminHome.text) && adminHome.text.includes('Voice2Skill Premium'));
+    const tutorOrgId = (await pool.query('SELECT id FROM organizations WHERE owner_user_id = $1', [tutor.id])).rows[0].id;
+    const owedNow = require('../utils/format').naira((await require('../models/cohortModel').getOrgLedger(tutorOrgId)).owed);
+    check('admin sees what is owed to the bootcamp (matches the ledger)', adminHome.text.includes(owedNow), owedNow);
+    check('admin sees seats (full) and expired codes', /1 \/ 1<\/td>|1 \/ 1 <span class="co-pill co-pill-warn">Full/.test(adminHome.text) && /Expired/.test(adminHome.text));
+    check('admin nav link shown to the admin only', adminHome.text.includes('href="/admin"') && !(await tutor.c.req('GET', '/teacher')).text.includes('href="/admin"'));
+    const adminCohort = await boss.c.req('GET', `/admin/cohorts/${cohortId}`);
+    check('admin cohort roster lists students but never note text', adminCohort.status === 200 && adminCohort.text.includes('alice') && !adminCohort.text.includes('secret note'));
+    check('admin pages are read-only (POST => 404)', (await boss.c.req('POST', '/admin', { form: { _csrf: await boss.c.csrf('/join') } })).status === 404);
+    check('unknown cohort => 404', (await boss.c.req('GET', '/admin/cohorts/999999')).status === 404);
+
+    console.log('Phase 4: streaks and at-risk students');
+    const rmFor = async (u) => (await pool.query("INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 3, '{\"weeks\":[]}') RETURNING id", [u.id])).rows[0].id;
+    const rmA = await rmFor(st1);
+    const rmB = await rmFor(st2);
+    await pool.query("INSERT INTO checkins (user_id, roadmap_id, checkin_date, notes) VALUES ($1, $2, CURRENT_DATE - 5, 'old')", [st1.id, rmA]);
+    await pool.query("INSERT INTO checkins (user_id, roadmap_id, checkin_date, notes) VALUES ($1, $2, CURRENT_DATE, 'a'), ($1, $2, CURRENT_DATE - 1, 'b'), ($1, $2, CURRENT_DATE - 2, 'c')", [st2.id, rmB]);
+    const adminSeat = await boss.c.req('GET', `/admin/cohorts/${seatId}`);
+    const rowOf = (html, name) => (html.split('<tr').find((r) => r.includes(name)) || '');
+    check('no check-in for 5 days with paid access => at risk', /at risk/.test(rowOf(adminSeat.text, 'seat1')) && /5 days ago/.test(rowOf(adminSeat.text, 'seat1')));
+    check('checked in 3 days running => streak 3, not at risk', /3 days/.test(rowOf(adminSeat.text, 'seat2')) && !/at risk/.test(rowOf(adminSeat.text, 'seat2')));
+    check('admin home counts the at-risk students per cohort', /1 at risk/.test(rowOf((await boss.c.req('GET', '/admin')).text, `/admin/cohorts/${seatId}"`)));
+    const teacherSeat = await tutor.c.req('GET', `/teacher/cohorts/${seatId}`);
+    check('tutor sees the same student as "needs a nudge" and the streak', /needs a nudge/.test(rowOf(teacherSeat.text, 'seat1')) && /3 days/.test(rowOf(teacherSeat.text, 'seat2')));
+    check('tutor roster still never shows note text', !teacherSeat.text.includes('>old<') && !/\bold\b/.test(rowOf(teacherSeat.text, 'seat1')));
     mock.reset();
   } finally {
     await mock.close();

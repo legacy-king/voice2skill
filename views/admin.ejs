@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Admin - Voice2Skill</title>
+  <%- include('partials/head-app') %>
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'admin' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <section class="co-hero co-hero-left">
+      <span class="app-eyebrow">Founder admin</span>
+      <h1>All <span class="grad-text">bootcamps</span></h1>
+      <p>Read-only. Students' check-in notes and mentor chats are never shown here.</p>
+    </section>
+
+    <section class="co-stats" aria-label="Totals">
+      <div class="co-stat"><div class="num"><%= overview.users %></div><div class="lbl">accounts (<%= overview.verifiedUsers %> verified)</div></div>
+      <div class="co-stat"><div class="num"><%= overview.payingStudents %></div><div class="lbl">students with paid access now</div></div>
+      <div class="co-stat"><div class="num"><%= overview.active7d %></div><div class="lbl">checked in during the last 7 days</div></div>
+      <div class="co-stat"><div class="num"><%= naira(overview.gross) %></div><div class="lbl">collected (Paystack fees <%= naira(overview.fees) %>)</div></div>
+      <div class="co-stat"><div class="num grad-text"><%= naira(overview.platformNet) %></div><div class="lbl">Voice2Skill net after fees and bootcamp shares</div></div>
+      <div class="co-stat"><div class="num"><%= naira(overview.owed) %></div><div class="lbl">owed to bootcamps (<%= naira(overview.paidOut) %> paid out)</div></div>
+    </section>
+
+    <section class="co-section">
+      <h2>Bootcamps and revenue share</h2>
+      <% if (orgs.length === 0) { %><p class="co-muted">No organizations yet. Add one with scripts/createOrg.js.</p><% } else { %>
+      <div class="co-table-wrap">
+        <table class="co-table">
+          <thead><tr><th>Organization</th><th>Owner</th><th>Share</th><th>Cohorts</th><th>Collected</th><th>Their share</th><th>Paid out</th><th>Owed</th></tr></thead>
+          <tbody>
+            <% orgs.forEach(function (o) { %>
+              <tr>
+                <td><strong><%= o.name %></strong></td>
+                <td><% if (o.owner_email) { %><%= o.owner_name %><div class="co-muted"><%= o.owner_email %></div><% } else { %><span class="co-muted">platform</span><% } %></td>
+                <td><%= Number(o.revenue_share_pct) %>% of <%= o.share_basis %></td>
+                <td><%= o.cohorts %></td>
+                <td><%= naira(o.gross) %><div class="co-muted"><%= o.payments %> payment<%= o.payments === 1 ? '' : 's' %></div></td>
+                <td><%= naira(o.orgShare) %></td>
+                <td><%= naira(o.paidOut) %></td>
+                <td><strong class="<%= o.owed > 0 ? 'grad-text' : '' %>"><%= naira(o.owed) %></strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p class="co-fine">Record a payout with <code>node scripts/ledger.js payout &lt;orgId&gt; &lt;naira&gt; "note"</code>.</p>
+      <% } %>
+    </section>
+
+    <section class="co-section">
+      <h2>Cohorts</h2>
+      <div class="co-table-wrap">
+        <table class="co-table">
+          <thead><tr><th>Cohort</th><th>Price</th><th>Seats</th><th>Code</th><th>Active</th><th>At risk</th><th>Avg streak</th></tr></thead>
+          <tbody>
+            <% cohorts.forEach(function (c) { %>
+              <tr class="<%= c.atRisk ? 'co-row-stuck' : '' %>">
+                <td><a href="/admin/cohorts/<%= c.id %>"><strong><%= c.name %></strong></a><div class="co-muted"><%= c.org_name %><%= c.kind === 'premium' ? ' · Premium' : '' %><%= c.active ? '' : ' · closed' %></div></td>
+                <td><%= c.price_kobo === 0 ? 'Free' : naira(c.price_kobo) %><div class="co-muted"><%= c.access_days %> days</div></td>
+                <td><%= c.seats_taken %><%= c.max_seats ? ' / ' + c.max_seats : '' %><% if (c.max_seats && c.seats_taken >= c.max_seats) { %> <span class="co-pill co-pill-warn">Full</span><% } %></td>
+                <td><span class="co-code"><%= c.invite_code %></span><% if (c.codeExpired) { %> <span class="co-pill co-pill-warn">Expired</span><% } %></td>
+                <td><%= c.activeStudents %></td>
+                <td><% if (c.atRisk) { %><span class="co-pill co-pill-warn"><%= c.atRisk %> at risk</span><% } else { %><span class="co-muted">0</span><% } %></td>
+                <td><%= c.avgStreak %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p class="co-fine">"At risk" = paid access now and no check-in for <%= atRiskDays %>+ days (or none at all 2+ days after joining). Tutors see the same students as "needs a nudge".</p>
+    </section>
+  </main>
+</body>
+</html>

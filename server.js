@@ -12,6 +12,7 @@ const reminderRoutes = require('./routes/reminderRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const cohortRoutes = require('./routes/cohortRoutes');
 const voiceRoutes = require('./routes/voiceRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { paystackWebhook } = require('./controllers/cohortController');
 const { loadEntitlements } = require('./middleware/entitlements');
 const { securityHeaders, csrfProtection, touchLastActive } = require('./middleware/security');
@@ -76,6 +77,7 @@ app.use('/', reminderRoutes);
 app.use('/', assessmentRoutes);
 app.use('/', cohortRoutes);
 app.use('/', voiceRoutes);
+app.use('/', adminRoutes);
 
 // 404 + central error handler
 app.use((req, res) => {

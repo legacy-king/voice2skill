@@ -27,6 +27,7 @@ async function loadState(userId) {
     [userId]
   );
   const owned = await pool.query('SELECT 1 FROM organizations WHERE owner_user_id = $1 LIMIT 1', [userId]);
+  const admin = await pool.query('SELECT is_admin FROM users WHERE id = $1', [userId]);
   const now = Date.now();
 
   const grantsAccess = (r) => {
@@ -49,7 +50,8 @@ async function loadState(userId) {
     mentorMembership: activeRows[0] || null,
     hasPremium: activeRows.some((r) => r.kind === 'premium'),
     hasCohort: activeRows.some((r) => r.kind === 'bootcamp'),
-    isTeacher: owned.rowCount > 0 || rows.some((r) => r.role === 'teacher')
+    isTeacher: owned.rowCount > 0 || rows.some((r) => r.role === 'teacher'),
+    isAdmin: !!(admin.rows[0] && admin.rows[0].is_admin)
   };
 }
 
@@ -64,6 +66,8 @@ function canUse(state, feature) {
     case 'voice_stt':
       return true;
     case 'teacher_dashboard': return !!state.isTeacher;
+    // Founder view across every bootcamp: read-only, users.is_admin only.
+    case 'admin_dashboard': return !!state.isAdmin;
     default: return false;
   }
 }

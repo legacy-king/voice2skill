@@ -16,6 +16,11 @@ async function createUser(name, email, passwordHash, verificationToken, verifica
   return result.rows[0];
 }
 
+/** The bootcamp whose invite code this account signed up with (attribution; joined on verify). */
+async function setSignupCohort(userId, cohortId) {
+  await pool.query('UPDATE users SET signup_cohort_id = $2 WHERE id = $1', [userId, cohortId]);
+}
+
 async function findUserByEmail(email) {
     const result = await pool.query(
         'SELECT * FROM users WHERE email = $1',
@@ -152,6 +157,7 @@ async function deleteUserSession(userId, sid) {
 
 module.exports = {
   createUser,
+  setSignupCohort,
   findUserByEmail,
   findUserById,
   findUserByVerificationToken,

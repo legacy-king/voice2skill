@@ -31,7 +31,7 @@
         <% cohorts.forEach(function (c) { %>
           <a class="co-card co-card-link" href="/teacher/cohorts/<%= c.id %>">
             <h3><%= c.name %></h3>
-            <p class="co-muted"><%= c.price_kobo === 0 ? 'Free' : naira(c.price_kobo) + ' / ' + c.access_days + ' days' %> · <%= c.active ? 'open' : 'closed' %></p>
+            <p class="co-muted"><%= c.price_kobo === 0 ? 'Free' : naira(c.price_kobo) + ' / ' + c.access_days + ' days' %> · <%= c.active ? 'open' : 'closed' %> · <%= c.seats_taken %><%= c.max_seats ? '/' + c.max_seats : '' %> seats</p>
             <p><span class="co-code"><%= c.invite_code %></span></p>
             <p class="co-muted"><%= c.active_students %> paying · <%= c.students %> joined</p>
           </a>
@@ -48,6 +48,8 @@
         <div class="co-row">
           <label>Price per period (₦)<input type="number" name="price" min="0" max="1000000" step="1" value="5000" required></label>
           <label>Access days per payment<input type="number" name="accessDays" min="1" max="365" value="30" required></label>
+          <label>Seats (blank = no limit)<input type="number" name="maxSeats" min="1" max="10000" step="1" placeholder="e.g. 30"></label>
+          <label>Code expires on (blank = never)<input type="date" name="codeExpires"></label>
         </div>
         <label>Syllabus <span class="co-muted">(the AI mentor answers from this — paste your weekly topics, key rules, project briefs)</span>
           <textarea name="curriculum" rows="8" maxlength="20000" placeholder="Week 1: HTML structure, semantic tags…"></textarea>

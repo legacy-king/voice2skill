@@ -40,6 +40,9 @@
           <% } else if (error === 'email') { %>Please enter a valid email address.
           <% } else if (error === 'password') { %>Password must be at least 8 characters.
           <% } else if (error === 'taken') { %>That email is already registered. <a href="/login">Log in instead?</a>
+          <% } else if (error === 'code_invalid') { %>That bootcamp code was not found, or the cohort is closed. Check it with your tutor, or leave it blank.
+          <% } else if (error === 'code_full') { %>That cohort is full. Ask your tutor, or leave the code blank to sign up without it.
+          <% } else if (error === 'code_expired') { %>That bootcamp code has expired. Ask your tutor for a new one, or leave it blank.
           <% } else { %>Something went wrong. Please try again.
           <% } %>
         </div>
@@ -53,10 +56,12 @@
         <input type="email" name="email" id="email" placeholder="Email" required autocomplete="email">
         <label class="visually-hidden" for="password">Password (min 8 chars)</label>
         <input type="password" name="password" id="password" placeholder="Password (min 8 chars)" minlength="8" required autocomplete="new-password">
+        <label class="visually-hidden" for="code">Bootcamp code (optional)</label>
+        <input type="text" name="code" id="code" placeholder="Bootcamp code (optional)" maxlength="14" autocomplete="off" autocapitalize="characters" value="<%= typeof code !== 'undefined' && code ? code : '' %>">
         <button type="submit" class="btn btn-gold">Start learning free</button>
       </form>
 
-      <p class="auth-foot">Already have an account? <a href="/login">Log in</a></p>
+      <p class="auth-foot">Already have an account? <a href="/login">Log in</a><% if (typeof code !== 'undefined' && code) { %>, then enter code <strong><%= code %></strong> on the Join page.<% } %></p>
       <a class="auth-home" href="/">← Back to home</a>
     </div>
   </main>

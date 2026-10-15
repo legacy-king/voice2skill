@@ -22,12 +22,20 @@ const MESSAGES = {
 };
 const ERRORS = {
   invalid_code: 'That code was not found, or the cohort is closed. Check it with your tutor.',
-  empty_code: 'Enter the cohort code your tutor gave you.'
+  empty_code: 'Enter the cohort code your tutor gave you.',
+  cohort_full: 'That cohort is full. Ask your tutor about the next one.',
+  expired_code: 'That invite code has expired. Ask your tutor for a new one.'
 };
+// joinByCode result -> error key on /join
+const JOIN_ERRORS = { invalid: 'invalid_code', full: 'cohort_full', expired: 'expired_code' };
 
 /** GET /join — upgrade to Premium, enter a cohort code, see your plans, pay / renew. */
 async function joinPage(req, res) {
-  if (!req.session.userId) return res.redirect('/login');
+  if (!req.session.userId) {
+    // An invite link opened by someone without an account: sign up with the code filled in.
+    const code = cohortModel.normalizeCode(req.query.code);
+    return res.redirect(code ? `/signup?code=${code}` : '/login');
+  }
   const [state, premium] = await Promise.all([loadState(req.session.userId), cohortModel.getPremiumCohort()]);
   const hasPremiumRow = state.memberships.some((m) => m.kind === 'premium');
   res.render('join', {
@@ -47,27 +55,11 @@ async function joinCohort(req, res) {
   const code = cohortModel.normalizeCode(raw);
   if (!code) return res.redirect('/join?error=empty_code');
 
-  const cohort = await cohortModel.findActiveByCode(code);
-  if (!cohort) return res.redirect('/join?error=invalid_code');
-
-  const free = cohort.price_kobo === 0;
-  const until = free ? new Date(Date.now() + cohort.access_days * 86400000) : null;
-  // Paid cohort: create a pending membership (no-op if one exists).
-  // Free cohort: also (re)activate a pending or expired membership, so free access can be renewed
-  // and a cohort the tutor later switched from paid to free doesn't strand people.
-  const onConflict = free
-    ? `DO UPDATE SET status = 'active', access_until = $4
-         WHERE memberships.role = 'student'
-           AND (memberships.status <> 'active' OR memberships.access_until IS NULL OR memberships.access_until < NOW())`
-    : 'DO NOTHING';
-  const { rowCount } = await pool.query(
-    `INSERT INTO memberships (user_id, cohort_id, role, status, access_until)
-     VALUES ($1, $2, 'student', $3, $4)
-     ON CONFLICT (user_id, cohort_id) ${onConflict}`,
-    [req.session.userId, cohort.id, free ? 'active' : 'pending_payment', until]
-  );
+  // Seats, code expiry and the join itself are checked atomically (cohort row lock).
+  const { result, free } = await cohortModel.joinByCode(req.session.userId, code);
+  if (JOIN_ERRORS[result]) return res.redirect(`/join?error=${JOIN_ERRORS[result]}`);
   req.session.entStale = true;
-  if (rowCount === 0) return res.redirect('/join?message=already');
+  if (result === 'already') return res.redirect('/join?message=already');
   res.redirect(free ? '/mentor' : '/join');
 }
 
