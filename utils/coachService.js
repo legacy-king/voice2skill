@@ -1,18 +1,25 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { getJsonModel, parseJsonResponse } = require('./gemini');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// A check-in reply is short; past this the learner gets the fallback instead.
+const COACH_TIMEOUT_MS = 30 * 1000;
 
 /**
  * Normalize a coach response from Gemini JSON.
  * Trims each field to 500 characters max.
  */
 function normalizeCoachResponse(json) {
-  return {
-    acknowledgement: (json.acknowledgement || '').slice(0, 500),
-    insight: (json.insight || '').slice(0, 500),
-    nextAction: (json.next_action || json.nextAction || '').slice(0, 500),
+  const field = (value) => (typeof value === 'string' ? value.trim().slice(0, 500) : '');
+  const response = {
+    acknowledgement: field(json && json.acknowledgement),
+    insight: field(json && json.insight),
+    nextAction: field(json && (json.next_action || json.nextAction)),
     isFallback: false
   };
+  // An empty field would show the learner a blank coach card — treat as a failure.
+  if (!response.acknowledgement || !response.insight || !response.nextAction) {
+    throw new Error('Coach response missing a required field');
+  }
+  return response;
 }
 
 /**
@@ -103,6 +110,7 @@ function analyzeTopicScores(topicScores) {
 async function createCoachResponse(context) {
   const {
     profile,
+    trackName,
     goal,
     completedTask,
     checkinNotes,
@@ -120,7 +128,7 @@ async function createCoachResponse(context) {
   const hasMinimalNotes = notesLength > 0 && notesLength < 30;
 
   try {
-    const prompt = `You are an expert software engineering coach with years of teaching experience. A learner just completed a check-in.
+    const prompt = `You are an expert ${trackName || 'digital skills'} coach with years of teaching experience. A learner just completed a check-in.
 
 ═══ LEARNER PROFILE ═══
 Level: ${level.toUpperCase()}
@@ -161,14 +169,9 @@ Respond with ONLY valid JSON (no markdown, no code blocks, no explanation):
 - Never be condescending at any level.
 - If they mentioned struggles, address them directly with practical advice.`;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
+    const model = getJsonModel({ timeoutMs: COACH_TIMEOUT_MS });
     const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-
-    const cleaned = responseText.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
-
-    return normalizeCoachResponse(parsed);
+    return normalizeCoachResponse(parseJsonResponse(result.response.text()));
   } catch (err) {
     console.error('Coach response generation failed:', err.message);
     return createFallbackCoachResponse(nextTask);

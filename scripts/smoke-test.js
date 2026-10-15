@@ -55,10 +55,10 @@ const cases = [
 
   ['login (no error)', 'login.ejs', {},
     ['Welcome back', 'Log in', 'Sign up free', '_csrf', 'Skip to content', 'noindex', 'id="main"']],
-  ['login (wrong password)', 'login.ejs', { error: 'wrong_password' },
-    ['Incorrect password. Try again.']],
-  ['login (not found)', 'login.ejs', { error: 'not_found' },
-    ['No account found with that email.']],
+  ['login (invalid credentials)', 'login.ejs', { error: 'invalid_credentials' },
+    ["That email and password don't match", 'href="/forgot-password"']],
+  ['login (old not_found link shows the same message)', 'login.ejs', { error: 'not_found' },
+    ["That email and password don't match"]],
   ['login (missing fields)', 'login.ejs', { error: 'missing' },
     ['Please enter both your email and password.']],
   ['login (not verified)', 'login.ejs', { error: 'not_verified' },
@@ -479,9 +479,53 @@ if (!topicAnalysis.strengths.includes('javascript') || !topicAnalysis.weaknesses
   console.log('✓ analyzeTopicScores correctly identifies strengths and weaknesses');
 }
 
+// ---- AI output validation (roadmaps + coach) ----
+const { normalizeRoadmapContent, flattenRoadmapDays } = require('../utils/roadmapContent');
+const { normalizeCoachResponse } = require('../utils/coachService');
+
+function check(label, ok) {
+  if (ok) {
+    console.log(`✓ ${label}`);
+  } else {
+    failures++;
+    console.error(`✗ ${label}`);
+  }
+}
+function throws(fn) {
+  try { fn(); return false; } catch { return true; }
+}
+
+const makeDay = (n) => ({ day_number: n, day_type: n > 5 ? 'weekend' : 'weekday', task: `Task ${n}`, lesson: 'Lesson text',
+  quiz: [{ question: 'Q?', answer: 'A.' }], resource_name: 'MDN', resource_url: 'https://developer.mozilla.org', video_search_term: 'term' });
+const makeWeek = (w) => ({ week_number: w, focus: `Week ${w}`, project: `Project ${w}`, days: [1, 2, 3, 4, 5, 6, 7].map(makeDay) });
+const validRoadmap = { weeks: [1, 2].map(makeWeek) };
+
+check('roadmap: valid output passes', !throws(() => normalizeRoadmapContent(validRoadmap)));
+check('roadmap: non-JSON-shaped output rejected', throws(() => normalizeRoadmapContent('nope')));
+check('roadmap: empty weeks rejected', throws(() => normalizeRoadmapContent({ weeks: [] })));
+check('roadmap: week missing days rejected', throws(() => normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [makeDay(1)] }] })));
+check('roadmap: day without a lesson rejected', throws(() => normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map(n => ({ ...makeDay(n), lesson: '' })) }] })));
+
+const jsUrl = { weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map(n => ({ ...makeDay(n), resource_url: 'javascript:alert(1)' })) }] };
+check('roadmap: javascript: resource URL neutralised', normalizeRoadmapContent(jsUrl).weeks[0].days[0].resource_url === '#');
+
+const oddOld = { weeks: [{ ...makeWeek(1), days: [makeDay(1), { lesson: 'no task' }, 'garbage', makeDay(4)] }] };
+const lenientDays = flattenRoadmapDays(normalizeRoadmapContent(oddOld, { strict: false }));
+check('roadmap (lenient): odd days kept as placeholders so day numbers do not shift',
+  lenientDays.length === 4 && lenientDays[3].task === 'Task 4' && lenientDays[1].task.length > 0);
+check('roadmap (lenient): pre-days format yields no days instead of crashing',
+  flattenRoadmapDays(normalizeRoadmapContent({ weeks: [{ daily_topics: ['x'] }] }, { strict: false })).length === 0);
+
+const flatDays = flattenRoadmapDays(normalizeRoadmapContent(validRoadmap));
+check('roadmap: day 7 belongs to week 1 project, day 8 to week 2', flatDays[6].week_project === 'Project 1' && flatDays[7].week_project === 'Project 2');
+
+check('coach: complete response accepted', !throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: 'b', next_action: 'c' })));
+check('coach: blank field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: '', next_action: 'c' })));
+check('coach: non-string field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: { x: 1 }, insight: 'b', next_action: 'c' })));
+
 console.log('');
 if (failures > 0) {
   console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
   process.exit(1);
 }
-console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks OK.`);
+console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks + AI output checks OK.`);

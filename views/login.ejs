@@ -34,10 +34,8 @@
       <h1>Welcome back</h1>
       <p class="auth-sub">Log in to keep your streak alive.</p>
 
-      <% if (typeof error !== 'undefined' && error === 'not_found') { %>
-        <div class="auth-error" role="alert">No account found with that email.</div>
-      <% } else if (typeof error !== 'undefined' && error === 'wrong_password') { %>
-        <div class="auth-error" role="alert">Incorrect password. Try again.</div>
+      <% if (typeof error !== 'undefined' && ['invalid_credentials', 'not_found', 'wrong_password'].includes(error)) { %>
+        <div class="auth-error" role="alert">That email and password don't match. Try again, or <a href="/forgot-password">reset your password</a>.</div>
       <% } else if (typeof error !== 'undefined' && error === 'missing') { %>
         <div class="auth-error" role="alert">Please enter both your email and password.</div>
       <% } else if (typeof error !== 'undefined' && error === 'not_verified') { %>

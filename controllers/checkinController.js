@@ -3,6 +3,8 @@ const roadmapModel = require('../models/roadmapModel');
 const coachResponseModel = require('../models/coachResponseModel');
 const { createCoachResponse } = require('../utils/coachService');
 const assessmentModel = require('../models/assessmentModel');
+const trackModel = require('../models/trackModel');
+const { normalizeRoadmapContent, flattenRoadmapDays } = require('../utils/roadmapContent');
 
 async function createCheckinEntry(req, res) {
   if (!req.session.userId) {
@@ -36,18 +38,18 @@ async function createCheckinEntry(req, res) {
 
   const checkin = await checkinModel.createCheckin(userId, roadmapId, notes);
 
-  // Generate coach response (fire-and-forget — don't block the redirect)
+  // Generate the coach response; any failure falls back and never blocks the check-in
   try {
     const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmapId);
 
-    const allDays = roadmap.content.weeks.flatMap(week =>
-      week.days.map(day => ({ ...day, week_focus: week.focus, week_number: week.week_number, week_project: week.project }))
-    );
+    const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
 
     const currentDayNumber = checkins.length + 1;
-    const completedTask = currentDayNumber > 1 ? allDays[currentDayNumber - 2] : null;
+    const completedTask = currentDayNumber > 1 ? allDays[currentDayNumber - 2] || null : null;
     const nextTask = currentDayNumber <= allDays.length ? allDays[currentDayNumber - 1] : null;
-    const weeklyProject = roadmap.content.weeks[Math.ceil((currentDayNumber - 1) / 7)]?.project || null;
+    // The project for the week the learner is in (the week of the day just completed).
+    const weeklyProject = (completedTask || nextTask)?.week_project || null;
+    const track = await trackModel.getTrackById(roadmap.track_id);
 
     let profile = null;
     if (roadmap.assessment_id) {
@@ -59,6 +61,7 @@ async function createCheckinEntry(req, res) {
 
     const context = {
       profile,
+      trackName: track ? track.name : null,
       goal: roadmap.goal,
       completedTask,
       checkinNotes: notes,

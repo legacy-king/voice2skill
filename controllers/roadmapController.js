@@ -5,24 +5,11 @@ const assessmentModel = require('../models/assessmentModel');
 const coachResponseModel = require('../models/coachResponseModel');
 const { calculateStreak } = require('../utils/streak');
 const { goalToSearchPhrase } = require('../utils/goalMatcher');
+const { getJsonModel, parseJsonResponse } = require('../utils/gemini');
+const { normalizeRoadmapContent, flattenRoadmapDays } = require('../utils/roadmapContent');
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-/**
- * AI-generated resource_urls are data, not trusted config. Only allow real
- * http(s) links — a crafted goal could prompt-inject a `javascript:` URL that
- * would execute on click if rendered straight into an href.
- */
-function sanitizeResourceUrl(url) {
-  if (typeof url !== 'string') return '#';
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : '#';
-  } catch {
-    return '#';
-  }
-}
+// A full 8-week roadmap is a very long generation (minutes); this only stops a hung request.
+const ROADMAP_TIMEOUT_MS = 5 * 60 * 1000;
 
 async function generateRoadmapContent(trackName, trackDescription, goal = null, assessmentContext = null) {
   const goalHint = goal
@@ -63,12 +50,10 @@ Generate an 8-week roadmap as valid JSON only, no markdown formatting, no explan
 
 Each week must have exactly 7 days. Days 1-5 are "weekday" type with a full technical lesson and 1 quiz question. Days 6-7 are "weekend" type — lighter review, still include a lesson and 1 quiz question but shorter. Every week must include one "project" field. Use only well-known, real platforms (freeCodeCamp, MDN Web Docs, official framework docs, W3Schools) for resource_url — root URLs only. For video_search_term, provide a search phrase, not a direct link. Return ONLY the JSON, nothing else.`;
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
+  const model = getJsonModel({ timeoutMs: ROADMAP_TIMEOUT_MS });
   const result = await model.generateContent(prompt);
-  const responseText = result.response.text();
-
-  const cleaned = responseText.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  // Throws on malformed output, so nothing invalid is ever stored or cached.
+  return normalizeRoadmapContent(parseJsonResponse(result.response.text()));
 }
 
 async function selectTrack(req, res) {
@@ -130,8 +115,17 @@ async function selectTrack(req, res) {
   // Cache check — only for non-empty goals, exact match after trim/lowercase, same track + level
   if (goal) {
     const cached = await roadmapModel.findCachedRoadmap(trackId, normalizedGoal, assessmentLevel);
+    let cachedContent = null;
     if (cached) {
-      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cached.content, goal, resolvedAssessmentId, true);
+      // Rows saved before validation existed may be malformed — regenerate instead of copying them.
+      try {
+        cachedContent = normalizeRoadmapContent(cached.content);
+      } catch (err) {
+        console.error(`Cached roadmap ${cached.id} skipped:`, err.message);
+      }
+    }
+    if (cachedContent) {
+      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cachedContent, goal, resolvedAssessmentId, true);
       delete req.session.assessmentId;
       delete req.session.assessmentLevel;
       delete req.session.assessmentGoal;
@@ -195,15 +189,22 @@ async function getRoadmap(req, res) {
 
   const currentDayNumber = checkins.length + 1;
 
-  const allDays = roadmap.content.weeks.flatMap(week =>
-    week.days.map(day => ({ ...day, week_focus: week.focus, week_number: week.week_number, week_project: week.project }))
-  );
+  // Lenient: an older or odd row still renders instead of crashing the page.
+  const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
+  if (allDays.length === 0) {
+    console.error(`Roadmap ${roadmap.id} has no readable days`);
+    return res.status(500).send(`
+      <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
+        <h1 style="color: #D4AF37;">We couldn't load this roadmap</h1>
+        <p>Your check-ins are safe. Please contact hello@voice2skill.com and we'll fix it.</p>
+        <a href="/tracks" style="color: #D4AF37;">← Back to tracks</a>
+      </div>
+    `);
+  }
 
   const totalDays = allDays.length;
   const isComplete = currentDayNumber > totalDays;
-  const todayTask = isComplete
-    ? null
-    : { ...allDays[currentDayNumber - 1], resource_url: sanitizeResourceUrl(allDays[currentDayNumber - 1].resource_url) };
+  const todayTask = isComplete ? null : allDays[currentDayNumber - 1];
 
   const videoSearchPhrase = todayTask
     ? [goalToSearchPhrase(roadmap.goal), todayTask.video_search_term]
