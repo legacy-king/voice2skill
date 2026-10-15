@@ -20,7 +20,7 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - All three test suites (`npm test`, `npm run test:llm`, `npm run test:cohorts`) must pass before you finish.
 
 ## Tiers (PRD §5.1) — what the product promises
-- **Free (₦0):** 8-week plan through free resources, check-ins (type or speak), streaks, reminders. **No AI** — check-ins get the template coach reply.
+- **Free (₦0):** 8-week plan through free resources, check-ins (type or speak), streaks, reminders. **No AI coaching or mentor** — check-ins get the template coach reply. Voice input (speech-to-text) is allowed with a smaller daily cap (`canUse(state, 'voice_stt')`, PLAN D2).
 - **Premium (₦6,000 / 30 days):** AI coach + "Voice2Skill AI mentor". It is the built-in cohort `kind = 'premium'`; buy via `POST /premium`, which reuses the bootcamp checkout.
 - **Bootcamp:** tutor-priced cohort; AI coach + "[tutor name]'s AI mentor" (`cohorts.mentor_name`) on the tutor's syllabus. The mentor must always say it is an AI, never the tutor.
 - **Organizations:** run cohorts, revenue share; landing "Contact us" (`SUPPORT_EMAIL`).
@@ -35,5 +35,7 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - New state-changing route: POST only, CSRF token (form field or `X-CSRF-Token`), a `rateLimiter`, auth check, and an ownership/role check (`canManageCohort`, roadmap owner, etc.).
 - New money path: price from the DB, settlement only via `settlePayment`, and e2e tests (replay, wrong amount, wrong user) in `scripts/cohort-test.js`.
 - Render user/AI text with EJS `<%= %>` or `textContent`, never `<%-` or `innerHTML`.
+- Voice audio is never stored or logged: it stays in memory for one request (`controllers/voiceController.js`). Uploads are checked by type, size and magic bytes before use.
+- Page scripts go in `public/js/*.js` (pass values via `data-` attributes), not inline `<script>`, so a strict CSP can be added.
 - Never log secrets, tokens, card data or full request bodies.
 

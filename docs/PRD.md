@@ -60,7 +60,7 @@
 - Daily check-in with free-text notes; one per day per roadmap. **[Built]**
 - Streaks, "today's task", reminders by email (via an external cron hitting a secret URL). **[Built]**
 - Capability assessment (8 questions → foundation / builder / professional) for Software Engineering. **[Built]**
-- Voice goal input in the browser (Web Speech API, free; works in Chrome/Edge and limited elsewhere). **[Built]**
+- **Voice end to end [Built, Phase 3]:** speak your goal, your daily check-in, or a mentor question. The browser records with MediaRecorder (60 s max, low bitrate for mobile data, upload progress, retry) and `POST /api/voice/transcribe` turns it into text through the LLM router (Groq `whisper-large-v3-turbo`, Gemini paid fallback). Audio is never stored. Falls back to the browser's own speech recognition, then to typing (mic blocked or unsupported). Mentor and coach replies can be read aloud (`speechSynthesis`, Listen/Stop, remembered "read replies aloud"). Free users get voice input with a smaller daily cap (`STT_DAILY_LIMIT_FREE`).
 - **[Planned]** Quiz answers captured and scored; AI rubric feedback on weekly projects (capped); certificates of completion.
 
 ### 4.3 Mentoring
@@ -298,7 +298,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | ID | Requirement | Status | Acceptance |
 |---|---|---|---|
 | F1 | Signup, email verification, login, reset, change password, session management | Built | Existing flows pass smoke test |
-| F2 | Goal capture (type/speak) → track match → assessment (SWE) → plan | Built | Plan appears; goal in plan intro |
+| F2 | Goal capture (type/speak) → track match → assessment (SWE) → plan | Built | Plan appears; goal in plan intro; spoken goal transcribed server-side (e2e: "Voice") |
 | F3 | Daily check-in, one per day, streak, coach reply | Built | Duplicate check-in blocked; coach or fallback shown |
 | F4 | Email reminders | Built (fix #2) | Only active, un-checked-in users emailed once/day |
 | F5 | Organizations/cohorts/invite codes/syllabus | Built | Teacher creates cohort; code works case/dash-insensitively |

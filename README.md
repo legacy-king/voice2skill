@@ -11,7 +11,7 @@ Many people want to learn digital skills — Software Engineering, UI/UX design,
 ## What It Does
 
 - 🎯 Choose a skill track (Software Engineering, UI/UX Design, Data Analysis, Digital Marketing, Cybersecurity)
-- 🎙️ Tell us your goal in your own words (type or speak) — we match it to the closest track and show next-best alternatives
+- 🎙️ Tell us your goal in your own words (type or speak) — we match it to the closest track and show next-best alternatives. Voice works for the goal, the daily check-in and the mentor chat (recorded in the browser, transcribed by Whisper, never stored), and replies can be read aloud
 - 📊 Take a capability assessment for Software Engineering — 8 questions that grade you as Foundation, Builder, or Professional
 - 🗺️ Get an AI-generated, personalized 8-week roadmap with real, free resources — your goal is persisted on the roadmap and woven into the plan
 - 🤖 Receive AI coaching after every check-in — personalized insights based on your capability level
