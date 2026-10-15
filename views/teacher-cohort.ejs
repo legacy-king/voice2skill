@@ -19,7 +19,7 @@
         <div><div class="co-muted">Invite code</div><span class="co-code co-code-lg"><%= cohort.invite_code %></span></div>
         <div><div class="co-muted">Seats</div><strong><%= cohort.seats_taken %><%= cohort.max_seats ? ' of ' + cohort.max_seats : '' %></strong><% if (cohort.max_seats && cohort.seats_taken >= cohort.max_seats) { %> <span class="co-pill co-pill-warn">Full</span><% } %></div>
         <% if (cohort.code_expires_at) { %><div><div class="co-muted">Code <%= codeExpired ? 'expired' : 'expires' %></div><strong><%= codeExpiresValue %></strong><% if (codeExpired) { %> <span class="co-pill co-pill-warn">Expired</span><% } %></div><% } %>
-        <div class="co-invite-link"><div class="co-muted">Or share this link</div><input type="text" readonly value="<%= inviteUrl %>" onclick="this.select()" aria-label="Invite link"></div>
+        <div class="co-invite-link"><div class="co-muted">Or share this link</div><input type="text" readonly value="<%= inviteUrl %>" data-select-on-click aria-label="Invite link"></div>
       </div>
     </section>
 
@@ -89,5 +89,7 @@
       </form>
     </section>
   </main>
+  <script src="/js/teacher.js" defer></script>
+  <%- include('partials/app-footer') %>
 </body>
 </html>

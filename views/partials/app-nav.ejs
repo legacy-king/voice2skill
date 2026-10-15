@@ -44,15 +44,4 @@
     </div>
   </div>
 </header>
-<script>
-  (function () {
-    var nav = document.getElementById('appnav');
-    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 12); };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  })();
-</script>
-
-<footer style="text-align:center; padding: 2rem 0; color:#9B9891; font-size:0.85rem;">
-  <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
-</footer>
+<script src="/js/nav.js" defer></script>

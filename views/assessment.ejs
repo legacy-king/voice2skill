@@ -71,15 +71,7 @@
     </form>
   </main>
 
-  <script>
-    // Sync goal input to hidden field
-    var goalInput = document.getElementById('goal-input');
-    var goalVisible = document.getElementById('goal-input-visible');
-    if (goalInput && goalVisible) {
-      goalVisible.addEventListener('input', function() {
-        goalInput.value = goalVisible.value;
-      });
-    }
-  </script>
+  <script src="/js/assessment.js" defer></script>
+  <%- include('partials/app-footer') %>
 </body>
 </html>
