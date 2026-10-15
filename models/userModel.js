@@ -85,6 +85,11 @@ async function findUserByPasswordResetToken(token) {
 }
 
 /** Update a user's password, record when, and clear any reset/verification tokens. */
+/** Re-hash with a higher bcrypt cost. Same password, so sessions and password_changed_at stay. */
+async function setPasswordHash(userId, passwordHash) {
+  await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+}
+
 async function updatePassword(userId, passwordHash) {
   const result = await pool.query(
     `UPDATE users
@@ -158,6 +163,7 @@ async function deleteUserSession(userId, sid) {
 module.exports = {
   createUser,
   setSignupCohort,
+  setPasswordHash,
   findUserByEmail,
   findUserById,
   findUserByVerificationToken,

@@ -49,7 +49,8 @@
     unsupported_type: 'This browser recorded audio we can\'t read. Please type instead.',
     stt_unavailable: 'Couldn\'t turn that into text right now.',
     network: 'Upload failed. Check your connection.',
-    login: 'Your session ended. Refresh the page and log in again.'
+    login: 'Your session ended. Refresh the page and log in again.',
+    rate_limited: 'Too many voice clips in a row. Wait a minute.'
   };
 
   function attach(button) {

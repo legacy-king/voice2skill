@@ -67,6 +67,8 @@ const cases = [
     ['No account found with that email.']],
   ['login (missing fields)', 'login.ejs', { error: 'missing' },
     ['Please enter both your email and password.']],
+  ['login (locked)', 'login.ejs', { error: 'locked' },
+    ['Too many wrong passwords for this account', 'href="/forgot-password"']],
   ['login (not verified)', 'login.ejs', { error: 'not_verified' },
     ['Please verify your email first', 'resend the link']],
   ['login (password reset done)', 'login.ejs', { error: 'password_reset' },

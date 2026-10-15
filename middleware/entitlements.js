@@ -1,5 +1,6 @@
 const { loadState } = require('../services/entitlements');
 const { naira } = require('../utils/format');
+const { log } = require('../utils/log');
 
 const TTL_MS = 60 * 1000;
 
@@ -29,7 +30,7 @@ function loadEntitlements() {
       }
       res.locals.ent = req.session.ent;
     } catch (err) {
-      console.error('Entitlement load failed:', err.message); // never block the page on this
+      log.error('Entitlement load failed:', err.message); // never block the page on this
     }
     next();
   };

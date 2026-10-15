@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { log } = require('../utils/log');
 
 async function createPending({ userId, cohortId, orgId, reference, amountKobo }) {
   const { rows } = await pool.query(
@@ -54,7 +55,7 @@ async function settlePayment(reference, ps) {
     }
     if (Number(ps.amount) !== p.amount_kobo || (ps.currency && ps.currency !== 'NGN')) {
       await client.query('ROLLBACK');
-      console.error(`[payments] AMOUNT MISMATCH ref=${reference} expected=${p.amount_kobo} got=${ps.amount} ${ps.currency}`);
+      log.error(`[payments] AMOUNT MISMATCH ref=${reference} expected=${p.amount_kobo} got=${ps.amount} ${ps.currency}`);
       return { ok: false, reason: 'amount_mismatch', payment: p };
     }
 

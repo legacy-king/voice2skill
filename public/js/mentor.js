@@ -35,7 +35,8 @@
     daily_limit: 'You\'ve used today\'s messages. Come back tomorrow — consistency beats cramming.',
     monthly_limit: 'You\'ve reached this month\'s message limit. Ask your tutor if you need more.',
     ai_unavailable: 'The mentor is unavailable right now. Your message was not counted — press Send to retry.',
-    in_progress: 'Still working on your last message…'
+    in_progress: 'Still working on your last message…',
+    rate_limited: 'Slow down a little: wait a minute, then press Send again.'
   };
   /** Listen button on a finished reply; speak it now if the reader turned read-aloud on. */
   function voiceUp(el, text, fresh) {

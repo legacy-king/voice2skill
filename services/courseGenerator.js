@@ -14,6 +14,7 @@
  */
 const courseModel = require('../models/courseModel');
 const llm = require('./llm');
+const { log } = require('../utils/log');
 
 const WEEKS = 8;
 const DAYS_PER_WEEK = 7;
@@ -190,7 +191,7 @@ async function generateWeek(args) {
       return { week: data, model: `${provider}:${model}` };
     } catch (err) {
       lastErr = err;
-      console.error(`Course week ${args.weekNumber} attempt ${attempt} failed: ${err.message}`);
+      log.error(`Course week ${args.weekNumber} attempt ${attempt} failed: ${err.message}`);
       if (attempt < RETRIES()) await sleep(process.env.COURSE_MOCK === '1' ? 0 : 2000 * 2 ** (attempt - 1));
     }
   }

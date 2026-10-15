@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const llm = require('./llm');
+const { log } = require('../utils/log');
 
 // The reply the router must return; anything else fails over to the next provider.
 const CoachReply = z.object({
@@ -180,7 +181,7 @@ ${checkinNotes || 'No notes provided'}`;
     });
     return normalizeCoachResponse(data);
   } catch (err) {
-    console.error('Coach response generation failed:', err.message);
+    log.error('Coach response generation failed:', err.message);
     return createFallbackCoachResponse(nextTask);
   }
 }

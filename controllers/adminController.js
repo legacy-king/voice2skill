@@ -41,8 +41,8 @@ async function adminHome(req, res) {
 
 async function adminCohort(req, res) {
   if (!(await requireAdmin(req, res))) return;
-  const cohortId = Number.parseInt(req.params.id, 10);
-  const cohort = Number.isInteger(cohortId) ? await cohortModel.getCohort(cohortId) : null;
+  const cohortId = req.valid.params.id;
+  const cohort = await cohortModel.getCohort(cohortId);
   if (!cohort) return res.status(404).send('Page not found');
   const now = Date.now();
   const [roster, ledger] = await Promise.all([cohortModel.getRoster(cohortId), cohortModel.getOrgLedger(cohort.org_id)]);

@@ -78,7 +78,7 @@ async function createCohort(req, res) {
   if (!(await requireTeacher(req, res))) return;
   const org = await cohortModel.getOrgByOwner(req.session.userId);
   if (!org) return res.redirect('/teacher?error=no_org');
-  const parsed = parseCohortForm(req.body);
+  const parsed = parseCohortForm(req.valid.body);
   if (parsed.error) return res.redirect(`/teacher?error=${parsed.error}`);
   const cohort = await cohortModel.createCohort({ orgId: org.id, creatorId: req.session.userId, ...parsed.value });
   req.session.entStale = true;
@@ -87,8 +87,8 @@ async function createCohort(req, res) {
 
 async function cohortPage(req, res) {
   if (!(await requireTeacher(req, res))) return;
-  const cohortId = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(cohortId) || !(await canManageCohort(req.session.userId, cohortId))) {
+  const cohortId = req.valid.params.id;
+  if (!(await canManageCohort(req.session.userId, cohortId))) {
     return res.status(404).send('Page not found');
   }
   const [cohort, roster] = await Promise.all([cohortModel.getCohort(cohortId), cohortModel.getRoster(cohortId)]);
@@ -111,13 +111,13 @@ async function cohortPage(req, res) {
 
 async function updateCohort(req, res) {
   if (!(await requireTeacher(req, res))) return;
-  const cohortId = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(cohortId) || !(await canManageCohort(req.session.userId, cohortId))) {
+  const cohortId = req.valid.params.id;
+  if (!(await canManageCohort(req.session.userId, cohortId))) {
     return res.status(404).send('Page not found');
   }
-  const parsed = parseCohortForm(req.body);
+  const parsed = parseCohortForm(req.valid.body);
   if (parsed.error) return res.redirect(`/teacher/cohorts/${cohortId}?error=${parsed.error}`);
-  await cohortModel.updateCohort(cohortId, { ...parsed.value, active: req.body.active === 'on' });
+  await cohortModel.updateCohort(cohortId, { ...parsed.value, active: req.valid.body.active === 'on' });
   res.redirect(`/teacher/cohorts/${cohortId}?saved=1`);
 }
 

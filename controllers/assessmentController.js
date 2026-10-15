@@ -11,10 +11,7 @@ async function renderAssessment(req, res) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track) {
@@ -58,17 +55,14 @@ async function processAnswer(req, res) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track || track.name !== 'Software Engineering') {
     return res.redirect('/tracks');
   }
 
-  const { questionId, answer, goal } = req.body;
+  const { questionId, answer, goal } = req.valid.body;
 
   // Initialize session data
   if (!req.session.assessmentAnswers) {
@@ -119,10 +113,7 @@ async function completeAssessment(req, res) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track || track.name !== 'Software Engineering') {

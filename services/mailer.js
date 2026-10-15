@@ -1,3 +1,4 @@
+const { log } = require('../utils/log');
 const APP_URL = process.env.APP_URL || 'https://voice2skill.onrender.com';
 
 // EMAIL_MODE=log prints instead of sending — used by automated tests.
@@ -25,7 +26,8 @@ async function sendEmail(to, subject, html) {
       to: [{ email: to }],
       subject,
       htmlContent: html
-    })
+    }),
+    signal: AbortSignal.timeout(15000) // never hang a request or job on the email provider
   });
 
   if (!response.ok) {
@@ -38,7 +40,7 @@ async function sendEmail(to, subject, html) {
 
 async function sendReminderEmail(toEmail, userName) {
   if (LOG_ONLY) {
-    console.log(`[mail:log] reminder to ${toEmail}`);
+    log.info(`[mail:log] reminder to ${toEmail}`);
     return;
   }
   await sendEmail(
@@ -56,7 +58,7 @@ async function sendReminderEmail(toEmail, userName) {
 /** Send the email-verification link with a 24h expiry token. */
 async function sendVerificationEmail(toEmail, userName, token) {
   if (LOG_ONLY) {
-    console.log(`[mail:log] verify ${toEmail} token=${token}`);
+    log.info(`[mail:log] verify ${toEmail} token=${token}`);
     return;
   }
   const verifyUrl = `${APP_URL}/verify-email/confirm?token=${encodeURIComponent(token)}`;
@@ -79,7 +81,7 @@ async function sendVerificationEmail(toEmail, userName, token) {
 /** Send the password-reset link with a 30-minute expiry token. */
 async function sendPasswordResetEmail(toEmail, userName, token) {
   if (LOG_ONLY) {
-    console.log(`[mail:log] reset ${toEmail} token=${token}`);
+    log.info(`[mail:log] reset ${toEmail} token=${token}`);
     return;
   }
   const resetUrl = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
@@ -102,7 +104,7 @@ async function sendPasswordResetEmail(toEmail, userName, token) {
 /** Alert the account owner when a sign-in looks like a new device. */
 async function sendNewDeviceAlertEmail(toEmail, userName, deviceLabel, ip) {
   if (LOG_ONLY) {
-    console.log(`[mail:log] newdevice ${toEmail} device=${deviceLabel} ip=${ip}`);
+    log.info(`[mail:log] newdevice ${toEmail} device=${deviceLabel} ip=${ip}`);
     return;
   }
   await sendEmail(
@@ -125,7 +127,7 @@ async function sendNewDeviceAlertEmail(toEmail, userName, deviceLabel, ip) {
 /** Alert the account owner when one of their sessions is revoked. */
 async function sendSessionRevokedEmail(toEmail, userName, deviceLabel, ip) {
   if (LOG_ONLY) {
-    console.log(`[mail:log] revoke ${toEmail} device=${deviceLabel} ip=${ip}`);
+    log.info(`[mail:log] revoke ${toEmail} device=${deviceLabel} ip=${ip}`);
     return;
   }
   await sendEmail(

@@ -4,6 +4,7 @@ const coachResponseModel = require('../models/coachResponseModel');
 const { createCoachResponse, createFallbackCoachResponse } = require('../services/coachService');
 const { loadState, canUse } = require('../services/entitlements');
 const assessmentModel = require('../models/assessmentModel');
+const { log } = require('../utils/log');
 
 async function createCheckinEntry(req, res) {
   if (!req.session.userId) {
@@ -11,11 +12,7 @@ async function createCheckinEntry(req, res) {
   }
 
   const userId = req.session.userId;
-  const roadmapId = Number.parseInt(req.params.roadmapId, 10);
-
-  if (!Number.isInteger(roadmapId)) {
-    return res.status(404).send('Roadmap not found');
-  }
+  const { roadmapId } = req.valid.params;
 
   // Ownership check — only the roadmap owner can check in.
   const roadmap = await roadmapModel.getRoadmapById(roadmapId);
@@ -23,7 +20,7 @@ async function createCheckinEntry(req, res) {
     return res.status(404).send('Roadmap not found');
   }
 
-  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim().slice(0, 2000) : '';
+  const { notes } = req.valid.body;
   if (!notes) {
     return res.redirect(`/roadmaps/${roadmapId}?message=empty_notes`);
   }
@@ -81,7 +78,7 @@ async function createCheckinEntry(req, res) {
     );
   } catch (err) {
     // Coach response failure should not block the check-in
-    console.error('Failed to generate coach response:', err.message);
+    log.error('Failed to generate coach response:', err.message);
   }
 
   res.redirect(`/roadmaps/${roadmapId}`);

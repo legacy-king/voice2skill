@@ -21,7 +21,9 @@
     "dotenv": "^17.4.2",
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-rate-limit": "8.7.0",
     "express-session": "^1.19.0",
+    "helmet": "8.3.0",
     "openai": "7.25.0",
     "pg": "^8.22.0",
     "zod": "4.6.5"

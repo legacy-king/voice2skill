@@ -20,7 +20,8 @@ async function call(method, path, body) {
   const res = await fetch(BASE + path, {
     method,
     headers: { Authorization: `Bearer ${secret()}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(20000)
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.status === false) {

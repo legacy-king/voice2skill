@@ -6,6 +6,21 @@ const paymentModel = require('../models/paymentModel');
 const paystack = require('../services/paystack');
 const { loadState } = require('../services/entitlements');
 
+const { z } = require('zod');
+const { log } = require('../utils/log');
+
+// Paystack webhook payload, as far as settlePayment uses it. Other fields pass through untouched.
+const WEBHOOK_EVENT = z.object({
+  event: z.string().max(64),
+  data: z.object({
+    reference: z.string().max(100).optional(),
+    status: z.string().max(32).optional(),
+    amount: z.number().int().nonnegative().optional(),
+    currency: z.string().max(8).optional(),
+    fees: z.number().int().nonnegative().nullable().optional()
+  }).passthrough().optional()
+}).passthrough();
+
 const APP_URL = () => (process.env.APP_URL || 'https://voice2skill.onrender.com').replace(/\/$/, '');
 
 const MESSAGES = {
@@ -51,8 +66,7 @@ async function joinPage(req, res) {
 /** POST /join — redeem an invite code. Creates a pending membership (or activates a free cohort). */
 async function joinCohort(req, res) {
   if (!req.session.userId) return res.redirect('/login');
-  const raw = typeof req.body.code === 'string' ? req.body.code : '';
-  const code = cohortModel.normalizeCode(raw);
+  const code = cohortModel.normalizeCode(req.valid.body.code);
   if (!code) return res.redirect('/join?error=empty_code');
 
   // Seats, code expiry and the join itself are checked atomically (cohort row lock).
@@ -66,8 +80,11 @@ async function joinCohort(req, res) {
 /** POST /pay/:cohortId — start (or renew) a Paystack checkout. Price comes from the DB, never the client. */
 async function startPayment(req, res) {
   if (!req.session.userId) return res.redirect('/login');
-  const cohortId = Number.parseInt(req.params.cohortId, 10);
-  if (!Number.isInteger(cohortId)) return res.status(404).send('Cohort not found');
+  return checkout(req, res, req.valid.params.cohortId);
+}
+
+/** Shared by /pay/:cohortId and /premium. cohortId is already a validated integer. */
+async function checkout(req, res, cohortId) {
 
   const userId = req.session.userId;
   const cohort = await cohortModel.getCohort(cohortId);
@@ -99,7 +116,7 @@ async function startPayment(req, res) {
     });
     return res.redirect(init.authorization_url);
   } catch (err) {
-    console.error('Payment start failed:', err.message);
+    log.error('Payment start failed:', err.message);
     return res.redirect('/join?message=pay_error');
   }
 }
@@ -120,8 +137,7 @@ async function startPremium(req, res) {
     [req.session.userId, premium.id]
   );
   req.session.entStale = true;
-  req.params.cohortId = String(premium.id);
-  return startPayment(req, res);
+  return checkout(req, res, premium.id);
 }
 
 /**
@@ -130,7 +146,7 @@ async function startPremium(req, res) {
  */
 async function paymentCallback(req, res) {
   if (!req.session.userId) return res.redirect('/login');
-  const reference = typeof req.query.reference === 'string' ? req.query.reference.slice(0, 100) : '';
+  const reference = req.valid.query.reference || '';
   const payment = reference ? await paymentModel.getByReference(reference) : null;
   if (!payment || payment.user_id !== req.session.userId) return res.redirect('/join');
 
@@ -142,7 +158,7 @@ async function paymentCallback(req, res) {
     const reason = ['failed', 'amount_mismatch'].includes(result.reason) ? result.reason : 'not_paid_yet';
     return res.redirect(`/join?message=${reason}`);
   } catch (err) {
-    console.error('Payment callback failed:', err.message);
+    log.error('Payment callback failed:', err.message);
     return res.redirect('/join?message=not_paid_yet');
   }
 }
@@ -153,7 +169,7 @@ async function paystackWebhook(req, res) {
   try {
     signatureOk = paystack.verifySignature(req.body, req.get('x-paystack-signature'));
   } catch (err) {
-    console.error('Webhook config error:', err.message);
+    log.error('Webhook config error:', err.message);
     return res.sendStatus(500);
   }
   if (!signatureOk) return res.sendStatus(401);
@@ -164,17 +180,21 @@ async function paystackWebhook(req, res) {
   } catch {
     return res.sendStatus(400);
   }
+  // Signed, but still validated: only the shape we act on is accepted.
+  const parsed = WEBHOOK_EVENT.safeParse(event);
+  if (!parsed.success) return res.sendStatus(400);
+  event = parsed.data;
 
   try {
     if (event.event === 'charge.success' && event.data && event.data.reference) {
       const result = await paymentModel.settlePayment(event.data.reference, event.data);
       if (!result.ok && result.reason !== 'unknown_reference') {
-        console.warn(`[webhook] ${event.data.reference} not settled: ${result.reason}`);
+        log.warn(`[webhook] ${event.data.reference} not settled: ${result.reason}`);
       }
     }
     return res.sendStatus(200); // ack everything we understood or don't care about
   } catch (err) {
-    console.error('Webhook processing failed:', err.message);
+    log.error('Webhook processing failed:', err.message);
     return res.sendStatus(500); // Paystack will retry; settlement is idempotent
   }
 }

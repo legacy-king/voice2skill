@@ -7,7 +7,10 @@ const trackModel = require('../models/trackModel');
 const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../services/mailer');
 const { rankTracksForGoal } = require('../utils/goalMatcher');
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const { EMAIL_RE } = require('../middleware/validate');
+// bcrypt work factor: at least 12 (PLAN Phase 6). Older cost-10 hashes are upgraded on next login.
+const BCRYPT_COST = Math.max(12, Number(process.env.BCRYPT_COST) || 12);
+const { log } = require('../utils/log');
 const GLYPHS = ['</>', '✦', '∑', '◎', '⚿'];
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const RESET_TTL_MS = 30 * 60 * 1000; // 30 min
@@ -56,7 +59,7 @@ async function maybeAlertNewDevice(user, req) {
       await sendNewDeviceAlertEmail(user.email, user.name, describeDevice(ua), ip);
     }
   } catch (err) {
-    console.error('New-device alert failed:', err.message);
+    log.error('New-device alert failed:', err.message);
   }
 }
 
@@ -64,12 +67,10 @@ async function maybeAlertNewDevice(user, req) {
 const SIGNUP_CODE_ERRORS = { invalid: 'code_invalid', full: 'code_full', expired: 'code_expired' };
 
 async function signup(req, res) {
-  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const { name, email, password } = req.valid.body;
   // Optional bootcamp invite code. Checked now for quick feedback; the seat is only taken when the
   // email is verified (confirmEmail), so unverified sign-ups can't fill a cohort.
-  const code = cohortModel.normalizeCode(req.body.code);
+  const code = cohortModel.normalizeCode(req.valid.body.code);
   const back = (error) => res.redirect(`/signup?error=${error}${code ? `&code=${code}` : ''}`);
 
   if (!name || name.length > 100) {
@@ -101,14 +102,14 @@ async function signup(req, res) {
     await userModel.setVerificationToken(existingUser.id, token, expiresAt);
     userId = existingUser.id;
   } else {
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
     userId = (await userModel.createUser(name, email, passwordHash, token, expiresAt)).id;
   }
   if (signupCohortId) await userModel.setSignupCohort(userId, signupCohortId);
 
   // Fire the email in the background — don't make the user wait on it.
   sendVerificationEmail(email, name, token).catch(err => {
-    console.error('Failed to send verification email:', err.message);
+    log.error('Failed to send verification email:', err.message);
   });
 
   // Do NOT auto-login — require verification first.
@@ -116,8 +117,7 @@ async function signup(req, res) {
 }
 
 async function login(req, res) {
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const { email, password } = req.valid.body;
 
   if (!email || !password) {
     return res.redirect('/login?error=missing');
@@ -135,6 +135,18 @@ async function login(req, res) {
 
   if (!existingUser.email_verified) {
     return res.redirect('/login?error=not_verified');
+  }
+
+  // Correct password: doesn't count against the per-email login limit.
+  res.locals.loginOk = true;
+
+  // Transparent upgrade of older, cheaper hashes (we only have the plain password right now).
+  if (bcrypt.getRounds(existingUser.password_hash) < BCRYPT_COST) {
+    try {
+      await userModel.setPasswordHash(existingUser.id, await bcrypt.hash(password, BCRYPT_COST));
+    } catch (err) {
+      log.error('Password rehash failed:', err.message);
+    }
   }
 
   // Alert the owner if this looks like a device the account hasn't seen before.
@@ -160,7 +172,7 @@ async function verifyEmailPage(req, res) {
 
 /** GET /verify-email/confirm?token=... — confirms and logs the user in. */
 async function confirmEmail(req, res) {
-  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  const { token } = req.valid.query;
   if (!token) {
     return res.redirect('/verify-email?error=invalid');
   }
@@ -204,7 +216,7 @@ function forgotPasswordPage(req, res) {
 
 /** POST /forgot-password — send a reset link if the email exists. */
 async function requestPasswordReset(req, res) {
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const { email } = req.valid.body;
   if (!EMAIL_RE.test(email)) {
     return res.redirect('/forgot-password?error=invalid_email');
   }
@@ -218,7 +230,7 @@ async function requestPasswordReset(req, res) {
     try {
       await sendPasswordResetEmail(email, user.name, token);
     } catch (err) {
-      console.error('Failed to send password reset email:', err.message);
+      log.error('Failed to send password reset email:', err.message);
       return res.redirect('/forgot-password?error=send_failed');
     }
   }
@@ -228,7 +240,7 @@ async function requestPasswordReset(req, res) {
 
 /** GET /reset-password?token=... — show the new-password form. */
 async function resetPasswordPage(req, res) {
-  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  const { token } = req.valid.query;
   if (!token) {
     return res.redirect('/forgot-password?error=invalid_token');
   }
@@ -243,8 +255,7 @@ async function resetPasswordPage(req, res) {
 
 /** POST /reset-password — validate token + new password, then update. */
 async function resetPassword(req, res) {
-  const token = typeof req.body.token === 'string' ? req.body.token : '';
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const { token, password } = req.valid.body;
 
   if (password.length < 8) {
     return res.redirect(`/reset-password?token=${encodeURIComponent(token)}&error=weak`);
@@ -255,7 +266,7 @@ async function resetPassword(req, res) {
     return res.redirect('/forgot-password?error=expired_token');
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
   await userModel.updatePassword(user.id, passwordHash);
   // Revoke every other session — a password change should log out
   // any device the account was compromised on. (No current session exists
@@ -266,7 +277,7 @@ async function resetPassword(req, res) {
 
 /** POST /verify-email/resend — regenerates the token and re-sends. */
 async function resendVerification(req, res) {
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const { email } = req.valid.body;
   if (!EMAIL_RE.test(email)) {
     return res.redirect('/verify-email?error=invalid_email');
   }
@@ -280,7 +291,7 @@ async function resendVerification(req, res) {
     try {
       await sendVerificationEmail(email, user.name, token);
     } catch (err) {
-      console.error('Failed to resend verification email:', err.message);
+      log.error('Failed to resend verification email:', err.message);
       return res.redirect('/verify-email?error=send_failed');
     }
   }
@@ -308,8 +319,7 @@ async function changePassword(req, res) {
     return res.redirect('/login');
   }
 
-  const current = typeof req.body.current_password === 'string' ? req.body.current_password : '';
-  const next = typeof req.body.new_password === 'string' ? req.body.new_password : '';
+  const { current_password: current, new_password: next } = req.valid.body;
 
   if (!current || !next) {
     return res.redirect('/change-password?error=missing');
@@ -329,7 +339,7 @@ async function changePassword(req, res) {
     return res.redirect('/change-password?error=wrong_current');
   }
 
-  const passwordHash = await bcrypt.hash(next, 10);
+  const passwordHash = await bcrypt.hash(next, BCRYPT_COST);
   await userModel.updatePassword(user.id, passwordHash);
 
   // Rotate the session ID (same hardening as login/email-confirm): a stolen
@@ -372,7 +382,7 @@ async function revokeSession(req, res) {
   if (!req.session.userId) {
     return res.redirect('/login');
   }
-  const sid = typeof req.body.sid === 'string' ? req.body.sid.trim() : '';
+  const { sid } = req.valid.body;
   if (!sid) {
     return res.redirect('/security?error=missing');
   }
@@ -391,7 +401,7 @@ async function revokeSession(req, res) {
       user.name,
       describeDevice(target.user_agent),
       target.ip || 'unknown'
-    ).catch((err) => console.error('Revoked-session alert failed:', err.message));
+    ).catch((err) => log.error('Revoked-session alert failed:', err.message));
   }
   res.redirect('/security?success=1');
 }
@@ -420,7 +430,7 @@ async function matchGoal(req, res) {
     return res.redirect('/login');
   }
 
-  const goal = typeof req.body.goal === 'string' ? req.body.goal.trim().slice(0, 200) : '';
+  const { goal } = req.valid.body;
   if (!goal) {
     return res.redirect('/dashboard?goalError=empty');
   }

@@ -16,6 +16,7 @@ const express = require('express');
 const llm = require('../services/llm');
 const usageModel = require('../models/usageModel');
 const { loadState, canUse } = require('../services/entitlements');
+const { log } = require('../utils/log');
 
 const KIND = 'stt';
 const MIN_BYTES = 1000;
@@ -90,7 +91,7 @@ async function transcribe(req, res) {
     const { text } = await llm.transcribe({ audio: buf, mime, userId });
     return res.json({ text, remainingToday: Math.max(0, limit - used) });
   } catch (err) {
-    console.error('Transcription failed:', err.message);
+    log.error('Transcription failed:', err.message);
     await usageModel.refundUsage(userId, KIND).catch(() => {});
     return res.status(502).json({ error: 'stt_unavailable' });
   }

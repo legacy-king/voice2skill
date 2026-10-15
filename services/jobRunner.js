@@ -11,21 +11,24 @@
  * JOB_STALE_MINUTES (default 15).
  */
 const pool = require('../config/db');
+const { log } = require('../utils/log');
 
 const handlers = {
-  course_gen: (...args) => require('./courseGenerator').runCourseJob(...args)
+  course_gen: (...args) => require('./courseGenerator').runCourseJob(...args),
+  reminders: (...args) => require('./reminderService').runReminderJob(...args)
 };
 
 const STALE_MINUTES = () => Number(process.env.JOB_STALE_MINUTES) || 15;
 
 /** Idempotent while pending: a second enqueue with the same dedupeKey returns the existing job. */
-async function enqueue(kind, payload, { dedupeKey = null, maxAttempts = 3 } = {}) {
+async function enqueue(kind, payload, { dedupeKey = null, maxAttempts = 3, delayMs = 0 } = {}) {
   if (!handlers[kind]) throw new Error(`unknown job kind "${kind}"`);
   const ins = await pool.query(
-    `INSERT INTO jobs (kind, payload, dedupe_key, max_attempts) VALUES ($1, $2, $3, $4)
+    `INSERT INTO jobs (kind, payload, dedupe_key, max_attempts, run_after)
+     VALUES ($1, $2, $3, $4, NOW() + make_interval(secs => $5))
      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL AND status IN ('queued', 'running') DO NOTHING
      RETURNING *`,
-    [kind, JSON.stringify(payload), dedupeKey, maxAttempts]
+    [kind, JSON.stringify(payload), dedupeKey, maxAttempts, delayMs / 1000]
   );
   if (ins.rows[0]) return { job: ins.rows[0], created: true };
   const { rows } = await pool.query(
@@ -71,7 +74,7 @@ async function runOnce() {
     return rows[0];
   } catch (err) {
     const message = String(err && err.message ? err.message : err).slice(0, 1000);
-    console.error(`Job ${job.id} (${job.kind}) attempt ${job.attempts} failed: ${message}`);
+    log.error(`Job ${job.id} (${job.kind}) attempt ${job.attempts} failed: ${message}`);
     const { rows } = await pool.query(
       `UPDATE jobs
           SET status = CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END,
@@ -97,7 +100,7 @@ function start({ intervalMs = Number(process.env.JOB_POLL_MS) || 15000 } = {}) {
       // Drain whatever is ready, one job at a time.
       while (timer && await runOnce()) { /* next */ }
     } catch (err) {
-      console.error('Job runner error:', err.message);
+      log.error('Job runner error:', err.message);
     } finally {
       busy = false;
     }

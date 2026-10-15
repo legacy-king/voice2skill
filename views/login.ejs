@@ -40,6 +40,8 @@
         <div class="auth-error" role="alert">Incorrect password. Try again.</div>
       <% } else if (typeof error !== 'undefined' && error === 'missing') { %>
         <div class="auth-error" role="alert">Please enter both your email and password.</div>
+      <% } else if (typeof error !== 'undefined' && error === 'locked') { %>
+        <div class="auth-error" role="alert">Too many wrong passwords for this account. Wait 15 minutes, or <a href="/forgot-password">reset your password</a>.</div>
       <% } else if (typeof error !== 'undefined' && error === 'not_verified') { %>
         <div class="auth-error" role="alert">Please verify your email first — check your inbox, or <a href="/verify-email">resend the link</a>.</div>
       <% } else if (typeof error !== 'undefined' && error === 'password_reset') { %>

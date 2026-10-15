@@ -3,6 +3,7 @@ const roadmapModel = require('../models/roadmapModel');
 const checkinModel = require('../models/checkinModel');
 const { loadState, canUse } = require('../services/entitlements');
 const { generateReply, streamReply } = require('../services/mentorService');
+const { log } = require('../utils/log');
 
 const KIND = 'mentor';
 // Daily cap per tier (PRD 5.1): bootcamp students 40/day, individual Premium 10/day. Monthly cap is shared.
@@ -59,8 +60,8 @@ async function beginTurn(req) {
   const userId = req.session.userId;
   if (!userId) return { done: { status: 401, body: { error: 'login' } } };
 
-  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
-  const clientMsgId = typeof req.body.clientMsgId === 'string' ? req.body.clientMsgId.trim() : '';
+  const message = req.valid.body.message.trim();
+  const clientMsgId = req.valid.body.clientMsgId.trim();
   if (!message) return { done: { status: 400, body: { error: 'empty' } } };
   if (message.length > MAX_MESSAGE_CHARS) return { done: { status: 400, body: { error: 'too_long', max: MAX_MESSAGE_CHARS } } };
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(clientMsgId)) return { done: { status: 400, body: { error: 'bad_client_id' } } };
@@ -143,7 +144,7 @@ async function sendMessage(req, res) {
     await mentorModel.insertAssistantMessage({ userId: turn.userId, cohortId: turn.m.cohort_id, content: reply, replyTo: turn.userMsgId });
     return res.json({ reply, remainingToday: Math.max(0, DAILY_LIMIT(turn.m) - turn.usedToday) });
   } catch (err) {
-    console.error('Mentor reply failed:', err.message);
+    log.error('Mentor reply failed:', err.message);
     await undoTurn(turn);
     return res.status(502).json({ error: 'ai_unavailable' });
   }
@@ -182,7 +183,7 @@ async function streamMessage(req, res) {
     await mentorModel.insertAssistantMessage({ userId: turn.userId, cohortId: turn.m.cohort_id, content: reply, replyTo: turn.userMsgId });
     send('done', { remainingToday: Math.max(0, DAILY_LIMIT(turn.m) - turn.usedToday) });
   } catch (err) {
-    console.error('Mentor stream failed:', err.message);
+    log.error('Mentor stream failed:', err.message);
     await undoTurn(turn);
     send('error', { error: 'ai_unavailable' });
   }

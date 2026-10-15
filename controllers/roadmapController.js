@@ -7,6 +7,7 @@ const courseModel = require('../models/courseModel');
 const { calculateStreak } = require('../utils/streak');
 const { goalToSearchPhrase } = require('../utils/goalMatcher');
 const llm = require('../services/llm');
+const { log } = require('../utils/log');
 
 /**
  * AI-generated resource_urls are data, not trusted config. Only allow real
@@ -103,11 +104,8 @@ async function selectTrack(req, res) {
   }
 
   const userId = req.session.userId;
-  const rawTrackId = req.params.trackId;
-  if (!/^\d+$/.test(rawTrackId)) {
-    return res.status(400).send('Invalid track');
-  }
-  const trackId = Number.parseInt(rawTrackId, 10);
+  const { trackId } = req.valid.params;
+  const queryAssessmentId = req.valid.query.assessmentId;
 
   const existingRoadmap = await roadmapModel.getRoadmapByUserAndTrack(userId, trackId);
   if (existingRoadmap) {
@@ -121,7 +119,7 @@ async function selectTrack(req, res) {
 
   // Software Engineering requires assessment first
   if (track.name === 'Software Engineering') {
-    const assessmentId = req.query.assessmentId ? Number.parseInt(req.query.assessmentId, 10) : req.session.assessmentId;
+    const assessmentId = queryAssessmentId || req.session.assessmentId;
     if (!assessmentId) {
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
@@ -131,7 +129,7 @@ async function selectTrack(req, res) {
     }
   }
 
-  const goal = typeof req.body.goal === 'string' ? req.body.goal.trim().slice(0, 200) : '';
+  const { goal } = req.valid.body;
   const normalizedGoal = goal.toLowerCase();
 
   // Resolve assessment context once — used for both cache-key correctness and generation
@@ -139,7 +137,7 @@ async function selectTrack(req, res) {
   let assessmentLevel = null;
   let resolvedAssessmentId = null;
   if (track.name === 'Software Engineering') {
-    const assessmentId = req.query.assessmentId ? Number.parseInt(req.query.assessmentId, 10) : req.session.assessmentId;
+    const assessmentId = queryAssessmentId || req.session.assessmentId;
     if (assessmentId) {
       const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
       if (assessment) {
@@ -182,7 +180,7 @@ async function selectTrack(req, res) {
 
     res.redirect(`/roadmaps/${newRoadmap.id}`);
   } catch (err) {
-    console.error('Roadmap generation failed:', err.message);
+    log.error('Roadmap generation failed:', err.message);
     res.status(503).send(`
       <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
         <h1 style="color: #D4AF37;">We're at capacity right now</h1>
@@ -199,11 +197,7 @@ async function getRoadmap(req, res) {
   }
 
   const userId = req.session.userId;
-  const roadmapId = Number.parseInt(req.params.id, 10);
-
-  if (!Number.isInteger(roadmapId)) {
-    return res.status(404).send('Roadmap not found');
-  }
+  const roadmapId = req.valid.params.id;
 
   const roadmap = await roadmapModel.getRoadmapById(roadmapId);
   if (!roadmap || roadmap.user_id !== userId) {
