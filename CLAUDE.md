@@ -8,11 +8,12 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - `npm run test:llm` — LLM router failover/privacy tests against mock providers (no DB, no keys)
 - `npm run test:cohorts` — end-to-end money/access/mentor tests; needs a DISPOSABLE Postgres: `DATABASE_URL=... DATABASE_SSL=false`
 - `node scripts/courses.js list | generate <track> <level> | generate --all | show <versionId> [week] | publish <versionId>` — Course Library (ADR-001); drafts reach learners only after `publish`
-- `node scripts/createOrg.js "<Bootcamp>" <tutor-email> [pct] [net|gross]` · `node scripts/ledger.js`
+- `node scripts/createOrg.js "<Bootcamp>" <tutor-email> [pct] [net|gross]` · `node scripts/ledger.js` · `node scripts/makeAdmin.js <email> [--revoke]` (founder `/admin` view)
 
 ## Non-negotiables
 - Money = integer kobo. Paid-state changes only via `models/paymentModel.js#settlePayment`.
 - Gate features only through `canUse()` in `services/entitlements.js`.
+- Joining a cohort goes only through `cohortModel.joinByCode()` (row lock: seats, code expiry, free/paid). At-risk and streak come only from `services/studentStatus.js#annotate` (tutor and admin views must agree).
 - Every AI call goes through `services/llm.js` (provider routes, models and timeouts in `config/llm.js`; each attempt logged to `llm_calls`, never the text). Every AI feature: per-user cap in `ai_usage`, size limits, fallback, idempotency key.
 - Never put student text (goals, notes, chats) in a system prompt, and never send names or emails to a model: pass ids.
 - Free users (no paid plan) must keep working unchanged — and never get AI features.

@@ -31,8 +31,10 @@ Change the Premium price with SQL (no deploy): `UPDATE cohorts SET price_kobo = 
 4. **Register the tutor:** he signs up and verifies his email, then you run
    `node scripts/createOrg.js "His Bootcamp" his@email.com 20 net`
    (20% share, calculated on the amount after Paystack fees; use `gross` to calculate before fees). He then opens `/teacher`, creates a cohort, pastes his syllabus, and shares the code.
-5. **Payouts:** pay the bootcamp by bank transfer on a schedule, then record it: `node scripts/ledger.js payout <orgId> <naira> "note"`. `node scripts/ledger.js` shows what is owed.
-6. **Render:** upgrade the web service from Free to the $7 instance before the first paying cohort, otherwise students wait 50s+ on cold starts.
+   Optional per cohort: **seats** (a student who joined holds a seat, paid or not; renewals never need a new seat) and a **code expiry date** (end of that day, Lagos time; existing students can still pay and renew). Students can also sign up straight from the invite link (`/join?code=…` → signup with the code filled in); they join the cohort when they verify their email.
+5. **Your admin view:** sign up, verify, then `node scripts/makeAdmin.js you@voice2skill.com`. `/admin` shows every bootcamp, what is owed to each, all cohorts (seats, expired codes, at-risk count) and each roster with streaks. Read-only; never shows notes or chats. "At risk" = paid access and no check-in for `AT_RISK_DAYS` (default 3) days.
+6. **Payouts:** pay the bootcamp by bank transfer on a schedule, then record it: `node scripts/ledger.js payout <orgId> <naira> "note"`. `node scripts/ledger.js` shows what is owed.
+7. **Render:** upgrade the web service from Free to the $7 instance before the first paying cohort, otherwise students wait 50s+ on cold starts.
 
 ## Things to agree with the tutor in writing before money moves
 

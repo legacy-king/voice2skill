@@ -71,6 +71,8 @@
 
 ### 4.4 Bootcamp / organization tools
 - Organizations (bootcamps), cohorts, invite codes (8 chars, no ambiguous letters), syllabus editor, price and access-days per cohort, open/closed toggle. **[Built]**
+- Seat limit and invite-code expiry per cohort, enforced atomically when joining (row lock; renewals never blocked); signup straight from an invite link with the code (joins on email verification; `users.signup_cohort_id` records attribution). **[Built, Phase 4]**
+- Founder admin view `/admin` (`users.is_admin`): all bootcamps with revenue share owed, all cohorts with seats/expiry/at-risk counts, rosters with streaks. Read-only. Tutors see the same at-risk rule as "needs a nudge" plus streaks. **[Built, Phase 4]**
 - Transparent earnings panel for the tutor (collected, share, paid out, owed). **[Built]**
 - **[Planned]** Branding (logo/name on the student pages), multiple teachers per org, bulk seat purchase (Option B, see 5.3), CSV export.
 
@@ -304,7 +306,8 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | F5 | Organizations/cohorts/invite codes/syllabus | Built | Teacher creates cohort; code works case/dash-insensitively |
 | F6 | Join, pay, renew (Paystack) | Built | Replayed/concurrent webhooks extend access once; underpayment rejected; expired access blocked |
 | F7 | Mentor chat grounded in syllabus with caps | Built | 4th msg at cap=3 → 429; replay not double-billed |
-| F8 | Teacher roster + earnings + nudge flag | Built | Teacher can't see notes; students can't open teacher pages |
+| F8 | Teacher roster + earnings + nudge flag + streaks | Built | Teacher can't see notes; students can't open teacher pages |
+| F8b | Seats, code expiry, signup with code, founder admin view | Built (Phase 4) | 5 concurrent joins for the last seat => 1 succeeds; expired code refuses new students only; non-admins get 404 on /admin |
 | F9 | Ledger + payouts scripts | Built | Owed = share − payouts |
 | F10 | Course Library (versioned, reusable, tutor-editable) | **Built** (library); tutor-editable cohort courses Planned P2 | New user on a published track×level gets a plan with 0 AI calls (e2e: `npm run test:cohorts`, "Course Library"); drafts never reach learners; invalid plans cannot be published; a new version does not change existing learners' plans |
 | F11 | Premium individual tier (₦6,000/30 days; AI coach + mentor); Free has no AI | **Built** | `canUse` (`ai_coach`, `mentor_chat`); free check-in gets template coach; `POST /premium` → Paystack → access |
