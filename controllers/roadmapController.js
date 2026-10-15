@@ -86,6 +86,13 @@ Each week must have exactly 7 days. Days 1-5 are "weekday" type with a full tech
   return data;
 }
 
+/** Once a roadmap exists, the assessment hand-off is spent; a stale goal must not leak into the next track. */
+function clearAssessmentSession(req) {
+  delete req.session.assessmentId;
+  delete req.session.assessmentLevel;
+  delete req.session.assessmentGoal;
+}
+
 async function selectTrack(req, res) {
   if (!req.session.userId) {
     return res.redirect('/login');
@@ -108,35 +115,22 @@ async function selectTrack(req, res) {
   const { goal } = req.valid.body;
   const normalizedGoal = goal.toLowerCase();
 
-  // Software Engineering requires assessment first
-  if (track.name === 'Software Engineering') {
-    const assessmentId = queryAssessmentId || req.session.assessmentId;
-    if (!assessmentId) {
-      // A redirect drops the form body, so keep the typed goal in the session.
-      req.session.assessmentGoal = goal;
-      return res.redirect(`/tracks/${trackId}/assessment`);
-    }
-    const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
-    if (!assessment || assessment.id !== assessmentId) {
-      req.session.assessmentGoal = goal;
-      return res.redirect(`/tracks/${trackId}/assessment`);
-    }
-  }
-
-  // Resolve assessment context once — used for both cache-key correctness and generation
+  // Software Engineering requires a finished assessment first; its result is used for both
+  // cache-key correctness and generation.
   let assessmentContext = null;
   let assessmentLevel = null;
   let resolvedAssessmentId = null;
   if (track.name === 'Software Engineering') {
     const assessmentId = queryAssessmentId || req.session.assessmentId;
-    if (assessmentId) {
-      const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
-      if (assessment) {
-        assessmentContext = { level: assessment.level, topicScores: assessment.topic_scores };
-        assessmentLevel = assessment.level;
-        resolvedAssessmentId = assessmentId;
-      }
+    const assessment = assessmentId ? await assessmentModel.getLatestAssessment(userId, trackId) : null;
+    if (!assessment || assessment.id !== assessmentId) {
+      // A redirect drops the form body, so keep the typed goal in the session.
+      req.session.assessmentGoal = goal;
+      return res.redirect(`/tracks/${trackId}/assessment`);
     }
+    assessmentContext = { level: assessment.level, topicScores: assessment.topic_scores };
+    assessmentLevel = assessment.level;
+    resolvedAssessmentId = assessmentId;
   }
 
   // Course Library (ADR-001): a published plan for this track x level means 0 AI calls. Tracks
@@ -145,8 +139,7 @@ async function selectTrack(req, res) {
   const libraryVersion = await courseModel.findPublishedLibraryVersion(trackId, level);
   if (libraryVersion) {
     const newRoadmap = await roadmapModel.createLibraryRoadmap(userId, trackId, libraryVersion.id, goal || null, resolvedAssessmentId);
-    delete req.session.assessmentId;
-    delete req.session.assessmentLevel;
+    clearAssessmentSession(req);
     return res.redirect(`/roadmaps/${newRoadmap.id}`);
   }
 
@@ -165,9 +158,7 @@ async function selectTrack(req, res) {
     }
     if (cachedContent) {
       const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cachedContent, goal, resolvedAssessmentId, true);
-      delete req.session.assessmentId;
-      delete req.session.assessmentLevel;
-      delete req.session.assessmentGoal;
+      clearAssessmentSession(req);
       return res.redirect(`/roadmaps/${newRoadmap.id}`);
     }
   }
@@ -175,11 +166,7 @@ async function selectTrack(req, res) {
   try {
     const content = await generateRoadmapContent(track.name, track.description, goal || null, assessmentContext, userId);
     const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, content, goal || null, resolvedAssessmentId, false);
-
-    delete req.session.assessmentId;
-    delete req.session.assessmentLevel;
-    delete req.session.assessmentGoal;
-
+    clearAssessmentSession(req);
     res.redirect(`/roadmaps/${newRoadmap.id}`);
   } catch (err) {
     log.error('Roadmap generation failed:', err.message);
