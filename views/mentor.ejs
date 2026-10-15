@@ -19,7 +19,10 @@
           <h1><%= mentorName %>’s <span class="grad-text">AI Mentor</span></h1>
         <% } %>
       </div>
-      <p class="co-muted" id="remaining" aria-live="polite"><%= remainingToday %> of <%= dailyLimit %> messages left today</p>
+      <div class="co-head-side">
+        <p class="co-muted" id="remaining" aria-live="polite"><%= remainingToday %> of <%= dailyLimit %> messages left today</p>
+        <label class="read-aloud"><input type="checkbox" id="readAloud"> Read replies aloud</label>
+      </div>
     </header>
 
     <% if (justPaid) { %><div class="co-note" role="status">Payment received. Your mentor access is active<%= accessUntil ? ' until ' + new Date(accessUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '' %>.</div><% } %>
@@ -39,12 +42,15 @@
 
     <form class="co-composer" id="composer" autocomplete="off">
       <label class="visually-hidden" for="msg">Your message</label>
-      <textarea id="msg" rows="2" maxlength="1000" placeholder="Ask your mentor…" required></textarea>
+      <textarea id="msg" rows="2" maxlength="1000" placeholder="Ask your mentor… (or tap Speak)" required></textarea>
+      <button type="button" class="btn btn-ghost" id="mentorMic" data-voice-target="msg" data-voice-status="mentorVoiceStatus" data-csrf="<%= csrfToken %>">Speak</button>
       <button type="submit" class="btn btn-gold" id="send">Send</button>
     </form>
+    <p class="voice-status" id="mentorVoiceStatus" role="status" aria-live="polite"></p>
     <p class="co-fine">AI can make mistakes — check important answers with your tutor. Don't paste passwords or private information.</p>
   </main>
 
+  <script src="/js/voice.js" defer></script>
   <script src="/js/mentor.js" defer></script>
 </body>
 </html>

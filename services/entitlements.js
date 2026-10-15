@@ -3,7 +3,8 @@
  * Controllers call canUse(state, feature) — never scatter `if (paid)` checks.
  *
  * Tiers (PRD §5.1):
- *   Free     — structured plan pointing to free resources, check-ins, streaks, reminders. No AI.
+ *   Free     — structured plan pointing to free resources, check-ins, streaks, reminders. No AI
+ *              coaching or mentor; voice input (speech-to-text) is allowed, with a smaller cap.
  *   Premium  — individual, paid (a built-in cohort of kind 'premium'): AI coach + AI mentor.
  *   Bootcamp — a tutor's cohort (paid, or free if the tutor sets ₦0): AI coach + an AI mentor that
  *              carries the tutor's name and answers from the tutor's syllabus.
@@ -58,6 +59,10 @@ function canUse(state, feature) {
     case 'mentor_chat':
     case 'ai_coach':
       return !!state.mentorMembership;
+    // Voice input is the product's name: every signed-in user gets it (PLAN D2). The daily cap
+    // differs by tier (controllers/voiceController.js).
+    case 'voice_stt':
+      return true;
     case 'teacher_dashboard': return !!state.isTeacher;
     default: return false;
   }

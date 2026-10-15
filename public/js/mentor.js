@@ -2,6 +2,8 @@
  * Mentor chat client. Streams replies from POST /mentor/message/stream (server-sent events over
  * fetch) and falls back to the plain JSON endpoint when the browser can't read a stream.
  * Model and user text is only ever set with textContent, never parsed as HTML.
+ * Read-aloud (public/js/voice.js): every mentor reply gets a Listen button, and new replies are
+ * spoken automatically when "Read replies aloud" is on (remembered per browser).
  */
 (function () {
   var root = document.getElementById('mentor-app');
@@ -35,10 +37,19 @@
     ai_unavailable: 'The mentor is unavailable right now. Your message was not counted — press Send to retry.',
     in_progress: 'Still working on your last message…'
   };
+  /** Listen button on a finished reply; speak it now if the reader turned read-aloud on. */
+  function voiceUp(el, text, fresh) {
+    var V = window.V2SVoice;
+    if (!V || !el || !text) return;
+    V.addListenButton(el, function () { return text; });
+    if (fresh && V.autoRead()) V.speak(text, el.querySelector('.tts-btn'));
+  }
   function setRemaining(n) {
     if (typeof n === 'number') remaining.textContent = n + ' of ' + dailyLimit + ' messages left today';
   }
   chat.scrollTop = chat.scrollHeight;
+  // Replies already on the page (history) get Listen buttons once voice.js has loaded.
+  Array.prototype.forEach.call(chat.querySelectorAll('.co-msg-bot:not(#welcome)'), function (el) { voiceUp(el, el.textContent.trim(), false); });
 
   function post(url, text) {
     return fetch(url, {
@@ -53,7 +64,7 @@
     return r.json().catch(function () { return { error: 'ai_unavailable' }; }).then(function (body) {
       ui.wait.remove();
       if (r.ok && body.reply) {
-        bubble(body.reply, 'co-msg-bot');
+        voiceUp(bubble(body.reply, 'co-msg-bot'), body.reply, true);
         pendingText = pendingId = null;
         setRemaining(body.remainingToday);
       } else {
@@ -89,6 +100,7 @@
         chat.scrollTop = chat.scrollHeight;
       } else if (event === 'done') {
         finished = true;
+        if (out) voiceUp(out, out.textContent, true);
         pendingText = pendingId = null;
         setRemaining(msg.remainingToday);
       } else if (event === 'error') {

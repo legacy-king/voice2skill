@@ -1577,3 +1577,35 @@ body.app form.auth-form {
 /* Free-tier note under the template coach reply */
 .coach-upsell { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted, #9B9891); }
 .coach-upsell a { color: var(--gold-2, #F0D27A); }
+
+/* Voice input status line (public/js/voice.js) */
+.voice-status {
+  min-height: 1.2em;
+  margin: 0.5rem 0 0;
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+}
+.voice-status:empty { margin: 0; min-height: 0; }
+.voice-retry,
+.tts-btn {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.voice-retry:hover,
+.tts-btn:hover { border-color: var(--gold); }
+.voice-retry:focus-visible,
+.tts-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.tts-btn { display: inline-block; margin-top: 0.5rem; }
+.co-msg .tts-btn { display: block; }
+.coach-card .tts-btn { margin-top: 0.2rem; }
+
+/* Mentor header: remaining count + read-aloud preference */
+.co-head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.read-aloud { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--ink-dim); cursor: pointer; }
+.read-aloud input { accent-color: var(--gold); width: 1rem; height: 1rem; }

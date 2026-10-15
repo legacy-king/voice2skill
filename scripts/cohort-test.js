@@ -15,6 +15,9 @@ process.env.PAYSTACK_SECRET_KEY = 'sk_test_cohort_suite';
 process.env.SESSION_SECRET = 'test-secret';
 process.env.MENTOR_DAILY_LIMIT = '3';
 process.env.PREMIUM_DAILY_LIMIT = '2';
+process.env.STT_MAX_BYTES = '50000';
+process.env.STT_DAILY_LIMIT_FREE = '4';
+process.env.STT_DAILY_LIMIT_PAID = '6';
 process.env.NODE_ENV = 'test';
 process.env.COURSE_MOCK = '1';
 // Never call a real LLM from tests, even if .env has keys (dotenv won't override set vars). The
@@ -518,6 +521,62 @@ async function main() {
       [rita.id, JSON.stringify({ weeks: [{ focus: 'B', days: [{ task: 'T1' }, { task: 'T2' }] }] })]);
     await rita.c.req('POST', `/roadmaps/${rrm2.rows[0].id}/checkin`, { form: { _csrf: rt, notes: 'second roadmap' } });
     check('coach falls back to the template when every provider fails', (await pool.query('SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [rrm2.rows[0].id])).rows[0]?.is_fallback === true);
+    mock.reset();
+
+    console.log('Voice: speech-to-text endpoint');
+    const clip = (kind, size = 4000) => {
+      const head = kind === 'webm' ? Buffer.from([0x1a, 0x45, 0xdf, 0xa3])
+        : kind === 'ogg' ? Buffer.from('OggS', 'latin1')
+        : kind === 'mp4' ? Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from('ftypM4A ', 'latin1')])
+        : Buffer.from('RIFF', 'latin1');
+      return Buffer.concat([head, Buffer.alloc(size - head.length, 3)]);
+    };
+    const svt = await fred.c.csrf('/join');
+    const sendClip = (c, body, type, token = svt) => c.req('POST', '/api/voice/transcribe', { raw: body, headers: { 'content-type': type, ...(token ? { 'x-csrf-token': token } : {}) } });
+    const sttUsage = async (id) => (await pool.query("SELECT COALESCE(SUM(count),0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'stt'", [id])).rows[0].n;
+
+    const anon = client();
+    const anonToken = await anon.csrf('/login');
+    check('voice: not logged in => 401', (await anon.req('POST', '/api/voice/transcribe', { raw: clip('webm'), headers: { 'content-type': 'audio/webm', 'x-csrf-token': anonToken } })).status === 401);
+    check('voice: missing CSRF header => 403', (await sendClip(fred.c, clip('webm'), 'audio/webm', null)).status === 403);
+    const sv1 = await sendClip(fred.c, clip('webm'), 'audio/webm;codecs=opus');
+    check('voice: free user can transcribe (Groq Whisper via router)', sv1.status === 200 && JSON.parse(sv1.text).text === '[mock transcript:groq]', sv1.text);
+    check('voice: the clip reached Whisper as audio/webm multipart', mock.requests.some((q) => q.kind === 'transcription' && q.raw.includes('clip.webm') && q.raw.includes('whisper-large-v3-turbo')));
+    check('voice: usage counted (kind stt) and logged', (await sttUsage(fred.id)) === 1
+      && (await pool.query("SELECT COUNT(*)::int n FROM llm_calls WHERE user_id = $1 AND task = 'stt' AND ok", [fred.id])).rows[0].n === 1);
+    check('voice: response is not cacheable', /no-store/.test(sv1.res.headers.get('cache-control') || ''));
+    check('voice: wrong type (wav) => 415', (await sendClip(fred.c, clip('wav'), 'audio/wav')).status === 415);
+    check('voice: bytes that do not match the claimed type => 415', (await sendClip(fred.c, clip('wav'), 'audio/webm')).status === 415);
+    check('voice: over STT_MAX_BYTES => 413', (await sendClip(fred.c, clip('webm', 60000), 'audio/webm')).status === 413);
+    check('voice: tiny clip => 400 too_short', JSON.parse((await sendClip(fred.c, clip('webm', 500), 'audio/webm')).text).error === 'too_short');
+    check('voice: rejected uploads are not counted', (await sttUsage(fred.id)) === 1);
+    check('voice: iOS mp4 clip accepted', JSON.parse((await sendClip(fred.c, clip('mp4'), 'audio/mp4')).text).text === '[mock transcript:groq]');
+    check('voice: ogg clip accepted', (await sendClip(fred.c, clip('ogg'), 'audio/ogg')).status === 200);
+    mock.setMode('groq', '503'); mock.setMode('gemini', '500');
+    const svd = await sendClip(fred.c, clip('webm'), 'audio/webm');
+    check('voice: every provider down => 502 stt_unavailable, refunded', svd.status === 502 && JSON.parse(svd.text).error === 'stt_unavailable' && (await sttUsage(fred.id)) === 3);
+    mock.reset();
+    mock.setMode('groq', '503');
+    const svf = await sendClip(fred.c, clip('webm'), 'audio/webm');
+    check('voice: Groq down => Gemini transcribes', svf.status === 200 && JSON.parse(svf.text).text === '[mock transcript:gemini]', svf.text);
+    mock.reset();
+    const svc = await sendClip(fred.c, clip('webm'), 'audio/webm');
+    check('voice: free daily cap (STT_DAILY_LIMIT_FREE=4) => 429 daily_limit', svc.status === 429 && JSON.parse(svc.text).error === 'daily_limit');
+    const svr = await sendClip(rita.c, clip('webm'), 'audio/webm', rt);
+    check('voice: paid user gets the paid cap (6)', svr.status === 200 && JSON.parse(svr.text).remainingToday === 5, svr.text);
+    check('voice: no table stores raw audio (no bytea columns)', (await pool.query("SELECT COUNT(*)::int n FROM information_schema.columns WHERE table_schema = 'public' AND data_type = 'bytea'")).rows[0].n === 0);
+
+    console.log('Voice: pages');
+    const dash = await pam.c.req('GET', '/dashboard');
+    check('goal box has the voice recorder (no inline speech script)', dash.text.includes('data-voice-target="goalInput"') && dash.text.includes('/js/voice.js') && !dash.text.includes('webkitSpeechRecognition'));
+    const fredRoadmap = (await pool.query('SELECT id FROM roadmaps WHERE user_id = $1 LIMIT 1', [fred.id])).rows[0].id;
+    const rpage = await fred.c.req('GET', `/roadmaps/${fredRoadmap}`);
+    check('check-in box has the voice recorder', rpage.text.includes('data-voice-target="checkinNotes"') && rpage.text.includes('/js/voice.js') && !rpage.text.includes('webkitSpeechRecognition'));
+    check('coach card can be read aloud', /class="app-card coach-card" data-tts/.test(rpage.text));
+    const mpage = await rita.c.req('GET', '/mentor');
+    check('mentor has voice input and the read-aloud preference', mpage.text.includes('data-voice-target="msg"') && mpage.text.includes('id="readAloud"') && mpage.text.includes('/js/voice.js'));
+    const vjs = await fred.c.req('GET', '/js/voice.js');
+    check('voice.js is served', vjs.status === 200 && vjs.text.includes('/api/voice/transcribe'));
     mock.reset();
   } finally {
     await mock.close();

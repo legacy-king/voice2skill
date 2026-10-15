@@ -55,7 +55,7 @@ const cases = [
      'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
 
   ['privacy', 'privacy.ejs', {},
-    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023', 'Groq', 'zero data retention', 'never send your name or email address']],
+    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023', 'Groq', 'zero data retention', 'never send your name or email address', 'We do not store your recordings', 'Read-aloud of replies happens on your device']],
   ['terms', 'terms.ejs', {},
     ['Terms of Service', 'Premium', 'does <strong>not</strong> renew automatically', 'Refunds', 'help@voice2skill.test']],
 

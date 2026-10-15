@@ -59,7 +59,8 @@
 .co-msg-bot { align-self: flex-start; background: var(--card-2); border: 1px solid var(--line); color: var(--ink-dim); }
 .co-msg-wait { opacity: 0.6; font-style: italic; }
 .co-msg-err { border-color: rgba(229, 72, 77, 0.45); color: var(--red); }
-.co-composer { display: flex; gap: 0.6rem; align-items: stretch; }
+/* .app prefix: must outrank app.css "body.app form { display: block }" */
+.app .co-composer { display: flex; flex-direction: row; gap: 0.6rem; align-items: flex-end; }
 .co-composer textarea { flex: 1; background: var(--card); color: var(--ink); border: 1px solid var(--line-strong); border-radius: 12px; padding: 0.7rem 0.9rem; font: inherit; resize: none; }
 
 @media (max-width: 640px) {
@@ -75,3 +76,10 @@
 .co-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.45rem; color: var(--ink-dim); }
 .co-list li { padding-left: 1.3rem; position: relative; }
 .co-list li::before { content: '✓'; position: absolute; left: 0; color: var(--gold); }
+
+/* Mentor composer on phones: full-width box, Speak + Send side by side underneath. */
+@media (max-width: 520px) {
+  .co-head-side { align-items: flex-start; }
+  .app .co-composer { display: grid; grid-template-columns: 1fr 1fr; }
+  .app .co-composer textarea { grid-column: 1 / -1; width: 100%; }
+}

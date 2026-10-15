@@ -149,12 +149,13 @@
           <label class="visually-hidden" for="checkinNotes">What did you work on today?</label>
           <textarea name="notes" id="checkinNotes" placeholder="What did you work on today?" required></textarea>
           <div class="form-actions">
-            <button type="button" class="btn btn-ghost" id="voiceBtn">
+            <button type="button" class="btn btn-ghost" id="voiceBtn" data-voice-target="checkinNotes" data-voice-status="checkinVoiceStatus" data-csrf="<%= csrfToken %>">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
               Speak instead
             </button>
             <button type="submit" class="btn btn-gold">Submit check-in</button>
           </div>
+          <p class="voice-status" id="checkinVoiceStatus" role="status" aria-live="polite"></p>
         </form>
       </div>
 
@@ -162,7 +163,7 @@
       <% const latestCheckin = checkins.length > 0 ? checkins[0] : null;
          const latestCoach = latestCheckin?.coachResponse;
          if (latestCoach) { %>
-        <div class="app-card coach-card">
+        <div class="app-card coach-card" data-tts>
           <div class="app-card-head">
             <h2>Your coach</h2>
             <span class="coach-badge <%= latestCoach.is_fallback ? 'coach-fallback' : 'coach-ai' %>">
@@ -217,66 +218,6 @@
 
   </main>
 
-  <script>
-  const voiceBtn = document.getElementById('voiceBtn');
-  const notesField = document.getElementById('checkinNotes');
-
-  if (voiceBtn) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const micSvg = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    const resetLabel = function () {
-      voiceBtn.classList.remove('listening');
-      voiceBtn.innerHTML = micSvg + ' Speak instead';
-      voiceBtn.disabled = false;
-    };
-
-    if (!SpeechRecognition) {
-      voiceBtn.style.display = 'none';
-    } else {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = false;
-      recognition.continuous = false;
-      recognition.maxAlternatives = 1;
-
-      let isListening = false;
-      let baseValue = '';
-
-      voiceBtn.addEventListener('click', () => {
-        if (isListening) return;
-        isListening = true;
-        voiceBtn.disabled = true;
-        voiceBtn.classList.add('listening');
-        voiceBtn.innerHTML = micSvg + ' Listening…';
-        baseValue = notesField.value;
-
-        try {
-          recognition.start();
-        } catch (err) {
-          isListening = false;
-          resetLabel();
-        }
-      });
-
-      recognition.addEventListener('result', (event) => {
-        const transcript = event.results[0][0].transcript;
-        notesField.value = baseValue
-          ? baseValue + ' ' + transcript
-          : transcript;
-      });
-
-      recognition.addEventListener('end', () => {
-        isListening = false;
-        resetLabel();
-      });
-
-      recognition.addEventListener('error', (event) => {
-        isListening = false;
-        resetLabel();
-        console.error('Speech recognition error:', event.error);
-      });
-    }
-  }
-</script>
+  <script src="/js/voice.js" defer></script>
 </body>
 </html>

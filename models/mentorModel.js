@@ -47,35 +47,8 @@ async function deleteMessage(id) {
   await pool.query('DELETE FROM mentor_messages WHERE id = $1', [id]);
 }
 
-/** Atomically count one AI call today; returns the new count. */
-async function bumpUsage(userId, kind) {
-  const { rows } = await pool.query(
-    `INSERT INTO ai_usage (user_id, day, kind, count) VALUES ($1, CURRENT_DATE, $2, 1)
-     ON CONFLICT (user_id, day, kind) DO UPDATE SET count = ai_usage.count + 1
-     RETURNING count`,
-    [userId, kind]
-  );
-  return rows[0].count;
-}
-
-async function refundUsage(userId, kind) {
-  await pool.query(
-    `UPDATE ai_usage SET count = GREATEST(count - 1, 0)
-      WHERE user_id = $1 AND day = CURRENT_DATE AND kind = $2`,
-    [userId, kind]
-  );
-}
-
-async function getUsage(userId, kind) {
-  const { rows } = await pool.query(
-    `SELECT
-       COALESCE(SUM(count) FILTER (WHERE day = CURRENT_DATE), 0)::int AS today,
-       COALESCE(SUM(count) FILTER (WHERE day >= date_trunc('month', CURRENT_DATE)), 0)::int AS month
-     FROM ai_usage WHERE user_id = $1 AND kind = $2`,
-    [userId, kind]
-  );
-  return rows[0];
-}
+// Per-user AI caps live in usageModel (shared with voice and the coach); re-exported for callers.
+const { bumpUsage, refundUsage, getUsage } = require('./usageModel');
 
 module.exports = {
   getHistory, findByClientMsgId, insertUserMessage, insertAssistantMessage,
