@@ -18,6 +18,17 @@
       <ul class="app-nav-links">
         <li><a href="/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>" <%= active === 'dashboard' ? 'aria-current="page"' : '' %>>Dashboard</a></li>
         <li><a href="/tracks" class="<%= active === 'tracks' ? 'active' : '' %>" <%= active === 'tracks' ? 'aria-current="page"' : '' %>>Skill Tracks</a></li>
+        <% if (typeof ent !== 'undefined' && ent.hasMentor) { %>
+          <li><a href="/mentor" class="<%= active === 'mentor' ? 'active' : '' %>" <%= active === 'mentor' ? 'aria-current="page"' : '' %>>AI Mentor</a></li>
+        <% } else { %>
+          <li><a href="/join" class="<%= active === 'join' ? 'active' : '' %>" <%= active === 'join' ? 'aria-current="page"' : '' %>>Go Premium</a></li>
+        <% } %>
+        <% if (typeof ent !== 'undefined' && ent.isTeacher) { %>
+          <li><a href="/teacher" class="<%= active === 'teacher' ? 'active' : '' %>" <%= active === 'teacher' ? 'aria-current="page"' : '' %>>Teacher</a></li>
+        <% } %>
+        <% if (typeof ent !== 'undefined' && ent.isAdmin) { %>
+          <li><a href="/admin" class="<%= active === 'admin' ? 'active' : '' %>" <%= active === 'admin' ? 'aria-current="page"' : '' %>>Admin</a></li>
+        <% } %>
         <li><a href="/security" class="<%= active === 'security' ? 'active' : '' %>" <%= active === 'security' ? 'aria-current="page"' : '' %>>Security</a></li>
         <% if (typeof roadmapUrl !== 'undefined' && roadmapUrl) { %>
           <li><a href="<%= roadmapUrl %>" class="<%= active === 'roadmap' ? 'active' : '' %>" <%= active === 'roadmap' ? 'aria-current="page"' : '' %>>My Roadmap</a></li>
@@ -33,11 +44,4 @@
     </div>
   </div>
 </header>
-<script>
-  (function () {
-    var nav = document.getElementById('appnav');
-    var onScroll = function () { nav.classList.toggle('scrolled', window.scrollY > 12); };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  })();
-</script>
+<script src="/js/nav.js" defer></script>

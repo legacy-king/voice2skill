@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Teacher dashboard - Voice2Skill</title>
+  <%- include('partials/head-app') %>
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'teacher' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <section class="co-hero co-hero-left">
+      <span class="app-eyebrow"><%= org ? org.name : 'Teacher' %></span>
+      <h1>Your <span class="grad-text">cohorts</span></h1>
+      <p>Create a cohort, share its code, and watch your students' consistency.</p>
+      <% if (error) { %><div class="goal-error" role="alert"><%= error %></div><% } %>
+    </section>
+
+    <% if (ledger) { %>
+    <section class="co-stats" aria-label="Earnings">
+      <div class="co-stat"><div class="num"><%= naira(ledger.gross) %></div><div class="lbl">collected from <%= ledger.payments %> payments</div></div>
+      <div class="co-stat"><div class="num"><%= naira(ledger.orgShare) %></div><div class="lbl">your share (<%= Number(org.revenue_share_pct) %>% of <%= org.share_basis %>)</div></div>
+      <div class="co-stat"><div class="num"><%= naira(ledger.paidOut) %></div><div class="lbl">paid out to you</div></div>
+      <div class="co-stat"><div class="num grad-text"><%= naira(ledger.owed) %></div><div class="lbl">owed to you</div></div>
+    </section>
+    <% } %>
+
+    <section class="co-section">
+      <h2>Cohorts</h2>
+      <% if (cohorts.length === 0) { %><p class="co-muted">No cohorts yet. Create your first one below.</p><% } %>
+      <div class="co-cards">
+        <% cohorts.forEach(function (c) { %>
+          <a class="co-card co-card-link" href="/teacher/cohorts/<%= c.id %>">
+            <h3><%= c.name %></h3>
+            <p class="co-muted"><%= c.price_kobo === 0 ? 'Free' : naira(c.price_kobo) + ' / ' + c.access_days + ' days' %> · <%= c.active ? 'open' : 'closed' %> · <%= c.seats_taken %><%= c.max_seats ? '/' + c.max_seats : '' %> seats</p>
+            <p><span class="co-code"><%= c.invite_code %></span></p>
+            <p class="co-muted"><%= c.active_students %> paying · <%= c.students %> joined</p>
+          </a>
+        <% }) %>
+      </div>
+    </section>
+
+    <% if (canCreate) { %>
+    <section class="co-section">
+      <h2>Create a cohort</h2>
+      <form class="co-form" action="/teacher/cohorts" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>Cohort name<input type="text" name="name" maxlength="150" required placeholder="Frontend Bootcamp — November 2026"></label>
+        <div class="co-row">
+          <label>Price per period (₦)<input type="number" name="price" min="0" max="1000000" step="1" value="5000" required></label>
+          <label>Access days per payment<input type="number" name="accessDays" min="1" max="365" value="30" required></label>
+          <label>Seats (blank = no limit)<input type="number" name="maxSeats" min="1" max="10000" step="1" placeholder="e.g. 30"></label>
+          <label>Code expires on (blank = never)<input type="date" name="codeExpires"></label>
+        </div>
+        <label>Syllabus <span class="co-muted">(the AI mentor answers from this — paste your weekly topics, key rules, project briefs)</span>
+          <textarea name="curriculum" rows="8" maxlength="20000" placeholder="Week 1: HTML structure, semantic tags…"></textarea>
+        </label>
+        <button type="submit" class="btn btn-gold">Create cohort</button>
+      </form>
+    </section>
+    <% } %>
+  </main>
+  <%- include('partials/app-footer') %>
+</body>
+</html>

@@ -1,4 +1,4 @@
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
@@ -12,20 +12,25 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tracks (
+CREATE TABLE IF NOT EXISTS tracks (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   description TEXT
 );
 
-INSERT INTO tracks (name, description) VALUES
-('Software Engineering', 'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.'),
-('UI/UX Design', 'Design thinking, Figma, and interfaces people love.'),
-('Data Analysis', 'Spreadsheets, SQL, and insights that drive decisions.'),
-('Digital Marketing', 'Content, SEO, and campaigns that reach people.'),
-('Cybersecurity', 'Fundamentals of protecting systems and data.');
+-- Seed only an empty table, so re-running this file never duplicates tracks
+-- (scripts/syncTracks.js keeps names/descriptions in sync on existing databases).
+INSERT INTO tracks (name, description)
+SELECT v.name, v.description FROM (VALUES
+  ('Software Engineering', 'HTML, CSS, JavaScript, React, Node.js, and system design — build and ship real software.'),
+  ('UI/UX Design', 'Design thinking, Figma, and interfaces people love.'),
+  ('Data Analysis', 'Spreadsheets, SQL, and insights that drive decisions.'),
+  ('Digital Marketing', 'Content, SEO, and campaigns that reach people.'),
+  ('Cybersecurity', 'Fundamentals of protecting systems and data.')
+) AS v(name, description)
+WHERE NOT EXISTS (SELECT 1 FROM tracks);
 
-CREATE TABLE assessments (
+CREATE TABLE IF NOT EXISTS assessments (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   track_id INTEGER NOT NULL REFERENCES tracks(id),
@@ -36,17 +41,18 @@ CREATE TABLE assessments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE roadmaps (
+CREATE TABLE IF NOT EXISTS roadmaps (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   track_id INTEGER NOT NULL REFERENCES tracks(id),
   goal TEXT,
   content JSONB NOT NULL,
   assessment_id INTEGER REFERENCES assessments(id),
+  is_cached BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE checkins (
+CREATE TABLE IF NOT EXISTS checkins (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   roadmap_id INTEGER NOT NULL REFERENCES roadmaps(id),
@@ -56,7 +62,7 @@ CREATE TABLE checkins (
   UNIQUE(user_id, roadmap_id, checkin_date)
 );
 
-CREATE TABLE coach_responses (
+CREATE TABLE IF NOT EXISTS coach_responses (
   id SERIAL PRIMARY KEY,
   checkin_id INTEGER UNIQUE NOT NULL REFERENCES checkins(id) ON DELETE CASCADE,
   acknowledgement TEXT NOT NULL,

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title><%= cohort.name %> - Admin - Voice2Skill</title>
+  <%- include('partials/head-app') %>
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'admin' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <section class="co-hero co-hero-left">
+      <a class="co-back" href="/admin">← All bootcamps</a>
+      <span class="app-eyebrow"><%= cohort.org_name %><%= cohort.kind === 'premium' ? ' · Premium' : '' %></span>
+      <h1><span class="grad-text"><%= cohort.name %></span></h1>
+      <p class="co-muted">Code <span class="co-code"><%= cohort.invite_code %></span> · <%= cohort.price_kobo === 0 ? 'Free' : naira(cohort.price_kobo) + ' / ' + cohort.access_days + ' days' %> · seats <%= cohort.seats_taken %><%= cohort.max_seats ? ' of ' + cohort.max_seats : '' %> · <%= cohort.active ? 'open' : 'closed' %></p>
+    </section>
+
+    <section class="co-stats" aria-label="Cohort summary">
+      <div class="co-stat"><div class="num"><%= students.length %></div><div class="lbl">students joined</div></div>
+      <div class="co-stat"><div class="num"><%= summary.activeStudents %></div><div class="lbl">with paid access now</div></div>
+      <div class="co-stat"><div class="num <%= summary.atRisk ? 'grad-text' : '' %>"><%= summary.atRisk %></div><div class="lbl">at risk</div></div>
+      <div class="co-stat"><div class="num"><%= naira(ledger.owed) %></div><div class="lbl">owed to <%= cohort.org_name %> (all its cohorts)</div></div>
+    </section>
+
+    <section class="co-section">
+      <h2>Students</h2>
+      <% if (students.length === 0) { %><p class="co-muted">Nobody has joined yet.</p><% } else { %>
+      <div class="co-table-wrap">
+        <table class="co-table">
+          <thead><tr><th>Student</th><th>Status</th><th>Check-ins</th><th>Streak</th><th>Progress</th><th>Last check-in</th></tr></thead>
+          <tbody>
+            <% students.forEach(function (s) { %>
+              <tr class="<%= s.atRisk ? 'co-row-stuck' : '' %>">
+                <td><strong><%= s.name %></strong><div class="co-muted"><%= s.email %></div></td>
+                <td>
+                  <% if (s.paid) { %><span class="co-pill co-pill-ok">Active</span>
+                  <% } else if (s.status === 'active') { %><span class="co-pill co-pill-warn">Expired</span>
+                  <% } else { %><span class="co-pill">Not paid</span><% } %>
+                </td>
+                <td><%= s.checkin_count %></td>
+                <td><%= s.streak %> day<%= s.streak === 1 ? '' : 's' %></td>
+                <td><div class="co-bar" aria-label="<%= s.progressPct %>% of the 8-week roadmap"><span style="width: <%= s.progressPct %>%"></span></div></td>
+                <td>
+                  <% if (s.daysSince === null) { %><span class="co-muted">never</span>
+                  <% } else if (s.daysSince === 0) { %>today
+                  <% } else { %><%= s.daysSince %> day<%= s.daysSince === 1 ? '' : 's' %> ago<% } %>
+                  <% if (s.atRisk) { %><span class="co-pill co-pill-warn">at risk</span><% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p class="co-fine">"At risk" = paid access now and no check-in for <%= atRiskDays %>+ days (or none at all 2+ days after joining).</p>
+      <% } %>
+    </section>
+  </main>
+  <%- include('partials/app-footer') %>
+</body>
+</html>

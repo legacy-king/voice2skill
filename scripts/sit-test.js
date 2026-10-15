@@ -204,7 +204,7 @@ async function main() {
     method: 'POST',
     form: { _csrf: loginCsrf3, email: TEST_EMAIL, password: OLD_PASSWORD }
   });
-  check('old password rejected', oldLogin.status === 302 && (oldLogin.location || '').includes('wrong_password'), oldLogin.location);
+  check('old password rejected', oldLogin.status === 302 && (oldLogin.location || '').includes('invalid_credentials'), oldLogin.location);
   const loginPage4 = await req('/login');
   const loginCsrf4 = csrfFrom(loginPage4.text);
   const newLogin = await req('/login', {
@@ -240,7 +240,7 @@ async function main() {
     method: 'POST',
     form: { _csrf: loginCsrf5, email: TEST_EMAIL, password: NEW_PASSWORD }
   });
-  check('pre-change password rejected after change', preChangeLogin.status === 302 && (preChangeLogin.location || '').includes('wrong_password'), preChangeLogin.location);
+  check('pre-change password rejected after change', preChangeLogin.status === 302 && (preChangeLogin.location || '').includes('invalid_credentials'), preChangeLogin.location);
   const loginPage6 = await req('/login');
   const loginCsrf6 = csrfFrom(loginPage6.text);
   const finalLogin = await req('/login', {

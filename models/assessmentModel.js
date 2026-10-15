@@ -25,4 +25,12 @@ async function getLatestAssessment(userId, trackId) {
   return result.rows[0];
 }
 
-module.exports = { createAssessment, getLatestAssessment };
+async function getAssessmentById(id) {
+  const result = await pool.query(
+    'SELECT * FROM assessments WHERE id = $1',
+    [id]
+  );
+  return result.rows[0];
+}
+
+module.exports = { createAssessment, getLatestAssessment, getAssessmentById };

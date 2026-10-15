@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Assessment complete - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Your software engineering assessment result and personalized roadmap.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'tracks' }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <div class="confirm-wrap">
+      <div class="confirm-card">
+        <span class="app-eyebrow">Assessment complete</span>
+        <h1>You are a <span class="grad-text"><%= level.charAt(0).toUpperCase() + level.slice(1) %></span></h1>
+        <p class="confirm-goal"><strong><%= score %> out of 8</strong> answers correct</p>
+        <p>We will tailor your <%= track.name %> roadmap to your current level and focus on the skills that will move you forward.</p>
+
+        <% if (goal) { %>
+          <p class="confirm-goal">Your goal: "<%= goal %>"</p>
+        <% } %>
+
+        <div class="confirm-actions">
+          <form method="POST" action="/tracks/<%= track.id %>/select">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="goal" value="<%= goal %>">
+            <button type="submit" class="btn btn-gold">Build my roadmap</button>
+          </form>
+          <a class="btn btn-ghost" href="/tracks">Choose a different track</a>
+        </div>
+      </div>
+    </div>
+  </main>
+  <%- include('partials/app-footer') %>
+  <script src="/js/assessment.js" defer></script>
+</body>
+</html>

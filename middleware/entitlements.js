@@ -1,0 +1,39 @@
+const { loadState } = require('../services/entitlements');
+const { naira } = require('../utils/format');
+const { log } = require('../utils/log');
+
+const TTL_MS = 60 * 1000;
+
+/**
+ * Exposes `ent` ({ hasMentor, hasPremium, isTeacher, isAdmin }) and `naira()` to every view so the nav can
+ * show the right links. Cached in the session for 60s (and refreshed immediately when a
+ * flow sets req.session.entStale) so this costs ~1 query/minute/user, not 1 per request.
+ */
+function loadEntitlements() {
+  return async function loadEntitlementsMiddleware(req, res, next) {
+    res.locals.naira = naira;
+    res.locals.ent = { hasMentor: false, hasPremium: false, isTeacher: false, isAdmin: false };
+    if (!req.session || !req.session.userId) return next();
+    try {
+      const cached = req.session.ent;
+      const fresh = cached && !req.session.entStale && Date.now() - cached.at < TTL_MS;
+      if (!fresh) {
+        const state = await loadState(req.session.userId);
+        req.session.ent = {
+          at: Date.now(),
+          hasMentor: !!state.mentorMembership,
+          hasPremium: state.hasPremium,
+          isTeacher: state.isTeacher,
+          isAdmin: state.isAdmin
+        };
+        req.session.entStale = false;
+      }
+      res.locals.ent = req.session.ent;
+    } catch (err) {
+      log.error('Entitlement load failed:', err.message); // never block the page on this
+    }
+    next();
+  };
+}
+
+module.exports = { loadEntitlements };

@@ -11,10 +11,7 @@ async function renderAssessment(req, res) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track) {
@@ -35,7 +32,7 @@ async function renderAssessment(req, res) {
     return res.redirect(`/tracks/${trackId}/assessment/complete`);
   }
 
-  const totalQuestions = require('../utils/capabilityAssessment').questions.length;
+  const totalQuestions = require('../utils/capabilityAssessment').assessmentQuestionLimit;
   const answeredCount = Object.keys(answers).length;
 
   res.render('assessment', {
@@ -58,17 +55,14 @@ async function processAnswer(req, res) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track || track.name !== 'Software Engineering') {
     return res.redirect('/tracks');
   }
 
-  const { questionId, answer, goal } = req.body;
+  const { questionId, answer, goal } = req.valid.body;
 
   // Initialize session data
   if (!req.session.assessmentAnswers) {
@@ -78,10 +72,13 @@ async function processAnswer(req, res) {
     req.session.assessmentGoal = goal.trim().slice(0, 200);
   }
 
-  // Validate answer
+  // An answer must be for the exact question the learner is currently shown.
+  // This prevents a forged request from skipping directly to arbitrary questions.
   const question = getQuestion(questionId);
-  if (!question || !answer) {
-    const totalQuestions = require('../utils/capabilityAssessment').questions.length;
+  const expectedQuestion = getNextQuestion(req.session.assessmentAnswers);
+  const validAnswer = question && question.options.some(option => option.value === answer);
+  if (!question || !answer || !validAnswer || !expectedQuestion || question.id !== expectedQuestion.id) {
+    const totalQuestions = require('../utils/capabilityAssessment').assessmentQuestionLimit;
     const answeredCount = Object.keys(req.session.assessmentAnswers).length;
     return res.render('assessment', {
       track,
@@ -108,25 +105,42 @@ async function processAnswer(req, res) {
 
 /**
  * GET /tracks/:trackId/assessment/complete
- * Scores the assessment, persists it, and redirects to roadmap creation.
+ * Scores the assessment, persists it, and lets the learner explicitly create
+ * their CSRF-protected roadmap.
  */
 async function completeAssessment(req, res) {
   if (!req.session.userId) {
     return res.redirect('/login');
   }
 
-  const trackId = Number.parseInt(req.params.trackId, 10);
-  if (!Number.isInteger(trackId)) {
-    return res.status(400).send('Invalid track');
-  }
+  const { trackId } = req.valid.params;
 
   const track = await trackModel.getTrackById(trackId);
   if (!track || track.name !== 'Software Engineering') {
     return res.redirect('/tracks');
   }
 
+  // A refresh of this GET route must not create a second, blank assessment.
+  // Re-show the saved result until the learner submits the roadmap form.
+  if (!req.session.assessmentAnswers && req.session.assessmentId) {
+    const assessment = await assessmentModel.getLatestAssessment(req.session.userId, trackId);
+    if (assessment && assessment.id === req.session.assessmentId) {
+      return res.render('assessment-result', {
+        track,
+        goal: req.session.assessmentGoal || '',
+        level: assessment.level,
+        score: assessment.score
+      });
+    }
+  }
+
   const answers = req.session.assessmentAnswers || {};
   const goal = req.session.assessmentGoal || '';
+
+  // Don't score (or save) an unfinished or never-started quiz.
+  if (getNextQuestion(answers)) {
+    return res.redirect(`/tracks/${trackId}/assessment`);
+  }
 
   // Score the assessment
   const result = scoreAssessment(answers);
@@ -145,12 +159,15 @@ async function completeAssessment(req, res) {
   req.session.assessmentId = assessment.id;
   req.session.assessmentLevel = result.level;
 
-  // Clear assessment answers from session
+  // Clear answers, but keep the goal for the confirmation form and refreshes.
   delete req.session.assessmentAnswers;
-  delete req.session.assessmentGoal;
 
-  // Redirect to create roadmap with assessment context
-  res.redirect(`/tracks/${trackId}/select?assessmentId=${assessment.id}`);
+  res.render('assessment-result', {
+    track,
+    goal,
+    level: result.level,
+    score: result.score
+  });
 }
 
 module.exports = { renderAssessment, processAnswer, completeAssessment };

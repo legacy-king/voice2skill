@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>AI Mentor - Voice2Skill</title>
+  <%- include('partials/head-app') %>
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'mentor' }) %>
+
+  <main class="app-wrap app-main co-chat-main" id="main">
+    <div id="mentor-app" hidden data-csrf="<%= csrfToken %>" data-daily-limit="<%= dailyLimit %>"></div>
+    <header class="co-chat-head">
+      <div>
+        <% if (kind === 'premium') { %>
+          <span class="app-eyebrow">Voice2Skill Premium</span>
+          <h1>Your <span class="grad-text">AI Mentor</span></h1>
+        <% } else { %>
+          <span class="app-eyebrow"><%= orgName %> · <%= cohortName %></span>
+          <h1><%= mentorName %>’s <span class="grad-text">AI Mentor</span></h1>
+        <% } %>
+      </div>
+      <div class="co-head-side">
+        <p class="co-muted" id="remaining" aria-live="polite"><%= remainingToday %> of <%= dailyLimit %> messages left today</p>
+        <label class="read-aloud"><input type="checkbox" id="readAloud"> Read replies aloud</label>
+      </div>
+    </header>
+
+    <% if (justPaid) { %><div class="co-note" role="status">Payment received. Your mentor access is active<%= accessUntil ? ' until ' + new Date(accessUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '' %>.</div><% } %>
+
+    <div class="co-chat" id="chat" role="log" aria-live="polite" aria-label="Conversation with your AI mentor">
+      <% if (history.length === 0) { %>
+        <% if (kind === 'premium') { %>
+          <div class="co-msg co-msg-bot" id="welcome">Hi! I'm your Voice2Skill AI mentor. Ask me about today's lesson, paste an error you're stuck on, or tell me what you're working on.</div>
+        <% } else { %>
+          <div class="co-msg co-msg-bot" id="welcome">Hi! I'm <%= mentorName %>'s AI mentor for <%= cohortName %>. Ask me about anything from class, paste an error you're stuck on, or tell me what you're working on today. (I'm an AI — for grades or admin, ask <%= mentorName %> directly.)</div>
+        <% } %>
+      <% } %>
+      <% history.forEach(function (h) { %>
+        <div class="co-msg <%= h.role === 'user' ? 'co-msg-me' : 'co-msg-bot' %>"><%= h.content %></div>
+      <% }) %>
+    </div>
+
+    <form class="co-composer" id="composer" autocomplete="off">
+      <label class="visually-hidden" for="msg">Your message</label>
+      <textarea id="msg" rows="2" maxlength="1000" placeholder="Ask your mentor… (or tap Speak)" required></textarea>
+      <button type="button" class="btn btn-ghost" id="mentorMic" data-voice-target="msg" data-voice-status="mentorVoiceStatus" data-csrf="<%= csrfToken %>">Speak</button>
+      <button type="submit" class="btn btn-gold" id="send">Send</button>
+    </form>
+    <p class="voice-status" id="mentorVoiceStatus" role="status" aria-live="polite"></p>
+    <p class="co-fine">AI can make mistakes — check important answers with your tutor. Don't paste passwords or private information.</p>
+  </main>
+
+  <script src="/js/voice.js" defer></script>
+  <script src="/js/mentor.js" defer></script>
+  <%- include('partials/app-footer') %>
+</body>
+</html>

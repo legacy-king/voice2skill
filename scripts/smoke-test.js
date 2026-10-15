@@ -50,17 +50,28 @@ const weekendTask = { ...weekdayTask, day_type: 'weekend', day_number: 6 };
 // ---- Case list: (label, template file, locals, expected content strings) ----
 const cases = [
   ['landing', 'landing.ejs', {},
-    ['Speak it.', 'Learn it. Earn it.', 'Start learning free', 'Web Development', 'Cybersecurity',
+    ['Speak it.', 'Learn it. Earn it.', 'Start free', 'Software Engineering', 'Cybersecurity',
+     'For bootcamps', 'Join with a code', 'Premium', '₦6,000', 'Organizations', 'Contact us', 'href="/join"', 'href="/privacy"', 'href="/terms"',
      'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
+
+  ['privacy', 'privacy.ejs', {},
+    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023', 'Groq', 'zero data retention', 'never send your name or email address', 'We do not store your recordings', 'Read-aloud of replies happens on your device']],
+  ['terms', 'terms.ejs', {},
+    ['Terms of Service', 'Premium', 'does <strong>not</strong> renew automatically', 'Refunds', 'help@voice2skill.test']],
 
   ['login (no error)', 'login.ejs', {},
     ['Welcome back', 'Log in', 'Sign up free', '_csrf', 'Skip to content', 'noindex', 'id="main"']],
-  ['login (wrong password)', 'login.ejs', { error: 'wrong_password' },
-    ['Incorrect password. Try again.']],
-  ['login (not found)', 'login.ejs', { error: 'not_found' },
-    ['No account found with that email.']],
+  // Unknown email and wrong password show the same message, so login never reveals who has an account.
+  ['login (invalid credentials)', 'login.ejs', { error: 'invalid_credentials' },
+    ["That email and password don't match", 'href="/forgot-password"']],
+  ['login (old wrong_password link shows the same message)', 'login.ejs', { error: 'wrong_password' },
+    ["That email and password don't match"]],
+  ['login (old not_found link shows the same message)', 'login.ejs', { error: 'not_found' },
+    ["That email and password don't match"]],
   ['login (missing fields)', 'login.ejs', { error: 'missing' },
     ['Please enter both your email and password.']],
+  ['login (locked)', 'login.ejs', { error: 'locked' },
+    ['Too many wrong passwords for this account', 'href="/forgot-password"']],
   ['login (not verified)', 'login.ejs', { error: 'not_verified' },
     ['Please verify your email first', 'resend the link']],
   ['login (password reset done)', 'login.ejs', { error: 'password_reset' },
@@ -95,6 +106,12 @@ const cases = [
     ['Password must be at least 8 characters.']],
   ['signup (taken error)', 'signup.ejs', { error: 'taken' },
     ['already registered']],
+  ['signup (with bootcamp code)', 'signup.ejs', { code: 'KJ7MQ2XD' },
+    ['Bootcamp code (optional)', 'value="KJ7MQ2XD"', 'enter code <strong>KJ7MQ2XD</strong>']],
+  ['signup (cohort full)', 'signup.ejs', { error: 'code_full', code: 'KJ7MQ2XD' },
+    ['That cohort is full']],
+  ['signup (code expired)', 'signup.ejs', { error: 'code_expired' },
+    ['bootcamp code has expired']],
 
   ['change-password (default)', 'change-password.ejs', { user, error: null, success: false },
     ['Change password', 'Current password', 'New password (min 8 chars)', 'Update password', '_csrf', 'Back to dashboard', 'noindex', 'Skip to content']],
@@ -157,6 +174,13 @@ const cases = [
     error: null
   }, ['Capability Assessment', 'Question 1 of 8', 'What does the', 'tag do in HTML', 'Creates a hyperlink', '_csrf', 'noindex']],
 
+  ['assessment result', 'assessment-result.ejs', {
+    track: { id: 1, name: 'Software Engineering', description: 'Build reliable, scalable software systems.' },
+    goal: 'become a backend engineer',
+    level: 'builder',
+    score: 4
+  }, ['Assessment complete', 'Builder', '4 out of 8', 'become a backend engineer', 'Build my roadmap', 'action="/tracks/1/select"', 'name="goal"', '_csrf']],
+
   ['roadmap (active weekday)', 'roadmap.ejs',
     {
       roadmap: { id: 42 },
@@ -186,6 +210,22 @@ const cases = [
       videoSearchPhrase: 'build websites small business JavaScript functions crash course'
     },
     ['Your goal', 'build websites for my small business', 'search_query=build%20websites%20small%20business%20JavaScript%20functions%20crash%20course', '_csrf']],
+
+  ['roadmap (Course Library intro)', 'roadmap.ejs',
+    {
+      roadmap: { id: 42, goal: 'get a junior dev job', course_version_id: 7 },
+      trackName: 'Software Engineering',
+      checkins: [],
+      message: null,
+      streak: 0,
+      todayTask: weekdayTask,
+      currentDayNumber: 1,
+      totalDays: 56,
+      isComplete: false,
+      videoSearchPhrase: '',
+      libraryIntro: require('../controllers/roadmapController').libraryIntro('Software Engineering', 'get a junior dev job')
+    },
+    ['Your goal', 'get a junior dev job', 'class="library-intro"', 'Your 8-week Software Engineering plan', 'Shape each weekly project around your goal']],
 
   ['roadmap (empty notes message)', 'roadmap.ejs',
     {
@@ -261,12 +301,35 @@ const cases = [
       totalDays: 56,
       isComplete: false
     }, ['Your coach', 'AI Coach', 'Great work on the todo app', 'hooks next', 'Built a todo app']],
+
+  ['admin (founder view)', 'admin.ejs', {
+    naira: (k) => '₦' + (k / 100).toLocaleString('en-NG'),
+    ent: { isAdmin: true, isTeacher: false, hasMentor: false },
+    atRiskDays: 3,
+    overview: { users: 40, verifiedUsers: 35, payingStudents: 22, active7d: 18, gross: 11000000, fees: 165000, orgShare: 2000000, platformNet: 8835000, paidOut: 500000, owed: 1500000 },
+    orgs: [{ name: 'Tunde Code Academy', owner_name: 'Tunde', owner_email: 'tunde@example.com', revenue_share_pct: '20.00', share_basis: 'net', cohorts: 2, gross: 10000000, orgShare: 2000000, paidOut: 500000, owed: 1500000, payments: 20 },
+           { name: 'Voice2Skill', owner_name: null, owner_email: null, revenue_share_pct: '0.00', share_basis: 'gross', cohorts: 1, gross: 1000000, orgShare: 0, paidOut: 0, owed: 0, payments: 2 }],
+    cohorts: [{ id: 9, name: 'Frontend Nov', org_name: 'Tunde Code Academy', kind: 'bootcamp', price_kobo: 500000, access_days: 30, max_seats: 30, seats_taken: 30, invite_code: 'KJ7MQ2XD', codeExpired: true, active: true, activeStudents: 25, atRisk: 4, avgStreak: 3.5 },
+              { id: 1, name: 'Voice2Skill Premium', org_name: 'Voice2Skill', kind: 'premium', price_kobo: 600000, access_days: 30, max_seats: null, seats_taken: 2, invite_code: 'V2SPREMIUM', codeExpired: false, active: false, activeStudents: 2, atRisk: 0, avgStreak: 1 }]
+  }, ['Founder admin', 'Tunde Code Academy', 'tunde@example.com', '20% of net', '₦15,000', 'platform', '30 / 30', 'Full', 'Expired', '4 at risk', 'href="/admin/cohorts/9"', 'Premium · closed', '<td>25</td>', 'never shown here', 'Admin']],
+
+  ['admin cohort roster', 'admin-cohort.ejs', {
+    naira: (k) => '₦' + (k / 100).toLocaleString('en-NG'),
+    atRiskDays: 3,
+    cohort: { name: 'Frontend Nov', org_name: 'Tunde Code Academy', kind: 'bootcamp', invite_code: 'KJ7MQ2XD', price_kobo: 500000, access_days: 30, seats_taken: 2, max_seats: 30, active: true },
+    ledger: { owed: 1500000 },
+    summary: { activeStudents: 2, atRisk: 1 },
+    students: [
+      { name: 'Ada', email: 'ada@example.com', paid: true, status: 'active', checkin_count: 4, streak: 0, progressPct: 7, daysSince: 5, atRisk: true },
+      { name: 'Bayo', email: 'bayo@example.com', paid: true, status: 'active', checkin_count: 10, streak: 6, progressPct: 18, daysSince: 0, atRisk: false }
+    ]
+  }, ['Frontend Nov', 'Ada', 'at risk', '5 days ago', '6 days', 'today', 'seats 2 of 30', '₦15,000']],
 ];
 
 let failures = 0;
 
-// Mirrors what the real app always provides via res.locals (csrf middleware + appUrl).
-const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token', appUrl: 'https://voice2skill.test' };
+// Mirrors what the real app always provides via res.locals (csrf middleware, appUrl, supportEmail).
+const DEFAULT_LOCALS = { csrfToken: 'test-csrf-token', appUrl: 'https://voice2skill.test', supportEmail: 'help@voice2skill.test' };
 
 for (const [label, file, locals, expect] of cases) {
   const fullPath = path.join(VIEWS_DIR, file);
@@ -331,6 +394,20 @@ for (const [goal, expected] of matcherCases) {
   }
 }
 
+// Production track name since syncTracks' rename: software goals must still match it.
+{
+  const liveTracks = tracks.map((t) => (t.name === 'Web Development' ? { ...t, name: 'Software Engineering' } : t));
+  for (const goal of ['I want to become a frontend developer', 'learn html and javascrit', 'software engineering']) {
+    const got = (matchTrackToGoal(goal, liveTracks) || {}).name || null;
+    if (got !== 'Software Engineering') {
+      failures++;
+      console.error(`✗ live track name: goal "${goal}" → got ${JSON.stringify(got)}, expected "Software Engineering"`);
+    } else {
+      console.log(`✓ live track name: goal "${goal}" → ${got}`);
+    }
+  }
+}
+
 // ---- Ranked alternatives + search phrase checks ----
 function expectRanked(goal, expectedTop, expectedCount) {
   const ranked = rankTracksForGoal(goal, tracks);
@@ -373,9 +450,9 @@ for (const [goal, expected] of searchCases) {
 
 // ---- Capability assessment unit checks ----
 const { scoreAssessment, getNextQuestion } = require('../utils/capabilityAssessment');
-const { getLevelContext, analyzeTopicScores } = require('../utils/coachService');
+const { getLevelContext, analyzeTopicScores } = require('../services/coachService');
 
-// Foundation level (0-4 correct)
+// Foundation level (0-2 correct)
 const foundationAnswers = { html_basics: 'a', css_box_model: 'a' };
 const foundationResult = scoreAssessment(foundationAnswers);
 if (foundationResult.level !== 'foundation') {
@@ -385,15 +462,10 @@ if (foundationResult.level !== 'foundation') {
   console.log(`✓ foundation level (${foundationResult.score} correct)`);
 }
 
-// Professional level (11+ correct)
+// Professional level (6+ correct in the eight-question diagnostic)
 const professionalAnswers = {
-  html_basics: 'a', css_box_model: 'a', css_selectors: 'a',
-  js_basics: 'a', js_basics_advanced: 'a', js_async: 'a', js_frameworks: 'a',
-  git_basics: 'a', git_branching: 'a', git_collaboration: 'a',
-  debugging: 'a', debugging_tools: 'a',
-  apis: 'a', api_methods: 'a',
-  testing: 'a', testing_types: 'a',
-  architecture: 'a', architecture_patterns: 'a'
+  html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a',
+  apis: 'a', testing: 'a', architecture: 'a', architecture_patterns: 'a'
 };
 const professionalResult = scoreAssessment(professionalAnswers);
 if (professionalResult.level !== 'professional') {
@@ -403,8 +475,8 @@ if (professionalResult.level !== 'professional') {
   console.log(`✓ professional level (${professionalResult.score} correct)`);
 }
 
-// Builder level (5-10 correct)
-const builderAnswers = { html_basics: 'a', css_box_model: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a', apis: 'a' };
+// Builder level (3-5 correct)
+const builderAnswers = { html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a' };
 const builderResult = scoreAssessment(builderAnswers);
 if (builderResult.level !== 'builder') {
   failures++;
@@ -413,14 +485,17 @@ if (builderResult.level !== 'builder') {
   console.log(`✓ builder level (${builderResult.score} correct)`);
 }
 
-// Adaptive follow-up: wrong HTML should offer css_box_model next
-const adaptiveAnswers = { html_basics: 'b' };
+// Adaptive follow-up: strong core answers should earn an architecture question.
+const adaptiveAnswers = {
+  html_basics: 'a', js_basics: 'a', git_basics: 'a', debugging: 'a',
+  apis: 'a', testing: 'a', architecture: 'a'
+};
 const nextQ = getNextQuestion(adaptiveAnswers);
-if (!nextQ || nextQ.id !== 'css_box_model') {
+if (!nextQ || nextQ.id !== 'architecture_patterns') {
   failures++;
-  console.error(`✗ adaptive follow-up: expected css_box_model, got ${nextQ?.id}`);
+  console.error(`✗ adaptive follow-up: expected architecture_patterns, got ${nextQ?.id}`);
 } else {
-  console.log('✓ adaptive follow-up → css_box_model after wrong HTML answer');
+  console.log('✓ adaptive follow-up → architecture_patterns after strong core answers');
 }
 
 // ---- Coach service unit checks ----
@@ -457,9 +532,86 @@ if (!topicAnalysis.strengths.includes('javascript') || !topicAnalysis.weaknesses
   console.log('✓ analyzeTopicScores correctly identifies strengths and weaknesses');
 }
 
-console.log('');
-if (failures > 0) {
-  console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
-  process.exit(1);
+// ---- Course Library generator checks (COURSE_MOCK: no AI, no DB) ----
+async function courseChecks() {
+  process.env.COURSE_MOCK = '1';
+  const gen = require('../services/courseGenerator');
+  const expect = (label, cond) => {
+    if (cond) console.log(`✓ course: ${label}`);
+    else { failures++; console.error(`✗ course: ${label}`); }
+  };
+  const throws = (fn) => { try { fn(); return false; } catch { return true; } };
+
+  let saves = 0;
+  const { content: course, models: usedModels } = await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', onWeek: async () => { saves++; } });
+  const days = course.weeks.flatMap((w) => w.days);
+  expect('mock plan is 8 weeks x 7 days', course.weeks.length === 8 && course.weeks.every((w) => w.days.length === 7));
+  expect('day_number runs 1..56 across the plan', days.every((d, i) => d.day_number === i + 1));
+  expect('days 6-7 are weekend', course.weeks.every((w) => w.days[5].day_type === 'weekend' && w.days[4].day_type === 'weekday'));
+  expect('progress saved after every generated week', saves === 8);
+  expect('the models that wrote the plan are reported', usedModels.length === 1 && usedModels[0] === 'mock');
+  expect('validateCourse accepts it', !throws(() => gen.validateCourse(course)));
+
+  let resumed = 0;
+  await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', done: course.weeks.slice(0, 3), onWeek: async () => { resumed++; } });
+  expect('a retried job resumes after finished weeks (5 new weeks)', resumed === 5);
+
+  const clone = () => JSON.parse(JSON.stringify(course));
+  const seven = clone(); seven.weeks.pop();
+  const sixDays = clone(); sixDays.weeks[2].days.pop();
+  const badUrl = clone(); badUrl.weeks[0].days[0].resource_url = 'javascript:alert(1)';
+  const noLesson = clone(); noLesson.weeks[7].days[6].lesson = '  ';
+  const shifted = clone(); shifted.weeks[1].days[0].day_number = 1;
+  expect('rejects 7 weeks', throws(() => gen.validateCourse(seven)));
+  expect('rejects a 6-day week', throws(() => gen.validateCourse(sixDays)));
+  expect('rejects a non-http resource_url', throws(() => gen.validateCourse(badUrl)));
+  expect('rejects an empty lesson', throws(() => gen.validateCourse(noLesson)));
+  expect('rejects day numbers that do not run 1..56', throws(() => gen.validateCourse(shifted)));
+  expect('rejects an unknown level', await gen.generateCourse({ trackName: 'X', level: 'expert' }).then(() => false, () => true));
+
+  const prompt = gen.weekPrompt({ trackName: 'Cybersecurity', trackDescription: 'd', level: 'professional', weekNumber: 8, previousWeeks: course.weeks.slice(0, 7) });
+  expect('week prompt carries level, prior weeks and capstone note', /professional/.test(prompt) && /Week 7:/.test(prompt) && /capstone/.test(prompt));
+  expect('response schema forces exactly 7 days', gen.WEEK_SCHEMA.properties.days.minItems === 7 && gen.WEEK_SCHEMA.properties.days.maxItems === 7);
+  delete process.env.COURSE_MOCK;
 }
-console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks OK.`);
+
+// ---- AI output validation (roadmaps + coach) ----
+{
+  const { normalizeRoadmapContent, flattenRoadmapDays } = require('../utils/roadmapContent');
+  const { normalizeCoachResponse } = require('../services/coachService');
+  const ok = (label, pass) => { if (pass) console.log(`✓ ${label}`); else { failures++; console.error(`✗ ${label}`); } };
+  const throws = (fn) => { try { fn(); return false; } catch { return true; } };
+  const makeDay = (n) => ({ day_number: n, day_type: n > 5 ? 'weekend' : 'weekday', task: `Task ${n}`, lesson: 'Lesson text',
+    quiz: [{ question: 'Q?', answer: 'A.' }], resource_name: 'MDN', resource_url: 'https://developer.mozilla.org', video_search_term: 'term' });
+  const makeWeek = (w) => ({ week_number: w, focus: `Week ${w}`, project: `Project ${w}`, days: [1, 2, 3, 4, 5, 6, 7].map(makeDay) });
+  const validRoadmap = { weeks: [1, 2].map(makeWeek) };
+
+  ok('roadmap: valid output passes', !throws(() => normalizeRoadmapContent(validRoadmap)));
+  ok('roadmap: non-object output rejected', throws(() => normalizeRoadmapContent('nope')));
+  ok('roadmap: empty weeks rejected', throws(() => normalizeRoadmapContent({ weeks: [] })));
+  ok('roadmap: week missing days rejected', throws(() => normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [makeDay(1)] }] })));
+  ok('roadmap: day without a lesson rejected', throws(() => normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...makeDay(n), lesson: '' })) }] })));
+  const jsUrl = { weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...makeDay(n), resource_url: 'javascript:alert(1)' })) }] };
+  ok('roadmap: javascript: resource URL neutralised', normalizeRoadmapContent(jsUrl).weeks[0].days[0].resource_url === '#');
+  const oddOld = { weeks: [{ ...makeWeek(1), days: [makeDay(1), { lesson: 'no task' }, 'garbage', makeDay(4)] }] };
+  const lenientDays = flattenRoadmapDays(normalizeRoadmapContent(oddOld, { strict: false }));
+  ok('roadmap (lenient): odd days kept as placeholders so day numbers do not shift',
+    lenientDays.length === 4 && lenientDays[3].task === 'Task 4' && lenientDays[1].task.length > 0);
+  ok('roadmap (lenient): pre-days format yields no days instead of crashing',
+    flattenRoadmapDays(normalizeRoadmapContent({ weeks: [{ daily_topics: ['x'] }] }, { strict: false })).length === 0);
+  const flatDays = flattenRoadmapDays(normalizeRoadmapContent(validRoadmap));
+  ok('roadmap: day 7 belongs to week 1 project, day 8 to week 2', flatDays[6].week_project === 'Project 1' && flatDays[7].week_project === 'Project 2');
+  ok('coach: complete response accepted', !throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: 'b', next_action: 'c' })));
+  ok('coach: blank field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: '', next_action: 'c' })));
+  ok('coach: non-string field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: { x: 1 }, insight: 'b', next_action: 'c' })));
+}
+
+courseChecks().catch((err) => { failures++; console.error('✗ course checks crashed:', err.message); }).then(() => {
+  console.log('');
+  if (failures > 0) {
+    console.error(`Smoke test FAILED — ${failures} case(s) failed.`);
+    process.exit(1);
+  }
+  console.log(`Smoke test passed — all ${cases.length} render cases + ${matcherCases.length} matcher cases + rank/search checks + 4 capability checks + course library + AI output checks OK.`);
+  process.exit(0);
+});

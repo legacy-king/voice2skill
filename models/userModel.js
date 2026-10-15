@@ -16,6 +16,11 @@ async function createUser(name, email, passwordHash, verificationToken, verifica
   return result.rows[0];
 }
 
+/** The bootcamp whose invite code this account signed up with (attribution; joined on verify). */
+async function setSignupCohort(userId, cohortId) {
+  await pool.query('UPDATE users SET signup_cohort_id = $2 WHERE id = $1', [userId, cohortId]);
+}
+
 async function findUserByEmail(email) {
     const result = await pool.query(
         'SELECT * FROM users WHERE email = $1',
@@ -80,6 +85,11 @@ async function findUserByPasswordResetToken(token) {
 }
 
 /** Update a user's password, record when, and clear any reset/verification tokens. */
+/** Re-hash with a higher bcrypt cost. Same password, so sessions and password_changed_at stay. */
+async function setPasswordHash(userId, passwordHash) {
+  await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+}
+
 async function updatePassword(userId, passwordHash) {
   const result = await pool.query(
     `UPDATE users
@@ -152,6 +162,8 @@ async function deleteUserSession(userId, sid) {
 
 module.exports = {
   createUser,
+  setSignupCohort,
+  setPasswordHash,
   findUserByEmail,
   findUserById,
   findUserByVerificationToken,
