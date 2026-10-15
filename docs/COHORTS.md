@@ -9,8 +9,8 @@ What this adds on top of the original app (EJS/Express is unchanged for existing
 | Bootcamps, cohorts, invite codes, memberships | `db/cohorts.sql`, `models/cohortModel.js` |
 | Join by code, pay with Paystack, renew | `/join`, `/pay/:cohortId`, `/pay/callback`, `controllers/cohortController.js` |
 | Paystack webhook (source of truth for payment) | `POST /webhooks/paystack` |
-| Entitlements (`canUse(state, feature)`) | `utils/entitlements.js` |
-| AI mentor chat grounded in the tutor's syllabus | `/mentor`, `utils/mentorService.js` |
+| Entitlements (`canUse(state, feature)`) | `services/entitlements.js` |
+| AI mentor chat grounded in the tutor's syllabus | `/mentor`, `services/mentorService.js` |
 | Teacher dashboard (roster, stuck students, earnings, syllabus editor) | `/teacher`, `/teacher/cohorts/:id` |
 | Revenue-share ledger | `scripts/ledger.js` |
 | Premium (individual, ₦6,000 / 30 days): AI coach + mentor | `POST /premium`, built-in cohort `kind = 'premium'` seeded by `db/cohorts.sql` |
@@ -26,7 +26,7 @@ Change the Premium price with SQL (no deploy): `UPDATE cohorts SET price_kobo = 
    **Course Library (ADR-001):** until a track x level has a published plan, new roadmaps for it still use per-user AI, Free users included. Run `node scripts/courses.js generate --all` (8 Gemini calls per plan, 15 plans), review each draft with `node scripts/courses.js show <versionId> [week]`, then `node scripts/courses.js publish <versionId>`. `node scripts/courses.js list` shows what is published.
 2. **Render env vars:** see `.env.example`. New ones: `APP_URL=https://voice2skill.com`, `PAYSTACK_SECRET_KEY`, optional `MENTOR_MODEL`, `MENTOR_DAILY_LIMIT` (default 40), `MENTOR_MONTHLY_LIMIT` (default 300; keep it low, it is the profit guardrail, see PRD 5.4), `AUTH_RATE_MAX`.
    Also: `SUPPORT_EMAIL` (shown on privacy/terms and the landing page), `PREMIUM_DAILY_LIMIT` (default 10).
-   **Gemini billing must be ON** for the project behind `GEMINI_API_KEY`: the privacy policy promises student text is only sent to the paid tier (not used for training).
+   **AI providers (LLM router, `config/llm.js`):** set `GROQ_KEY` and turn on **Zero Data Retention** in the Groq console (Data Controls) **before** going live: the privacy policy says Groq keeps no content. Set `GEMINI_KEY` (or the old `GEMINI_API_KEY`) to a key whose project has **billing ON** (paid tier, not used for training). Mistral and OpenRouter are optional and off for student text by default. Check provider health with `node scripts/llmUsage.js` (429s mean a free quota ran out).
 3. **Paystack:** create an account, start with the TEST secret key (`sk_test_...`). In the dashboard set the webhook URL to `https://voice2skill.com/webhooks/paystack`. Run a test payment with Paystack's test card before going live, then swap in the live key.
 4. **Register the tutor:** he signs up and verifies his email, then you run
    `node scripts/createOrg.js "His Bootcamp" his@email.com 20 net`

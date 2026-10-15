@@ -29,7 +29,7 @@ Tutors can run a paid cohort: students join with an invite code, pay via Paystac
 - **Database:** PostgreSQL (hosted on Neon)
 - **Sessions:** express-session + connect-pg-simple (Postgres-backed)
 - **Templating:** EJS
-- **AI:** Google Gemini API (roadmap generation)
+- **AI:** one LLM router (`services/llm.js`, OpenAI-compatible providers: Groq, Gemini, optional Mistral/OpenRouter) with failover, per-call logging and privacy rules; see `config/llm.js`
 - **Auth:** bcrypt + email verification + hashed tokens
 
 ## Project Structure
@@ -41,7 +41,8 @@ voice2skill/
 ├── models/        # Database queries (users, tracks, roadmaps, checkins, assessments, coach_responses)
 ├── routes/        # Express route definitions
 ├── middleware/    # CSRF, rate limiting, security headers
-├── utils/         # goal matcher, mailer, streak, capability assessment, coach service
+├── services/      # business logic: LLM router, mentor/coach/course generation, entitlements, Paystack, mailer, jobs
+├── utils/         # pure helpers: goal matcher, streak, capability assessment, format
 ├── views/         # EJS templates (+ preview-*.html static previews)
 ├── db/            # Schema definition
 ├── scripts/       # Migrations, smoke/SIT tests, track sync

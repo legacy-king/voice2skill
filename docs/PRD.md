@@ -53,7 +53,7 @@
 
 ### 4.1 Courses (the Course Library)
 - A **Track** (Software Engineering, UI/UX, Data Analysis, Digital Marketing, Cybersecurity) has **Levels** (foundation, builder, professional), and each level is an **8-week plan** of 56 daily items: task, lesson (300–450 words), code example where relevant, quiz question, resource link, video search phrase, plus one **weekly project**. **[Built]**
-- **Course Library [Built, ADR-001]:** each track×level plan is generated **once** (background job, one Gemini call per week), reviewed, published, and stored versioned in Postgres (`courses`, `course_versions`). A new roadmap for a published track×level **references** that version (`roadmaps.course_version_id`, no copy) and is created with **0 AI calls**, for every tier. Personalization is a thin layer: the assessment level picks the course (tracks without an assessment use `foundation`), and a templated, goal-aware intro is shown on the roadmap. **Rollout gap:** until a track×level has a published version, roadmap creation falls back to the old per-user AI generation (with the exact-goal cache), Free users included; the founder must generate, review and publish all 15 plans (`node scripts/courses.js`) to close it.
+- **Course Library [Built, ADR-001]:** each track×level plan is generated **once** (background job, one LLM call per week through the router), reviewed, published, and stored versioned in Postgres (`courses`, `course_versions`). A new roadmap for a published track×level **references** that version (`roadmaps.course_version_id`, no copy) and is created with **0 AI calls**, for every tier. Personalization is a thin layer: the assessment level picks the course (tracks without an assessment use `foundation`), and a templated, goal-aware intro is shown on the roadmap. **Rollout gap:** until a track×level has a published version, roadmap creation falls back to the old per-user AI generation (with the exact-goal cache), Free users included; the founder must generate, review and publish all 15 plans (`node scripts/courses.js`) to close it.
 - **[Planned, Phase 2] Cohort courses:** generated **once per cohort** from the tutor's syllabus (paid tier, capped per org) and tutor-editable, reusing the same tables and job runner. Adaptive "what's next" is also planned.
 
 ### 4.2 Training (the daily loop)
@@ -99,7 +99,7 @@
 | Tutor sees progress | No | No | **Yes** (name, email, counts; never notes or mentor chats) | Yes |
 | Access model | Always | 30 days per payment, manual renewal, no auto-charge | `access_days` per payment (default 30) | n/a |
 
-**How Premium is built.** Premium is a built-in cohort (`kind = 'premium'`, owned by the platform organization "Voice2Skill", 0% revenue share), seeded by `db/cohorts.sql`. Buying it is `POST /premium`, which reuses the bootcamp checkout end to end: price from the DB, Paystack, signed webhook, idempotent `settlePayment()`, `access_until` extension. All gating lives in `canUse(state, feature)` in `utils/entitlements.js` (`ai_coach`, `mentor_chat`).
+**How Premium is built.** Premium is a built-in cohort (`kind = 'premium'`, owned by the platform organization "Voice2Skill", 0% revenue share), seeded by `db/cohorts.sql`. Buying it is `POST /premium`, which reuses the bootcamp checkout end to end: price from the DB, Paystack, signed webhook, idempotent `settlePayment()`, `access_until` extension. All gating lives in `canUse(state, feature)` in `services/entitlements.js` (`ai_coach`, `mentor_chat`).
 
 **Known gap:** the Course Library is built (ADR-001), so a Free user's plan costs 0 AI calls **once that track×level is published**. Until all 15 plans are published, an unpublished track×level still falls back to per-user AI generation on the Free tier (finding #1).
 
@@ -164,7 +164,7 @@ At ₦6,000/mo (Premium, no share, no bootcamp cut) margins are higher than the 
 | Need | Free route | Limit / catch | Decision |
 |---|---|---|---|
 | **Course content generation** | Gemini API free tier **[Verified]**: Flash/Flash-Lite are "free of charge" | **Free-tier content may be used to improve Google products; paid is not [Verified].** Rate limits are shown only in AI Studio (not published on the docs page). | **Use free tier ONLY for one-time Course Library generation** (prompts contain no personal data). This turns the biggest AI cost into ~₦0. |
-| **Anything with student text** (mentor chat, coach, check-ins) | none safely | Must be on the **paid** tier so student data is not used for training. | Pay; it's cheap (sec. 5.4). Enable billing on the Gemini project. |
+| **Anything with student text** (mentor chat, coach, check-ins) | Groq **with Zero Data Retention** (primary, $0 at pilot volume); Gemini **paid** tier as fallback **[Built, LLM router]** | Never a free tier that trains on prompts (Gemini unpaid, Mistral Experiment with training on, OpenRouter training routes). | Turn on ZDR in Groq and billing on the Gemini project. |
 | Cheaper/alternative LLM | Cloudflare Workers AI: 10,000 neurons/day free, then $0.011/1,000 **[Verified]**; e.g. gemma-4-26b $0.10/$0.30, gpt-oss-120b $0.35/$0.75 per M tokens **[Verified]** | Quality for tutoring unproven; neuron-to-request conversion not verified | Optional fallback/second source; **evaluate before use**. |
 | Groq | Has a free plan | Free-plan limits could not be verified from the docs page | Don't depend on it until limits are confirmed. |
 | Static frontend (Phase 2) | **Cloudflare Pages**: unlimited static requests, no commercial restriction, 500 builds/mo **[Verified, per a Sept 2026 comparison]** | | **Preferred** for the React build. |
@@ -204,7 +204,8 @@ At ₦6,000/mo (Premium, no share, no bootcamp cut) margins are higher than the 
                       │                    coach_responses, session, organizations, cohorts,
                       │                    memberships, payments, org_payouts, ai_usage,
                       │                    mentor_messages)
-                      ├──> Gemini API  (Course Library jobs, roadmap fallback, check-in coach, mentor chat)
+                      ├──> LLM router (services/llm.js) ──> Groq · Gemini (paid) · [Mistral · OpenRouter]
+                      │        (Course Library jobs, roadmap fallback, check-in coach, mentor chat; log: llm_calls)
                       ├──> Paystack    (checkout, webhook -> /webhooks/paystack)
                       └──> Brevo       (verification, reset, reminder emails)
  External cron ──GET /api/send-reminders?key=CRON_SECRET──> Render
@@ -234,13 +235,13 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 
 **Fix (built; see `docs/adr/ADR-001-course-library.md`):**
 - Tables (`db/courses.sql`, `scripts/migrateCourses.js`, part of `npm run migrate`): `courses` (track, level, optional `cohort_id`, title; unique per track×level), `course_versions` (version, status `draft|published|retired`, one JSONB plan, model; one published version per course; a DB trigger makes published/retired content immutable), `jobs`, and `roadmaps.course_version_id` (content may be NULL when it is set). Indexes `roadmaps(user_id)` and `roadmaps(course_version_id)`.
-- Generation (`utils/courseGenerator.js`) runs as a background job, never in a request: one Gemini call per week (8 per plan), JSON response schema, `COURSE_MAX_OUTPUT_TOKENS`, `COURSE_TIMEOUT_MS`, `COURSE_RETRIES` with backoff, model `COURSE_MODEL`. Finished weeks are saved as job progress, so a retried job resumes instead of paying again. The plan must be exactly 8 weeks × 7 days before it is saved as a draft, and again before it is published.
-- Job runner (`utils/jobRunner.js`) inside the web process: `FOR UPDATE SKIP LOCKED`, one job at a time, heartbeat + stale-job reclaim, exponential backoff, `max_attempts`, idempotent enqueue (`dedupe_key`). `JOBS_DISABLED=1` keeps a process out of the queue.
+- Generation (`services/courseGenerator.js`) runs as a background job, never in a request: one router call per week (8 per plan, task `course`: Gemini → Mistral → Groq → OpenRouter), JSON response schema, `LLM_MAX_TOKENS_COURSE`, `LLM_TIMEOUT_COURSE_MS`, plus `COURSE_RETRIES` with backoff. Finished weeks are saved as job progress, so a retried job resumes instead of paying again. The plan must be exactly 8 weeks × 7 days before it is saved as a draft, and again before it is published.
+- Job runner (`services/jobRunner.js`) inside the web process: `FOR UPDATE SKIP LOCKED`, one job at a time, heartbeat + stale-job reclaim, exponential backoff, `max_attempts`, idempotent enqueue (`dedupe_key`). `JOBS_DISABLED=1` keeps a process out of the queue.
 - Founder workflow: `node scripts/courses.js generate --all` (or `generate <track> <level>`) → `show <versionId> [week]` to review → `publish <versionId>`. `list` shows every course, version, status and how many roadmaps use it.
 - Read path: `roadmapModel` fills `content` from the version when a row's own content is NULL, so the roadmap page, check-ins, the mentor's current task and `migrateRoadmaps.js` work unchanged. Published versions are cached in process memory (LRU, `COURSE_CACHE_SIZE`, default 50), deep-frozen.
 - Versions: a roadmap stays pinned to the version it started on; publishing a new version retires the old one and gives new roadmaps the new one. Every version is 8×7, so check-in day numbers never shift.
 - `selectTrack`: published version for track×level → library roadmap, 0 AI calls, templated intro. Otherwise the old per-user path runs (rollout fallback; to be removed once all 15 are published).
-- Tier: library prompts contain no personal data (track name/description and level only). The ADR recommends the paid tier for predictability; it uses the same `GEMINI_API_KEY`.
+- Tier: library prompts contain no personal data (track name/description and level only). Because of that, the `course` task may also use OpenRouter free models (with its no-training filter).
 
 ### 7.4 Data model (current; ✓ = migrated)
 `users` (+`role`) · `tracks` · `assessments` · `roadmaps` · `checkins` · `coach_responses` · `session` ·
@@ -355,7 +356,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 |---|---|---|
 | One customer (the tutor) | Revenue concentration; he could leave | Written agreement; land 2nd bootcamp by Phase 3; individual tier as backstop |
 | Students pay twice (tuition + mentor) | Low conversion | Ask the tutor about bundling (Option B); test price |
-| AI price changes (Gemini 3.6 Flash is scheduled to double) | Margin collapse | Cheaper chat model, caps, model via env, multi-provider `ai` module |
+| AI price changes (Gemini 3.6 Flash is scheduled to double) | Margin collapse | Cheaper chat model, caps, model via env, multi-provider LLM router **[Built: `services/llm.js`]** |
 | Free tiers disappear or aren't allowed commercially | Surprise bills / shutdown | Only free tiers permitted for commercial use; budget for paid; no hobby-only tools in production |
 | Naira devaluation (costs in USD, revenue in NGN) | Margin erosion | Monthly FX check; price review quarterly; USD-linked pricing for Orgs later |
 | AI says something wrong | Student harm / trust | Grounding, "check with your tutor" notice, tutor escalation (F15), no medical/legal scope |
@@ -381,7 +382,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 1. **Read first:** this PRD, `docs/COHORTS.md`, `.env.example`.
 2. **Never break free users, and never give them AI.** Anyone with no paid plan keeps the plan + check-in experience; AI features (coach, mentor, any new one) are gated through `canUse` to Premium/bootcamp.
 3. **Money is integer kobo.** No floats for currency. Every paid-state change goes through `settlePayment`.
-4. **Gate features only through `canUse(state, feature)`** in `utils/entitlements.js`. Add features there, not inline.
+4. **Gate features only through `canUse(state, feature)`** in `services/entitlements.js`. Add features there, not inline.
 5. **Every migration idempotent** (`IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`); add new tables to `db/cohorts.sql` or a new `db/*.sql` run by a `scripts/migrate*.js` registered in `scripts/migrate.js`.
 6. **Every AI feature needs:** per-user cap (via `ai_usage`), input/output size limits, a timeout, a fallback/error path, and an idempotency key if user-triggered.
 7. **Prompt-injection hygiene:** user text is data; render AI output with `textContent` / EJS escaping only.

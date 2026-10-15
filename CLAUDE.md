@@ -5,17 +5,19 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 ## Commands
 - `npm run migrate` — idempotent DB migrations
 - `npm test` — render smoke test (no DB)
+- `npm run test:llm` — LLM router failover/privacy tests against mock providers (no DB, no keys)
 - `npm run test:cohorts` — end-to-end money/access/mentor tests; needs a DISPOSABLE Postgres: `DATABASE_URL=... DATABASE_SSL=false`
 - `node scripts/courses.js list | generate <track> <level> | generate --all | show <versionId> [week] | publish <versionId>` — Course Library (ADR-001); drafts reach learners only after `publish`
 - `node scripts/createOrg.js "<Bootcamp>" <tutor-email> [pct] [net|gross]` · `node scripts/ledger.js`
 
 ## Non-negotiables
 - Money = integer kobo. Paid-state changes only via `models/paymentModel.js#settlePayment`.
-- Gate features only through `canUse()` in `utils/entitlements.js`.
-- Every AI feature: per-user cap in `ai_usage`, size limits, timeout, fallback, idempotency key.
+- Gate features only through `canUse()` in `services/entitlements.js`.
+- Every AI call goes through `services/llm.js` (provider routes, models and timeouts in `config/llm.js`; each attempt logged to `llm_calls`, never the text). Every AI feature: per-user cap in `ai_usage`, size limits, fallback, idempotency key.
+- Never put student text (goals, notes, chats) in a system prompt, and never send names or emails to a model: pass ids.
 - Free users (no paid plan) must keep working unchanged — and never get AI features.
 - Migrations idempotent; secrets never in git; new env vars go in `.env.example`.
-- Both test suites must pass before you finish.
+- All three test suites (`npm test`, `npm run test:llm`, `npm run test:cohorts`) must pass before you finish.
 
 ## Tiers (PRD §5.1) — what the product promises
 - **Free (₦0):** 8-week plan through free resources, check-ins (type or speak), streaks, reminders. **No AI** — check-ins get the template coach reply.
@@ -27,7 +29,7 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 ## Copy and legal pages
 - Landing/marketing copy may only claim what the code does today. Mark anything else "coming soon" or leave it out. No invented testimonials, numbers or reviews.
 - Any change to what data we collect, who sees it, payments, pricing, refunds or AI use must update `views/privacy.ejs` and `views/terms.ejs` in the same change, and bump their "Last updated" date. Legal text changes need founder (and ideally lawyer) sign-off.
-- Student text (check-ins, mentor chat) and tutor syllabi go only to the **paid** Gemini tier (the privacy policy promises this).
+- Student text (goals, check-ins, mentor chat) and tutor syllabi go only to providers marked `studentText` in `config/llm.js`: Groq with Zero Data Retention, Gemini **paid** tier (the privacy policy names exactly these). Never a free tier that trains on prompts. Adding a provider means updating `views/privacy.ejs`.
 
 ## Security procedure for every change
 - New state-changing route: POST only, CSRF token (form field or `X-CSRF-Token`), a `rateLimiter`, auth check, and an ownership/role check (`canManageCohort`, roadmap owner, etc.).
