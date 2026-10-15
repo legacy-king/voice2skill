@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const userModel = require('../models/userModel');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
-const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../utils/mailer');
+const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../services/mailer');
 const { rankTracksForGoal } = require('../utils/goalMatcher');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

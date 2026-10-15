@@ -4,12 +4,12 @@
  * Boots the real server against a real Postgres and drives it over HTTP.
  *
  * Needs: DATABASE_URL pointing at a DISPOSABLE database with `npm run migrate` already applied.
- * Uses mock Paystack + mock AI, so it costs nothing and needs no keys.
+ * Uses mock Paystack and mock LLM providers (scripts/mockLlmServer.js, reached through the real
+ * router in services/llm.js), so it costs nothing and needs no keys.
  *
  * Usage: DATABASE_URL=... DATABASE_SSL=false npm run test:cohorts
  */
 process.env.PAYSTACK_MOCK = '1';
-process.env.MENTOR_MOCK = '1';
 process.env.EMAIL_MODE = 'log';
 process.env.PAYSTACK_SECRET_KEY = 'sk_test_cohort_suite';
 process.env.SESSION_SECRET = 'test-secret';
@@ -17,13 +17,17 @@ process.env.MENTOR_DAILY_LIMIT = '3';
 process.env.PREMIUM_DAILY_LIMIT = '2';
 process.env.NODE_ENV = 'test';
 process.env.COURSE_MOCK = '1';
-// Never call the real Gemini API from tests, even if .env has a key (dotenv won't override this).
-process.env.GEMINI_API_KEY = '';
+// Never call a real LLM from tests, even if .env has keys (dotenv won't override set vars). The
+// router is pointed at mock providers in main().
+for (const k of ['GROQ_KEY', 'GEMINI_KEY', 'GEMINI_API_KEY', 'MISTRAL_KEY', 'OPENROUTER_KEY', 'MENTOR_MOCK', 'MENTOR_MODEL']) process.env[k] = '';
+for (const k of Object.keys(process.env)) if (/^LLM_/.test(k)) delete process.env[k];
+const NO_LLM_ENV = { ...process.env }; // for child scripts that must not reach any provider
 
 const { spawn, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 const pool = require('../config/db');
+const { startMockLlm } = require('./mockLlmServer');
 
 const PORT = 3999;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -53,7 +57,7 @@ function client() {
   }
   async function csrf(pagePath = '/login') {
     const r = await req('GET', pagePath);
-    const m = r.text.match(/name="_csrf" value="([a-f0-9]+)"/) || r.text.match(/const csrf = "([a-f0-9]+)"/) || r.text.match(/var csrf = "([a-f0-9]+)"/);
+    const m = r.text.match(/name="_csrf" value="([a-f0-9]+)"/) || r.text.match(/const csrf = "([a-f0-9]+)"/) || r.text.match(/var csrf = "([a-f0-9]+)"/) || r.text.match(/data-csrf="([a-f0-9]+)"/);
     return m && m[1];
   }
   return { req, csrf, get cookie() { return cookie; } };
@@ -84,6 +88,12 @@ async function webhook(c, payload, signature) {
 }
 
 async function main() {
+  const mock = await startMockLlm();
+  process.env.GROQ_KEY = 'test-groq';
+  process.env.GEMINI_KEY = 'test-gemini';
+  process.env.LLM_BASEURL_GROQ = mock.url('groq');
+  process.env.LLM_BASEURL_GEMINI = mock.url('gemini');
+  process.env.LLM_TIMEOUT_MS = '2000';
   const server = spawn('node', [path.join(__dirname, '..', 'server.js')], {
     env: { ...process.env, PORT: String(PORT) }, stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -363,7 +373,7 @@ async function main() {
       && v1row.content.weeks.every((w) => w.days.length === 7) && v1row.model === 'mock');
     check('courses.js list shows the draft', /Data Analysis \/ foundation .*\[draft\]/.test(courses('list').stdout));
 
-    const jobRunner = require('../utils/jobRunner');
+    const jobRunner = require('../services/jobRunner');
     const courseId = (await pool.query('SELECT course_id FROM course_versions WHERE id = $1', [v1])).rows[0].course_id;
     const [e1, e2] = await Promise.all([1, 2].map(() => jobRunner.enqueue('course_gen', { courseId: 0 }, { dedupeKey: `dedupe-test-${run}`, maxAttempts: 1 })));
     check('enqueue is idempotent on dedupe_key (one job for two calls)', e1.job.id === e2.job.id && e1.created !== e2.created);
@@ -412,7 +422,7 @@ async function main() {
     check('roadmap page advances to day 2', /Library task W1D2/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
-    const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: process.env, encoding: 'utf8' });
+    const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });
     check('reader 4 (migrateRoadmaps) skips library roadmaps', mig.status === 0 && mig.stdout.includes(`Roadmap ${libRoadmapId} uses the Course Library, skipping.`), mig.stdout.slice(-500) + mig.stderr);
 
     const gen2 = courses('generate', String(daTrack), 'foundation');
@@ -430,7 +440,87 @@ async function main() {
     check('library roadmap without a goal gets the no-goal intro', /Pick project topics you care about/.test((await daUser2.c.req('GET', `/roadmaps/${r2}`)).text));
     check('another learner cannot open the library roadmap', (await daUser2.c.req('GET', `/roadmaps/${libRoadmapId}`)).status === 404);
     check('course migration is idempotent (re-run succeeds)', spawnSync('node', [path.join(__dirname, 'migrateCourses.js')], { env: process.env, encoding: 'utf8' }).status === 0);
+
+    console.log('LLM router (Phase 1)');
+    const rita = await makeUser('rita');
+    const rt = await rita.c.csrf('/join');
+    check('rita joins the free bootcamp (mentor + AI coach access)', (await rita.c.req('POST', '/join', { form: { _csrf: rt, code: freeCode } })).location === '/mentor');
+    const ritaRows = async () => (await pool.query('SELECT provider, task, ok, error_code, streamed, prompt_tokens, completion_tokens FROM llm_calls WHERE user_id = $1 ORDER BY id', [rita.id])).rows;
+    const ritaUsage = async () => (await pool.query("SELECT COALESCE(SUM(count),0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'mentor'", [rita.id])).rows[0].n;
+    const ask = (msg, id, url = '/mentor/message') => rita.c.req('POST', url, { json: { message: msg, clientMsgId: id }, headers: { 'x-csrf-token': rt } });
+    const parseSse = (text) => text.split('\n\n').filter(Boolean).map((block) => {
+      const ev = (block.match(/^event: (.+)$/m) || [])[1] || 'message';
+      const data = (block.match(/^data: (.+)$/m) || [])[1];
+      return { ev, data: data ? JSON.parse(data) : null };
+    });
+
+    // Everything down first: refunds keep rita's daily budget (3) intact for the rest.
+    mock.reset();
+    mock.setMode('groq', '500'); mock.setMode('gemini', '503');
+    const downJson = await ask('anyone there?', crypto.randomBytes(8).toString('hex'));
+    check('all providers down => 502 ai_unavailable (JSON)', downJson.status === 502 && JSON.parse(downJson.text).error === 'ai_unavailable');
+    const downStream = await ask('anyone there?', crypto.randomBytes(8).toString('hex'), '/mentor/message/stream');
+    const downEvents = parseSse(downStream.text);
+    check('all providers down => stream ends with an error event', downStream.status === 200 && downEvents.some((e) => e.ev === 'error' && e.data.error === 'ai_unavailable'), downStream.text);
+    check('failed turns are refunded and not saved', (await ritaUsage()) === 0
+      && (await pool.query('SELECT COUNT(*)::int n FROM mentor_messages WHERE user_id = $1', [rita.id])).rows[0].n === 0);
+    check('each failed attempt is logged (provider, code)', (await ritaRows()).filter((r) => !r.ok).map((r) => r.provider + r.error_code).join(',') === 'groq500,gemini503,groq500,gemini503');
+
+    mock.reset();
+    await pool.query('DELETE FROM llm_calls WHERE user_id = $1', [rita.id]);
+    const rr1 = await ask('How do I centre a div?', crypto.randomBytes(8).toString('hex'));
+    check('mentor reply comes from Groq through the router', rr1.status === 200 && /\[mock mentor\] You asked: "How do I centre a div\?"/.test(JSON.parse(rr1.text).reply), rr1.text);
+    let rows = await ritaRows();
+    check('llm_calls row: groq, mentor, ok, tokens', rows.length === 1 && rows[0].provider === 'groq' && rows[0].task === 'mentor' && rows[0].ok && rows[0].prompt_tokens === 11 && !rows[0].streamed);
+    const sentToGroq = mock.requests[mock.requests.length - 1].body.messages;
+    check('no student name or email reaches the provider', !JSON.stringify(sentToGroq).includes('rita') && !JSON.stringify(sentToGroq).includes('example.com'));
+    check('student text goes in the user turn, not the system prompt', sentToGroq[0].role === 'system' && !sentToGroq[0].content.includes('centre a div')
+      && sentToGroq[sentToGroq.length - 1].role === 'user' && sentToGroq[sentToGroq.length - 1].content.includes('centre a div'));
+    const cols = (await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'llm_calls'")).rows.map((c) => c.column_name);
+    check('llm_calls has no column for prompt or reply text', !cols.some((c) => /^prompt$|content|reply|message|text/.test(c)), cols.join(','));
+
+    mock.setMode('groq', '429');
+    const rr2 = await ask('And flexbox?', crypto.randomBytes(8).toString('hex'));
+    rows = await ritaRows();
+    check('Groq 429 => Gemini answers', rr2.status === 200 && JSON.parse(rr2.text).reply.includes('And flexbox?') && rows.slice(-2).map((r) => r.provider + ':' + (r.ok ? 'ok' : r.error_code)).join(',') === 'groq:429,gemini:ok');
+    mock.reset();
+
+    const streamId = crypto.randomBytes(8).toString('hex');
+    const s1 = await ask('Explain grid please', streamId, '/mentor/message/stream');
+    const events = parseSse(s1.text);
+    const streamed = events.filter((e) => e.ev === 'message').map((e) => e.data.delta).join('');
+    check('stream endpoint answers with server-sent events', s1.status === 200 && /text\/event-stream/.test(s1.res.headers.get('content-type') || ''));
+    check('stream delivers the reply in several chunks, then done', events.filter((e) => e.ev === 'message').length > 1 && /Explain grid please/.test(streamed)
+      && events[events.length - 1].ev === 'done' && events[events.length - 1].data.remainingToday === 0, s1.text.slice(0, 300));
+    check('streamed reply saved to history', (await rita.c.req('GET', '/mentor')).text.includes('Explain grid please'));
+    rows = await ritaRows();
+    check('streamed call logged with streamed = true', rows[rows.length - 1].streamed === true && rows[rows.length - 1].ok);
+    const replay = await ask('Explain grid please', streamId, '/mentor/message/stream');
+    check('stream replay of the same clientMsgId returns the stored reply as JSON (not billed)', replay.status === 200 && JSON.parse(replay.text).replayed === true
+      && JSON.parse(replay.text).reply === streamed.trim() && (await ritaUsage()) === 3);
+    const capped2 = await ask('one more', crypto.randomBytes(8).toString('hex'), '/mentor/message/stream');
+    check('stream endpoint enforces the daily cap (429 JSON)', capped2.status === 429 && JSON.parse(capped2.text).error === 'daily_limit');
+    check('stream endpoint requires CSRF', (await rita.c.req('POST', '/mentor/message/stream', { json: { message: 'x', clientMsgId: crypto.randomBytes(8).toString('hex') } })).status === 403);
+    check('free user cannot use the stream endpoint (402)', (await fred.c.req('POST', '/mentor/message/stream', { json: { message: 'x', clientMsgId: crypto.randomBytes(8).toString('hex') }, headers: { 'x-csrf-token': await fred.c.csrf('/join') } })).status === 402);
+
+    const rrm = await pool.query("INSERT INTO roadmaps (user_id, track_id, goal, content) VALUES ($1, 1, 'get hired', $2) RETURNING id",
+      [rita.id, JSON.stringify({ weeks: [{ focus: 'Basics', project: 'P', days: [{ task: 'Day 1 task' }, { task: 'Day 2 task' }] }] })]);
+    mock.reset();
+    await rita.c.req('POST', `/roadmaps/${rrm.rows[0].id}/checkin`, { form: { _csrf: rt, notes: 'learned semantic tags today' } });
+    const rcoach = (await pool.query('SELECT cr.* FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [rrm.rows[0].id])).rows[0];
+    check('paid check-in coach goes through the router (Groq, JSON)', rcoach && rcoach.is_fallback === false && /mock coach:groq/.test(rcoach.acknowledgement), JSON.stringify(rcoach));
+    const coachReq = mock.requests.find((q) => q.body.response_format);
+    check('coach: notes in the user turn, JSON schema requested', coachReq && !coachReq.body.messages[0].content.includes('semantic tags')
+      && coachReq.body.messages[1].content.includes('semantic tags') && coachReq.body.response_format.type === 'json_schema');
+    check('coach call logged as task checkin', (await ritaRows()).some((r) => r.task === 'checkin' && r.ok));
+    mock.setMode('groq', '500'); mock.setMode('gemini', '500');
+    const rrm2 = await pool.query('INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 2, $2) RETURNING id',
+      [rita.id, JSON.stringify({ weeks: [{ focus: 'B', days: [{ task: 'T1' }, { task: 'T2' }] }] })]);
+    await rita.c.req('POST', `/roadmaps/${rrm2.rows[0].id}/checkin`, { form: { _csrf: rt, notes: 'second roadmap' } });
+    check('coach falls back to the template when every provider fails', (await pool.query('SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [rrm2.rows[0].id])).rows[0]?.is_fallback === true);
+    mock.reset();
   } finally {
+    await mock.close();
     server.kill();
     await pool.end();
   }

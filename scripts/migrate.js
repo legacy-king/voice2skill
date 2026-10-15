@@ -24,7 +24,8 @@ const MIGRATIONS = [
   'migrateCapabilityCoach.js',    // assessments, coach_responses tables + roadmaps.assessment_id
   'migrateRoadmapCache.js',       // roadmaps.is_cached column
   'migrateCohorts.js',            // organizations, cohorts, memberships, payments, ai_usage, mentor_messages
-  'migrateCourses.js'             // courses, course_versions, jobs, roadmaps.course_version_id + indexes
+  'migrateCourses.js',            // courses, course_versions, jobs, roadmaps.course_version_id + indexes
+  'migrateLlm.js'                 // llm_calls (LLM router log)
 ];
 
 const TIMEOUT_MS = 120 * 1000; // guard against a hanging DB connection

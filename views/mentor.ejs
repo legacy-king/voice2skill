@@ -8,6 +8,7 @@
   <%- include('partials/app-nav', { active: 'mentor' }) %>
 
   <main class="app-wrap app-main co-chat-main" id="main">
+    <div id="mentor-app" hidden data-csrf="<%= csrfToken %>" data-daily-limit="<%= dailyLimit %>"></div>
     <header class="co-chat-head">
       <div>
         <% if (kind === 'premium') { %>
@@ -44,75 +45,6 @@
     <p class="co-fine">AI can make mistakes — check important answers with your tutor. Don't paste passwords or private information.</p>
   </main>
 
-  <script>
-    (function () {
-      var csrf = <%- JSON.stringify(csrfToken) %>;
-      var chat = document.getElementById('chat');
-      var form = document.getElementById('composer');
-      var box = document.getElementById('msg');
-      var send = document.getElementById('send');
-      var remaining = document.getElementById('remaining');
-      var dailyLimit = <%= dailyLimit %>;
-      var pendingText = null, pendingId = null; // keep the same id when retrying a failed send
-
-      function newId() {
-        var a = new Uint8Array(16); crypto.getRandomValues(a);
-        return Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
-      }
-      function bubble(text, cls) {
-        var d = document.createElement('div');
-        d.className = 'co-msg ' + cls;
-        d.textContent = text; // textContent: model/user text is never parsed as HTML
-        chat.appendChild(d);
-        chat.scrollTop = chat.scrollHeight;
-        return d;
-      }
-      var ERR = {
-        no_access: 'Your mentor access has ended. Renew it on the Join page.',
-        daily_limit: 'You\'ve used today\'s messages. Come back tomorrow — consistency beats cramming.',
-        monthly_limit: 'You\'ve reached this month\'s message limit. Ask your tutor if you need more.',
-        ai_unavailable: 'The mentor is unavailable right now. Your message was not counted — press Send to retry.',
-        in_progress: 'Still working on your last message…'
-      };
-      chat.scrollTop = chat.scrollHeight;
-
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        var text = box.value.trim();
-        if (!text) return;
-        if (text !== pendingText) { pendingText = text; pendingId = newId(); }
-        send.disabled = true;
-        var welcome = document.getElementById('welcome'); if (welcome) welcome.remove();
-        var mine = bubble(text, 'co-msg-me');
-        var wait = bubble('Thinking…', 'co-msg-bot co-msg-wait');
-        box.value = '';
-
-        fetch('/mentor/message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-          body: JSON.stringify({ message: text, clientMsgId: pendingId })
-        }).then(function (r) {
-          return r.json().catch(function () { return { error: 'ai_unavailable' }; }).then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
-        }).then(function (res) {
-          wait.remove();
-          if (res.ok && res.body.reply) {
-            bubble(res.body.reply, 'co-msg-bot');
-            pendingText = pendingId = null;
-            if (typeof res.body.remainingToday === 'number') remaining.textContent = res.body.remainingToday + ' of ' + dailyLimit + ' messages left today';
-          } else {
-            mine.remove(); box.value = text; // let them retry the same text (same id => never double-billed)
-            bubble(ERR[res.body.error] || 'Something went wrong. Please try again.', 'co-msg-bot co-msg-err');
-            if (res.body.error === 'daily_limit' || res.body.error === 'monthly_limit' || res.body.error === 'no_access') pendingText = pendingId = null;
-          }
-        }).catch(function () {
-          wait.remove(); mine.remove(); box.value = text;
-          bubble('Network problem. Check your connection and press Send to retry.', 'co-msg-bot co-msg-err');
-        }).then(function () { send.disabled = false; box.focus(); });
-      });
-      box.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
-      });
-    })();
-  </script>
+  <script src="/js/mentor.js" defer></script>
 </body>
 </html>

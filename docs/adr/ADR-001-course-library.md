@@ -190,7 +190,7 @@ becomes two systems.
 3. [x] `roadmapModel`: resolve `content` from `course_version_id` when the row's content is NULL;
        bounded in-memory cache of published versions. Tests: all four readers render a
        library-backed roadmap unchanged.
-4. [x] `utils/courseGenerator.js`: per-week generation with JSON schema, `maxOutputTokens`,
+4. [x] `services/courseGenerator.js`: per-week generation with JSON schema, `maxOutputTokens`,
        timeout, retry; `COURSE_MODEL` env var; validate 8 weeks × 7 days before saving a draft.
 5. [x] In-process job runner (`FOR UPDATE SKIP LOCKED`, one job at a time, attempts + backoff).
 6. [~] `scripts/courses.js generate|list|show|publish` for the founder **(built)**; generate and

@@ -1,4 +1,4 @@
-const { loadState } = require('../utils/entitlements');
+const { loadState } = require('../services/entitlements');
 const { naira } = require('../utils/format');
 
 const TTL_MS = 60 * 1000;

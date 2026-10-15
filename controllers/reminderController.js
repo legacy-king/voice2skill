@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const pool = require('../config/db');
-const { sendReminderEmail } = require('../utils/mailer');
+const { sendReminderEmail } = require('../services/mailer');
 
 function safeEqual(a, b) {
   const bufA = Buffer.from(String(a));

@@ -55,7 +55,7 @@ const cases = [
      'Skip to content', 'og:title', 'og:description', 'twitter:card', 'canonical', 'id="main"']],
 
   ['privacy', 'privacy.ejs', {},
-    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023']],
+    ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023', 'Groq', 'zero data retention', 'never send your name or email address']],
   ['terms', 'terms.ejs', {},
     ['Terms of Service', 'Premium', 'does <strong>not</strong> renew automatically', 'Refunds', 'help@voice2skill.test']],
 
@@ -416,7 +416,7 @@ for (const [goal, expected] of searchCases) {
 
 // ---- Capability assessment unit checks ----
 const { scoreAssessment, getNextQuestion } = require('../utils/capabilityAssessment');
-const { getLevelContext, analyzeTopicScores } = require('../utils/coachService');
+const { getLevelContext, analyzeTopicScores } = require('../services/coachService');
 
 // Foundation level (0-2 correct)
 const foundationAnswers = { html_basics: 'a', css_box_model: 'a' };
@@ -501,7 +501,7 @@ if (!topicAnalysis.strengths.includes('javascript') || !topicAnalysis.weaknesses
 // ---- Course Library generator checks (COURSE_MOCK: no AI, no DB) ----
 async function courseChecks() {
   process.env.COURSE_MOCK = '1';
-  const gen = require('../utils/courseGenerator');
+  const gen = require('../services/courseGenerator');
   const expect = (label, cond) => {
     if (cond) console.log(`✓ course: ${label}`);
     else { failures++; console.error(`✗ course: ${label}`); }
@@ -509,12 +509,13 @@ async function courseChecks() {
   const throws = (fn) => { try { fn(); return false; } catch { return true; } };
 
   let saves = 0;
-  const course = await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', onWeek: async () => { saves++; } });
+  const { content: course, models: usedModels } = await gen.generateCourse({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', onWeek: async () => { saves++; } });
   const days = course.weeks.flatMap((w) => w.days);
   expect('mock plan is 8 weeks x 7 days', course.weeks.length === 8 && course.weeks.every((w) => w.days.length === 7));
   expect('day_number runs 1..56 across the plan', days.every((d, i) => d.day_number === i + 1));
   expect('days 6-7 are weekend', course.weeks.every((w) => w.days[5].day_type === 'weekend' && w.days[4].day_type === 'weekday'));
   expect('progress saved after every generated week', saves === 8);
+  expect('the models that wrote the plan are reported', usedModels.length === 1 && usedModels[0] === 'mock');
   expect('validateCourse accepts it', !throws(() => gen.validateCourse(course)));
 
   let resumed = 0;

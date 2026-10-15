@@ -1,5 +1,5 @@
 const cohortModel = require('../models/cohortModel');
-const { loadState, canUse, canManageCohort } = require('../utils/entitlements');
+const { loadState, canUse, canManageCohort } = require('../services/entitlements');
 const { nairaToKobo } = require('../utils/format');
 
 const ERRORS = {

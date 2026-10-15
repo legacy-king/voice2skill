@@ -2,23 +2,21 @@
  * Course Library generator (ADR-001). Builds ONE shared 8-week plan for a track x level, one
  * Gemini call per week, in a background job (never inside a user's request).
  *
- * Each call: JSON response schema, MAX_OUTPUT_TOKENS cap, timeout, and retry with backoff. A failed
- * week retries alone; finished weeks are saved as job progress, so a retried job resumes instead
+ * Each call goes through the LLM router (services/llm.js, task 'course'): JSON response schema,
+ * output cap, timeout and provider failover come from config/llm.js. On top of that a failed week
+ * is retried with backoff (COURSE_RETRIES). A failed week retries alone; finished weeks are saved as job progress, so a retried job resumes instead
  * of paying for the whole plan again. The result is validated (8 weeks x 7 days) and saved as a
  * DRAFT; a human publishes it with `node scripts/courses.js publish <versionId>`.
  *
  * Prompts contain only the track name/description and level: no user or tutor text.
- * Env: COURSE_MODEL (default gemini-3.6-flash), COURSE_MAX_OUTPUT_TOKENS, COURSE_TIMEOUT_MS,
- * COURSE_RETRIES. COURSE_MOCK=1 returns canned weeks (tests / local dev without a key).
+ * Env: COURSE_RETRIES; models/route/timeout via LLM_* (config/llm.js).
+ * COURSE_MOCK=1 returns canned weeks (tests / local dev without a key).
  */
-const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 const courseModel = require('../models/courseModel');
+const llm = require('./llm');
 
 const WEEKS = 8;
 const DAYS_PER_WEEK = 7;
-const DEFAULT_MODEL = 'gemini-3.6-flash';
-const MAX_OUTPUT_TOKENS = () => Number(process.env.COURSE_MAX_OUTPUT_TOKENS) || 16000;
-const TIMEOUT_MS = () => Number(process.env.COURSE_TIMEOUT_MS) || 120000;
 const RETRIES = () => Math.max(1, Number(process.env.COURSE_RETRIES) || 3);
 const MAX_TEXT = { focus: 200, project: 1500, task: 600, lesson: 6000, code_example: 4000, question: 600, answer: 1500, resource_name: 120, resource_url: 300, video_search_term: 200 };
 
@@ -30,29 +28,29 @@ const LEVEL_HINTS = {
 
 const NON_CODE_TRACKS = ['UI/UX Design', 'Digital Marketing'];
 
-const str = { type: SchemaType.STRING };
+const str = { type: 'string' };
 const WEEK_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: 'object',
   properties: {
-    week_number: { type: SchemaType.INTEGER },
+    week_number: { type: 'integer' },
     focus: str,
     project: str,
     days: {
-      type: SchemaType.ARRAY,
+      type: 'array',
       minItems: DAYS_PER_WEEK,
       maxItems: DAYS_PER_WEEK,
       items: {
-        type: SchemaType.OBJECT,
+        type: 'object',
         properties: {
-          day_number: { type: SchemaType.INTEGER },
-          day_type: { type: SchemaType.STRING, format: 'enum', enum: ['weekday', 'weekend'] },
+          day_number: { type: 'integer' },
+          day_type: { type: 'string', enum: ['weekday', 'weekend'] },
           task: str,
           lesson: str,
           code_example: str,
           quiz: {
-            type: SchemaType.ARRAY,
+            type: 'array',
             minItems: 1,
-            items: { type: SchemaType.OBJECT, properties: { question: str, answer: str }, required: ['question', 'answer'] }
+            items: { type: 'object', properties: { question: str, answer: str }, required: ['question', 'answer'] }
           },
           resource_name: str,
           resource_url: str,
@@ -174,44 +172,22 @@ function mockWeek({ trackName, level, weekNumber }) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function callGemini(prompt) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not set');
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel(
-    {
-      model: modelName(),
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: WEEK_SCHEMA,
-        maxOutputTokens: MAX_OUTPUT_TOKENS(),
-        temperature: 0.5
-      }
-    },
-    { timeout: TIMEOUT_MS() }
-  );
-  let timer;
-  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('AI timeout')), TIMEOUT_MS() + 1000); });
-  try {
-    const result = await Promise.race([model.generateContent(prompt), timeout]);
-    const finish = result.response.candidates && result.response.candidates[0] && result.response.candidates[0].finishReason;
-    if (finish === 'MAX_TOKENS') throw new Error('AI reply truncated (MAX_TOKENS)');
-    return JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function modelName() {
-  return process.env.COURSE_MOCK === '1' ? 'mock' : (process.env.COURSE_MODEL || DEFAULT_MODEL);
-}
+const SYSTEM = 'You are an expert instructor who writes rigorous, practical learning plans. Reply with JSON only, matching the response schema.';
 
 /** One week, retried with backoff on timeout / bad JSON / failed validation. */
 async function generateWeek(args) {
   let lastErr;
   for (let attempt = 1; attempt <= RETRIES(); attempt++) {
     try {
-      const raw = process.env.COURSE_MOCK === '1' ? mockWeek(args) : await callGemini(weekPrompt(args));
-      return validateWeek(raw, args.weekNumber);
+      if (process.env.COURSE_MOCK === '1') return { week: validateWeek(mockWeek(args), args.weekNumber), model: 'mock' };
+      const { data, provider, model } = await llm.complete({
+        task: 'course',
+        system: SYSTEM,
+        messages: [{ role: 'user', content: weekPrompt(args) }],
+        jsonSchema: WEEK_SCHEMA,
+        validate: (raw) => validateWeek(raw, args.weekNumber)
+      });
+      return { week: data, model: `${provider}:${model}` };
     } catch (err) {
       lastErr = err;
       console.error(`Course week ${args.weekNumber} attempt ${attempt} failed: ${err.message}`);
@@ -223,14 +199,16 @@ async function generateWeek(args) {
 
 /**
  * Generates the full plan, week by week. `done` holds weeks finished by an earlier attempt;
- * `onWeek(weeks)` is called after each new week so the caller can persist progress.
+ * `onWeek(weeks, models)` is called after each new week so the caller can persist progress.
+ * Resolves with { content, models } (models = the provider:model pairs that wrote the weeks).
  */
-async function generateCourse({ trackName, trackDescription, level, done = [], onWeek = async () => {} }) {
+async function generateCourse({ trackName, trackDescription, level, done = [], doneModels = [], onWeek = async () => {} }) {
   if (!LEVEL_HINTS[level]) throw new Error(`unknown level "${level}"`);
   if (process.env.NODE_ENV === 'production' && process.env.COURSE_MOCK === '1') {
     throw new Error('COURSE_MOCK must not be set in production');
   }
   const weeks = [];
+  const models = new Set(doneModels);
   for (let n = 1; n <= WEEKS; n++) {
     const saved = done[n - 1];
     let week = null;
@@ -238,14 +216,16 @@ async function generateCourse({ trackName, trackDescription, level, done = [], o
       try { week = validateWeek(saved, n); } catch { week = null; }
     }
     if (!week) {
-      week = await generateWeek({ trackName, trackDescription, level, weekNumber: n, previousWeeks: weeks });
+      const made = await generateWeek({ trackName, trackDescription, level, weekNumber: n, previousWeeks: weeks });
+      week = made.week;
+      models.add(made.model);
       weeks.push(week);
-      await onWeek(weeks.slice());
+      await onWeek(weeks.slice(), [...models]);
     } else {
       weeks.push(week);
     }
   }
-  return validateCourse({ weeks });
+  return { content: validateCourse({ weeks }), models: [...models] };
 }
 
 /**
@@ -256,14 +236,16 @@ async function runCourseJob(job, { saveProgress }) {
   const course = await courseModel.getCourseWithTrack(job.payload.courseId);
   if (!course) throw new Error(`course ${job.payload.courseId} not found`);
   const done = (job.result && Array.isArray(job.result.weeks)) ? job.result.weeks : [];
-  const content = await generateCourse({
+  const doneModels = (job.result && Array.isArray(job.result.models)) ? job.result.models : [];
+  const { content, models } = await generateCourse({
     trackName: course.track_name,
     trackDescription: course.track_description || '',
     level: course.level,
     done,
-    onWeek: (weeks) => saveProgress({ weeks })
+    doneModels,
+    onWeek: (weeks, usedModels) => saveProgress({ weeks, models: usedModels })
   });
-  const draft = await courseModel.insertDraft(course.id, content, modelName());
+  const draft = await courseModel.insertDraft(course.id, content, models.join(',').slice(0, 80));
   return { courseId: course.id, versionId: draft.id, version: draft.version };
 }
 

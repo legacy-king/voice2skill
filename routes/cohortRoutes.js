@@ -18,7 +18,10 @@ router.get('/pay/callback', cohortController.paymentCallback);
 
 // AI mentor.
 router.get('/mentor', mentorController.mentorPage);
-router.post('/mentor/message', rateLimiter({ windowMs: 60 * 1000, max: 12, message: 'Slow down a little.' }), mentorController.sendMessage);
+// One limiter for both, so streaming and non-streaming share the same budget.
+const mentorLimiter = rateLimiter({ windowMs: 60 * 1000, max: 12, message: 'Slow down a little.' });
+router.post('/mentor/message', mentorLimiter, mentorController.sendMessage);
+router.post('/mentor/message/stream', mentorLimiter, mentorController.streamMessage);
 
 // Teacher dashboard.
 router.get('/teacher', teacherController.teacherHome);

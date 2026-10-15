@@ -11,12 +11,12 @@
  *
  * `generate` queues a background job and, unless --queue-only, runs the queue in this process until
  * the job finishes (the web process's runner may pick it up instead; SKIP LOCKED keeps that safe).
- * Costs AI: 8 Gemini calls per plan on GEMINI_API_KEY with COURSE_MODEL.
+ * Costs AI: 8 LLM router calls per plan (task "course", see config/llm.js).
  */
 const pool = require('../config/db');
 const courseModel = require('../models/courseModel');
-const jobRunner = require('../utils/jobRunner');
-const { validateCourse } = require('../utils/courseGenerator');
+const jobRunner = require('../services/jobRunner');
+const { validateCourse } = require('../services/courseGenerator');
 
 const usage = () => {
   console.error('Usage: node scripts/courses.js list | generate <track> <level> [--queue-only] | generate --all [--queue-only] | show <versionId> [week] | publish <versionId>');

@@ -1,8 +1,8 @@
 const checkinModel = require('../models/checkinModel');
 const roadmapModel = require('../models/roadmapModel');
 const coachResponseModel = require('../models/coachResponseModel');
-const { createCoachResponse, createFallbackCoachResponse } = require('../utils/coachService');
-const { loadState, canUse } = require('../utils/entitlements');
+const { createCoachResponse, createFallbackCoachResponse } = require('../services/coachService');
+const { loadState, canUse } = require('../services/entitlements');
 const assessmentModel = require('../models/assessmentModel');
 
 async function createCheckinEntry(req, res) {
@@ -64,7 +64,8 @@ async function createCheckinEntry(req, res) {
       completedTask,
       checkinNotes: notes,
       weeklyProject,
-      nextTask
+      nextTask,
+      userId // for the llm_calls log only; never sent to the model
     };
 
     // The AI coach is a paid feature (Premium or a bootcamp cohort); Free gets the template reply

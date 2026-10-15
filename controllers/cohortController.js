@@ -3,8 +3,8 @@ const pool = require('../config/db');
 const userModel = require('../models/userModel');
 const cohortModel = require('../models/cohortModel');
 const paymentModel = require('../models/paymentModel');
-const paystack = require('../utils/paystack');
-const { loadState } = require('../utils/entitlements');
+const paystack = require('../services/paystack');
+const { loadState } = require('../services/entitlements');
 
 const APP_URL = () => (process.env.APP_URL || 'https://voice2skill.onrender.com').replace(/\/$/, '');
 

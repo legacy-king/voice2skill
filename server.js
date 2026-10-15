@@ -91,4 +91,4 @@ app.listen(process.env.PORT || 3000, () => {
 
 // Background jobs (Course Library generation) run in this process, one at a time.
 // Set JOBS_DISABLED=1 to keep a process out of the queue.
-require('./utils/jobRunner').start();
+require('./services/jobRunner').start();
