@@ -778,7 +778,7 @@ async function main() {
     const att = await attacker.csrf('/login');
     const tries = [];
     for (let i = 0; i < 3; i++) tries.push((await attacker.req('POST', '/login', { form: { _csrf: att, email: victim.email, password: `wrong${i}` } })).location);
-    check('wrong passwords are reported normally under the limit', tries.every((l) => l === '/login?error=wrong_password'));
+    check('wrong passwords are reported normally under the limit (same message as unknown email)', tries.every((l) => l === '/login?error=invalid_credentials'));
     check('after LOGIN_MAX_PER_EMAIL (3) failures the account is locked, even with the right password',
       (await attacker.req('POST', '/login', { form: { _csrf: att, email: victim.email, password: 'password123' } })).location === '/login?error=locked');
     const other = client();

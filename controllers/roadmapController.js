@@ -8,21 +8,7 @@ const { calculateStreak } = require('../utils/streak');
 const { goalToSearchPhrase } = require('../utils/goalMatcher');
 const llm = require('../services/llm');
 const { log } = require('../utils/log');
-
-/**
- * AI-generated resource_urls are data, not trusted config. Only allow real
- * http(s) links — a crafted goal could prompt-inject a `javascript:` URL that
- * would execute on click if rendered straight into an href.
- */
-function sanitizeResourceUrl(url) {
-  if (typeof url !== 'string') return '#';
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : '#';
-  } catch {
-    return '#';
-  }
-}
+const { normalizeRoadmapContent, flattenRoadmapDays } = require('../utils/roadmapContent');
 
 /**
  * Templated intro for library-backed roadmaps (ADR-001): goal-aware without an AI call.
@@ -92,7 +78,9 @@ Each week must have exactly 7 days. Days 1-5 are "weekday" type with a full tech
     task: 'roadmap',
     system: prompt,
     messages: [{ role: 'user', content: goal ? `My goal, in my own words: "${goal.slice(0, 200)}"` : 'I have not described a specific goal yet.' }],
-    validate: checkRoadmapShape,
+    // Shape check, then strict validation (complete days, lessons, http(s)-only links):
+    // a malformed plan fails over to the next provider and is never stored or cached.
+    validate: (content) => normalizeRoadmapContent(checkRoadmapShape(content)),
     userId
   });
   return data;
@@ -117,20 +105,23 @@ async function selectTrack(req, res) {
     return res.status(404).send('Track not found');
   }
 
+  const { goal } = req.valid.body;
+  const normalizedGoal = goal.toLowerCase();
+
   // Software Engineering requires assessment first
   if (track.name === 'Software Engineering') {
     const assessmentId = queryAssessmentId || req.session.assessmentId;
     if (!assessmentId) {
+      // A redirect drops the form body, so keep the typed goal in the session.
+      req.session.assessmentGoal = goal;
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
     const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
     if (!assessment || assessment.id !== assessmentId) {
+      req.session.assessmentGoal = goal;
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
   }
-
-  const { goal } = req.valid.body;
-  const normalizedGoal = goal.toLowerCase();
 
   // Resolve assessment context once — used for both cache-key correctness and generation
   let assessmentContext = null;
@@ -163,10 +154,20 @@ async function selectTrack(req, res) {
   // Cache check — only for non-empty goals, exact match after trim/lowercase, same track + level
   if (goal) {
     const cached = await roadmapModel.findCachedRoadmap(trackId, normalizedGoal, assessmentLevel);
+    let cachedContent = null;
     if (cached) {
-      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cached.content, goal, resolvedAssessmentId, true);
+      // Rows saved before validation existed may be malformed — regenerate instead of copying them.
+      try {
+        cachedContent = normalizeRoadmapContent(cached.content);
+      } catch (err) {
+        log.error(`Cached roadmap ${cached.id} skipped:`, err.message);
+      }
+    }
+    if (cachedContent) {
+      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cachedContent, goal, resolvedAssessmentId, true);
       delete req.session.assessmentId;
       delete req.session.assessmentLevel;
+      delete req.session.assessmentGoal;
       return res.redirect(`/roadmaps/${newRoadmap.id}`);
     }
   }
@@ -177,6 +178,7 @@ async function selectTrack(req, res) {
 
     delete req.session.assessmentId;
     delete req.session.assessmentLevel;
+    delete req.session.assessmentGoal;
 
     res.redirect(`/roadmaps/${newRoadmap.id}`);
   } catch (err) {
@@ -222,15 +224,22 @@ async function getRoadmap(req, res) {
 
   const currentDayNumber = checkins.length + 1;
 
-  const allDays = roadmap.content.weeks.flatMap(week =>
-    week.days.map(day => ({ ...day, week_focus: week.focus, week_number: week.week_number, week_project: week.project }))
-  );
+  // Lenient: an older or odd row still renders instead of crashing the page.
+  const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
+  if (allDays.length === 0) {
+    log.error(`Roadmap ${roadmap.id} has no readable days`);
+    return res.status(500).send(`
+      <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
+        <h1 style="color: #D4AF37;">We couldn't load this roadmap</h1>
+        <p>Your check-ins are safe. Please contact ${res.locals.supportEmail || 'support@voice2skill.com'} and we'll fix it.</p>
+        <a href="/tracks" style="color: #D4AF37;">← Back to tracks</a>
+      </div>
+    `);
+  }
 
   const totalDays = allDays.length;
   const isComplete = currentDayNumber > totalDays;
-  const todayTask = isComplete
-    ? null
-    : { ...allDays[currentDayNumber - 1], resource_url: sanitizeResourceUrl(allDays[currentDayNumber - 1].resource_url) };
+  const todayTask = isComplete ? null : allDays[currentDayNumber - 1];
 
   const videoSearchPhrase = todayTask
     ? [goalToSearchPhrase(roadmap.goal), todayTask.video_search_term]

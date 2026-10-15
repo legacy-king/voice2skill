@@ -137,6 +137,11 @@ async function completeAssessment(req, res) {
   const answers = req.session.assessmentAnswers || {};
   const goal = req.session.assessmentGoal || '';
 
+  // Don't score (or save) an unfinished or never-started quiz.
+  if (getNextQuestion(answers)) {
+    return res.redirect(`/tracks/${trackId}/assessment`);
+  }
+
   // Score the assessment
   const result = scoreAssessment(answers);
 

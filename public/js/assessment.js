@@ -9,3 +9,15 @@
     });
   }
 })();
+
+// Assessment result: building a roadmap can take a while, so stop double-submits and say so.
+(function () {
+  var form = document.querySelector('form[action$="/select"]');
+  if (!form) return;
+  form.addEventListener('submit', function () {
+    var btn = form.querySelector('button[type="submit"]');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Building your roadmap… this can take up to a minute';
+  });
+})();

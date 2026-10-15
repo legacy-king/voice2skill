@@ -14,6 +14,9 @@ const { log } = require('../utils/log');
 const GLYPHS = ['</>', '✦', '∑', '◎', '⚿'];
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const RESET_TTL_MS = 30 * 60 * 1000; // 30 min
+// Compared against when no account exists, so a wrong email takes as long as a
+// wrong password and the response can't reveal which accounts exist.
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10);
 
 /** Record the current device on a session so the security page can label it. */
 function stampSession(req) {
@@ -124,13 +127,10 @@ async function login(req, res) {
   }
 
   const existingUser = await userModel.findUserByEmail(email);
-  if (!existingUser) {
-    return res.redirect('/login?error=not_found');
-  }
-
-  const passwordMatches = await bcrypt.compare(password, existingUser.password_hash);
-  if (!passwordMatches) {
-    return res.redirect('/login?error=wrong_password');
+  const passwordMatches = await bcrypt.compare(password, existingUser ? existingUser.password_hash : DUMMY_PASSWORD_HASH);
+  // Same message for unknown email and wrong password — don't reveal who has an account.
+  if (!existingUser || !passwordMatches) {
+    return res.redirect('/login?error=invalid_credentials');
   }
 
   if (!existingUser.email_verified) {
