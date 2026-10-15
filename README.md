@@ -138,21 +138,25 @@ Migrations are idempotent — safe to run repeatedly against an existing databas
 ## Security Model
 
 - **CSRF** — session token + hidden `_csrf` field on every POST form; state-changing routes are POST-only (roadmap creation and logout are not GET links).
-- **Rate limiting** — in-memory per-IP limiter on auth, goal-matching, roadmap creation, and check-in routes.
+- **Security headers** — helmet with a strict Content-Security-Policy (`script-src 'self'`: no inline scripts anywhere; page scripts live in `public/js`), HSTS in production, `X-Frame-Options: DENY`, Permissions-Policy (microphone on our pages only).
+- **Rate limiting** — express-rate-limit per user (or per IP when logged out) on every state-changing route, plus per-email limits on failed logins (`LOGIN_MAX_PER_EMAIL`) and on reset/verification emails. CORS for `/api/*` only for `CORS_ORIGINS`.
+- **Passwords** — bcrypt cost 12; older hashes are upgraded transparently on the next login.
+- **Logs and health** — JSON log lines with a request id (`utils/log.js`); `GET /health` reports only `{"ok":true}`.
 - **Session hardening** — httpOnly, `SameSite=Lax`, `Secure` in production, 7-day expiry, `trust proxy` for `req.ip`, and the server **refuses to start in production without `SESSION_SECRET`**.
 - **Ownership checks** — roadmaps and check-ins are verified to belong to the logged-in user (404 rather than leaking other users' data).
 - **Token handling** — verification/reset tokens are stored as SHA-256 hashes; comparisons are against hashes; CRON secret uses `crypto.timingSafeEqual`.
 - **Output safety** — EJS auto-escapes user data; AI-generated `resource_url` is sanitized to `http(s):` only before being rendered into links; email HTML escapes user names.
-- **Input validation** — name/email/password on signup, goal length caps, note length caps.
+- **Input validation** — every route's params/body (and logic-driving query values) go through a zod schema (`middleware/validate.js`); controllers only read `req.valid`. Arrays/objects where strings are expected are rejected; JSON bodies over 10 kb get 413.
 
 ### Required environment variables
 ```
 DATABASE_URL        # Postgres connection string (Neon)
 SESSION_SECRET      # REQUIRED in production (server refuses to start without it)
-GEMINI_API_KEY      # Roadmap generation
-GMAIL_USER          # Sender for reminder/verification/reset emails
-GMAIL_APP_PASSWORD  # Gmail app password
-CRON_SECRET         # Guards GET /api/send-reminders
+GROQ_KEY / GEMINI_KEY # LLM router providers (see config/llm.js and .env.example)
+BREVO_API_KEY       # Transactional email (verification, reset, reminders)
+BREVO_SENDER_EMAIL  # Sender address
+PAYSTACK_SECRET_KEY # Payments
+CRON_SECRET         # Sent by the daily cron as the X-Cron-Secret header to GET /api/send-reminders
 APP_URL             # Public base URL used in email links (defaults to onrender URL)
 ```
 
@@ -163,6 +167,8 @@ APP_URL             # Public base URL used in email links (defaults to onrender 
 ## Tests
 
 - **UAT / template smoke test:** `npm test` (or `node scripts/smoke-test.js`) — renders every view with representative data and asserts content; also unit-checks the goal matcher, search-phrase logic, and capability assessment scoring (Foundation/Builder/Professional levels + adaptive follow-up). No database required.
+- **LLM router:** `npm run test:llm` — failover, privacy and speech-to-text checks against mock providers. No database or keys.
+- **End to end:** `npm run test:cohorts` — money, access, mentor, voice, admin and security paths against a DISPOSABLE Postgres (`DATABASE_URL=… DATABASE_SSL=false`).
 - **SIT (system integration):** `EMAIL_MODE=log node scripts/sit-test.js` — boots the real server against the configured database and walks the full auth journey: signup → verify → login → forgot password → reset → session revocation. Requires `DATABASE_URL` in `.env`.
 
 ## Status

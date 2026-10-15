@@ -34,7 +34,8 @@ Change the Premium price with SQL (no deploy): `UPDATE cohorts SET price_kobo = 
    Optional per cohort: **seats** (a student who joined holds a seat, paid or not; renewals never need a new seat) and a **code expiry date** (end of that day, Lagos time; existing students can still pay and renew). Students can also sign up straight from the invite link (`/join?code=…` → signup with the code filled in); they join the cohort when they verify their email.
 5. **Your admin view:** sign up, verify, then `node scripts/makeAdmin.js you@voice2skill.com`. `/admin` shows every bootcamp, what is owed to each, all cohorts (seats, expired codes, at-risk count) and each roster with streaks. Read-only; never shows notes or chats. "At risk" = paid access and no check-in for `AT_RISK_DAYS` (default 3) days.
 6. **Payouts:** pay the bootcamp by bank transfer on a schedule, then record it: `node scripts/ledger.js payout <orgId> <naira> "note"`. `node scripts/ledger.js` shows what is owed.
-7. **Render:** upgrade the web service from Free to the $7 instance before the first paying cohort, otherwise students wait 50s+ on cold starts.
+7. **Health and cron:** in Render set the health check path to `/health` (it only says `{"ok":true}` when the app and DB answer). Change the daily reminder cron to send the secret as a header, `X-Cron-Secret: <CRON_SECRET>`, on `GET /api/send-reminders`, then set `CRON_ALLOW_QUERY_KEY=0`. The endpoint now queues a job and answers 202 at once; reminders go only to active learners, once a day each (`email_log`), capped by `REMINDER_DAILY_CAP`.
+8. **Render:** upgrade the web service from Free to the $7 instance before the first paying cohort, otherwise students wait 50s+ on cold starts.
 
 ## Things to agree with the tutor in writing before money moves
 

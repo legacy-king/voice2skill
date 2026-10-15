@@ -33,10 +33,12 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - Student text (goals, check-ins, mentor chat) and tutor syllabi go only to providers marked `studentText` in `config/llm.js`: Groq with Zero Data Retention, Gemini **paid** tier (the privacy policy names exactly these). Never a free tier that trains on prompts. Adding a provider means updating `views/privacy.ejs`.
 
 ## Security procedure for every change
-- New state-changing route: POST only, CSRF token (form field or `X-CSRF-Token`), a `rateLimiter`, auth check, and an ownership/role check (`canManageCohort`, roadmap owner, etc.).
+- New state-changing route: POST only, CSRF token (form field or `X-CSRF-Token`), a `rateLimiter`, a zod schema via `validate()` (`middleware/validate.js`; the controller reads only `req.valid`), auth check, and an ownership/role check (`canManageCohort`, roadmap owner, etc.).
 - New money path: price from the DB, settlement only via `settlePayment`, and e2e tests (replay, wrong amount, wrong user) in `scripts/cohort-test.js`.
 - Render user/AI text with EJS `<%= %>` or `textContent`, never `<%-` or `innerHTML`.
 - Voice audio is never stored or logged: it stays in memory for one request (`controllers/voiceController.js`). Uploads are checked by type, size and magic bytes before use.
-- Page scripts go in `public/js/*.js` (pass values via `data-` attributes), not inline `<script>`, so a strict CSP can be added.
-- Never log secrets, tokens, card data or full request bodies.
+- Page scripts go in `public/js/*.js` (pass values via `data-` attributes). The CSP (`middleware/security.js`, helmet) is `script-src 'self'`: an inline `<script>` or `onclick=` silently stops working. New third-party origins must be added to the CSP on purpose.
+- Log with `log.info/warn/error` from `utils/log.js` (JSON lines with request id), not `console.*`, in app code. Never log secrets, tokens, card data or full request bodies; request lines log the path without the query string.
+- Passwords: bcrypt cost ≥ 12 (`BCRYPT_COST`); old hashes upgrade on login. Login is limited per IP and per email; reset/verification emails per address.
+- Student text sent to a model goes through `services/llm.js`, which fences override attempts (`neutralize`). Model output is only displayed or stored; it never triggers an action.
 

@@ -278,9 +278,9 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | # | Finding | Severity | Fix | Phase |
 |---|---|---|---|---|
 | 1 | Roadmap generated per user in one ~40k-token synchronous call; no output cap/retry | **High (cost + reliability)** | Course Library (7.3) **built**; closes per track×level as plans are published, then remove the fallback | 2 |
-| 2 | Reminder job emails *everyone with any roadmap and no check-in today*, sequentially, including completed or inactive users, inside one request; hits Brevo's 300/day cap past ~250 users; cron secret is a URL query param | High at scale | Limit to active users; batch/queue; per-day `email_log`; move secret to a header | 1.5 |
+| 2 | Reminder job emails *everyone with any roadmap and no check-in today*, sequentially, including completed or inactive users, inside one request; hits Brevo's 300/day cap past ~250 users; cron secret is a URL query param | High at scale | **Fixed (Phase 6):** active, unfinished learners only; background job; per-day `email_log`; daily cap; secret in `X-Cron-Secret` header (query key kept until the cron is moved) | 1.5 |
 | 3 | Session store + last-active writes keep Neon awake, burning CU-hours | Medium | Accept, monitor; consider longer `touchLastActive` throttle | 1.5 |
-| 4 | In-memory rate limiter | Medium | Fine for 1 instance; Postgres/Redis if scaling | 3 |
+| 4 | In-memory rate limiter (now express-rate-limit, per user/IP plus per-email login and reset limits) | Medium | Fine for 1 instance; Postgres/Redis if scaling | 3 |
 | 5 | No indexes beyond PKs/uniques/session (e.g., `roadmaps.user_id`, `assessments(user_id, track_id)`) | Medium as data grows | `roadmaps(user_id)` and `roadmaps(course_version_id)` **added** (`db/courses.sql`); `assessments(user_id, track_id)` still to do | 1.5 |
 | 6 | Mentor default monthly cap 600 is loss-making on dearer models | High (economics) | Default → 300; model via env | **Done in this release** |
 | 7 | `APP_URL` default still `voice2skill.onrender.com` | Low | Set `APP_URL=https://voice2skill.com` in Render | 1 |
