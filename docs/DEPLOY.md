@@ -1,6 +1,6 @@
 # Voice2Skill — Pilot release: deploy checklist
 
-**Release:** everything on `release/pilot` (19 commits on top of `main`): VOICE2-001, cohorts and payments,
+**Release:** everything on `release/pilot` (all commits on top of `main`): VOICE2-001, cohorts and payments,
 Course Library, LLM router, voice, cohort seats and the admin view, and security hardening.
 **Prepared:** 15 Oct 2026. **Hosting:** Render web service · Neon Postgres · voice2skill.com.
 
