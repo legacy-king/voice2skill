@@ -43,7 +43,7 @@ voice2skill/
 ├── middleware/    # CSRF, rate limiting, security headers
 ├── services/      # business logic: LLM router, mentor/coach/course generation, entitlements, Paystack, mailer, jobs
 ├── utils/         # pure helpers: goal matcher, streak, capability assessment, format
-├── views/         # EJS templates (+ preview-*.html static previews)
+├── views/         # EJS templates
 ├── db/            # Schema definition
 ├── scripts/       # Migrations, smoke/SIT tests, track sync
 └── server.js      # App entry point

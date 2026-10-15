@@ -286,7 +286,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 | 7 | `APP_URL` default still `voice2skill.onrender.com` | Low | Set `APP_URL=https://voice2skill.com` in Render | 1 |
 | 8 | Brevo sender domain not authenticated; SPF record already exists for Namecheap forwarding, and a domain may have only one SPF record | Medium (spam folder) | Merge Brevo's include into the single SPF TXT; add DKIM | 1 |
 | 9 | `scripts/migrateRoadmaps.js` regenerates content via AI (dangerous if run casually) | Low | Keep excluded from `npm run migrate`; document | 1 |
-| 10 | Repo clutter: `preview-*.html`, planning docs in `docs/superpowers/` | Low | Move/delete | 2 |
+| 10 | Repo clutter: `preview-*.html`, planning docs in `docs/superpowers/` | Low | **Done:** deleted (still in git history) | 2 |
 | 11 | Assessment exists only for Software Engineering | Product gap | Add assessments for other tracks or skip level for them | 3 |
 | 12 | No refund, cancel, or recurring-billing flow | Product gap | Manual refund in Paystack for pilot; Plans later | 3 |
 | 13 | No analytics/observability | Medium | Sentry + a simple admin cost dashboard (AI spend, payments) | 2 |
