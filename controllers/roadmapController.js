@@ -93,20 +93,23 @@ async function selectTrack(req, res) {
     return res.status(404).send('Track not found');
   }
 
+  const goal = typeof req.body.goal === 'string' ? req.body.goal.trim().slice(0, 200) : '';
+  const normalizedGoal = goal.toLowerCase();
+
   // Software Engineering requires assessment first
   if (track.name === 'Software Engineering') {
     const assessmentId = req.query.assessmentId ? Number.parseInt(req.query.assessmentId, 10) : req.session.assessmentId;
     if (!assessmentId) {
+      // A redirect drops the form body, so keep the typed goal in the session.
+      req.session.assessmentGoal = goal;
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
     const assessment = await assessmentModel.getLatestAssessment(userId, trackId);
     if (!assessment || assessment.id !== assessmentId) {
+      req.session.assessmentGoal = goal;
       return res.redirect(`/tracks/${trackId}/assessment`);
     }
   }
-
-  const goal = typeof req.body.goal === 'string' ? req.body.goal.trim().slice(0, 200) : '';
-  const normalizedGoal = goal.toLowerCase();
 
   // Resolve assessment context once — used for both cache-key correctness and generation
   let assessmentContext = null;
@@ -131,6 +134,7 @@ async function selectTrack(req, res) {
       const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cached.content, goal, resolvedAssessmentId, true);
       delete req.session.assessmentId;
       delete req.session.assessmentLevel;
+      delete req.session.assessmentGoal;
       return res.redirect(`/roadmaps/${newRoadmap.id}`);
     }
   }
@@ -141,6 +145,7 @@ async function selectTrack(req, res) {
 
     delete req.session.assessmentId;
     delete req.session.assessmentLevel;
+    delete req.session.assessmentGoal;
 
     res.redirect(`/roadmaps/${newRoadmap.id}`);
   } catch (err) {

@@ -35,5 +35,12 @@
       </div>
     </div>
   </main>
+  <script>
+    document.querySelector('form[action$="/select"]').addEventListener('submit', function () {
+      var btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.textContent = 'Building your roadmap… this can take up to a minute';
+    });
+  </script>
 </body>
 </html>
