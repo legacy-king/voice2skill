@@ -17,8 +17,14 @@ async function migrateSessions() {
     )
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")');
+  // The security page and "log out other devices" look sessions up by the logged-in user id, which
+  // lives inside the JSON. Without this index every such query parses every session row (the table
+  // is full of anonymous rows too). Partial: anonymous sessions are not indexed at all. The
+  // expression must match the one in models/userModel.js exactly for the planner to use it.
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_session_user ON "session" ((sess::jsonb ->> 'userId'))
+                    WHERE sess::jsonb ->> 'userId' IS NOT NULL`);
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP');
-  console.log('✓ session table + users.password_changed_at ensured.');
+  console.log('✓ session table, session user index + users.password_changed_at ensured.');
   await pool.end();
 }
 

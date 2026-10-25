@@ -1,0 +1,18 @@
+<%# Header for public pages (privacy, terms) shown to visitors who are not logged in. It prints no
+    CSRF token, so opening one of these pages never creates a session. Logged-in users get app-nav. %>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="app-nav" id="appnav">
+  <div class="app-wrap app-nav-inner">
+    <a class="app-brand" href="/" aria-label="Voice2Skill home">Voice2Skill</a>
+    <nav aria-label="Public">
+      <ul class="app-nav-links">
+        <li><a href="/privacy" class="<%= active === 'privacy' ? 'active' : '' %>" <%= active === 'privacy' ? 'aria-current="page"' : '' %>>Privacy</a></li>
+        <li><a href="/terms" class="<%= active === 'terms' ? 'active' : '' %>" <%= active === 'terms' ? 'aria-current="page"' : '' %>>Terms</a></li>
+      </ul>
+    </nav>
+    <div class="app-nav-cta">
+      <a class="app-nav-settings" href="/login">Log in</a>
+      <a class="btn btn-gold" href="/signup">Sign up free</a>
+    </div>
+  </div>
+</header>

@@ -843,6 +843,64 @@ async function main() {
     check('the secret never appears in the request log', !serverLog.includes(process.env.CRON_SECRET));
     check('request log lines are structured JSON with a request id', serverLog.split('\n').some((l) => /^\{"time":".*","level":"info","msg":"request".*"reqId":"[0-9a-f-]{36}"/.test(l)));
     mock.reset();
+
+    // ---- CPU audit (21 Oct 2026): anonymous traffic must not write, sessions are indexed and pruned ----
+    console.log('Stability: anonymous requests, session table, health, pool');
+    const sessCount = async () => (await pool.query('SELECT COUNT(*)::int n FROM "session"')).rows[0].n;
+    const bot = client();
+    const sessionsBefore = await sessCount();
+    for (const p of ['/', '/privacy', '/terms', '/robots.txt', '/health', '/nope-404']) await bot.req('GET', p);
+    check('anonymous GETs of pages without a form write no session rows', (await sessCount()) === sessionsBefore);
+    check('no session cookie is issued to a bot that only reads pages', !bot.cookie);
+    const visitor = client();
+    const visitorLogin = await visitor.req('GET', '/login');
+    check('a page with a form still gets a session and a working CSRF token', (await sessCount()) === sessionsBefore + 1 && /name="_csrf" value="[a-f0-9]{48}"/.test(visitorLogin.text));
+    check('the token submitted back is accepted (login with a wrong password reaches the app)',
+      (await visitor.req('POST', '/login', { form: { _csrf: await visitor.csrf('/login'), email: 'nobody@example.com', password: 'wrong-password-1' } })).location === '/login?error=invalid_credentials');
+    check('POST without any session is still refused (403)', (await client().req('POST', '/login', { form: { email: 'a@b.co', password: 'x' } })).status === 403);
+
+    const sessionsModule = require('../services/maintenance');
+    await pool.query(`INSERT INTO "session" (sid, sess, expire) VALUES
+      ('prune-old-anon', '{"csrfToken":"x"}', NOW() + INTERVAL '3 days'),
+      ('prune-new-anon', '{"csrfToken":"x"}', NOW() + INTERVAL '6 days 12 hours'),
+      ('prune-old-user', '{"csrfToken":"x","userId":999999}', NOW() + INTERVAL '3 days')`);
+    const pruned = await sessionsModule.pruneAnonymousSessions();
+    const left = (await pool.query("SELECT sid FROM \"session\" WHERE sid LIKE 'prune-%' ORDER BY sid")).rows.map((r) => r.sid);
+    check('housekeeping removes anonymous sessions older than a day', pruned >= 1 && !left.includes('prune-old-anon'));
+    check('housekeeping keeps recent anonymous sessions and every logged-in session', left.includes('prune-new-anon') && left.includes('prune-old-user'));
+    await pool.query("DELETE FROM \"session\" WHERE sid LIKE 'prune-%'");
+
+    const userIdx = await pool.query("SELECT indexdef FROM pg_indexes WHERE tablename = 'session' AND indexname = 'idx_session_user'");
+    check('session lookup index exists (partial, on the userId expression)', userIdx.rowCount === 1 && /WHERE/.test(userIdx.rows[0].indexdef));
+    await pool.query("INSERT INTO \"session\" (sid, sess, expire) SELECT 'bulk-' || g, '{\"csrfToken\":\"x\"}', NOW() + INTERVAL '5 days' FROM generate_series(1, 3000) g");
+    await pool.query('ANALYZE "session"');
+    await pool.query('SET enable_seqscan = off');
+    const plan = (await pool.query(`EXPLAIN SELECT sid FROM "session" WHERE sess::jsonb ->> 'userId' = '42'`)).rows.map((r) => r['QUERY PLAN']).join('\n');
+    await pool.query('RESET enable_seqscan');
+    check('the per-user session query uses idx_session_user (no scan of anonymous rows)', /idx_session_user/.test(plan), plan);
+    await pool.query("DELETE FROM \"session\" WHERE sid LIKE 'bulk-%'");
+
+    const h1 = await bot.req('GET', '/health');
+    check('/health answers {"ok":true} without a session', h1.status === 200 && JSON.parse(h1.text).ok === true && !bot.cookie);
+    const t0 = Date.now();
+    const burst = await Promise.all(Array.from({ length: 30 }, () => bot.req('GET', '/health')));
+    check('30 health checks at once all answer 200 quickly (shared, cached probe)', burst.every((r) => r.status === 200) && Date.now() - t0 < 3000);
+
+    const rosterCohorts = (await pool.query('SELECT id FROM cohorts ORDER BY id')).rows.map((r) => r.id);
+    const cm = require('../models/cohortModel');
+    const batched = await cm.getRostersByCohortIds(rosterCohorts);
+    let same = true;
+    for (const id of rosterCohorts) {
+      const one = await cm.getRoster(id);
+      if (JSON.stringify(one) !== JSON.stringify(batched.get(id))) same = false;
+    }
+    check('batched admin rosters equal the per-cohort rosters (same rows, same order)', same && rosterCohorts.length > 0);
+    check('batched rosters of no cohorts is an empty map', (await cm.getRostersByCohortIds([])).size === 0);
+
+    const dbPool = require('../config/db');
+    let threw = false;
+    try { dbPool.emit('error', new Error('simulated idle connection reset')); } catch { threw = true; }
+    check('an idle-connection error on the pool is handled, not thrown (no process crash)', !threw && dbPool.listenerCount('error') >= 1);
   } finally {
     await mock.close();
     server.kill();

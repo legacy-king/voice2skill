@@ -58,6 +58,12 @@ const cases = [
     ['Privacy Policy', 'Paystack', 'help@voice2skill.test', 'cannot see your check-in notes', 'Nigeria Data Protection Act 2023', 'Groq', 'zero data retention', 'never send your name or email address', 'We do not store your recordings', 'Read-aloud of replies happens on your device']],
   ['terms', 'terms.ejs', {},
     ['Terms of Service', 'Premium', 'does <strong>not</strong> renew automatically', 'Refunds', 'help@voice2skill.test']],
+  // Logged-out visitors get the public header (no CSRF token printed => no session row per bot hit);
+  // logged-in users keep the app header with Log out.
+  ['privacy (logged out): public header, no logout form', 'privacy.ejs', { isLoggedIn: false },
+    ['Sign up free', 'href="/login"', 'Privacy Policy']],
+  ['terms (logged in): app header', 'terms.ejs', { isLoggedIn: true },
+    ['Log out', 'name="_csrf"', 'Terms of Service']],
 
   ['login (no error)', 'login.ejs', {},
     ['Welcome back', 'Log in', 'Sign up free', '_csrf', 'Skip to content', 'noindex', 'id="main"']],
@@ -615,7 +621,86 @@ async function courseChecks() {
   ok('coach: non-string field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: { x: 1 }, insight: 'b', next_action: 'c' })));
 }
 
-courseChecks().catch((err) => { failures++; console.error('✗ course checks crashed:', err.message); }).then(() => {
+// ---- Stability: lazy CSRF token, error tracker ----
+{
+  const ok = (label, pass) => { if (pass) console.log(`✓ ${label}`); else { failures++; console.error(`✗ ${label}`); } };
+  const { csrfProtection } = require('../middleware/security');
+
+  // The token must not create a session until a view prints it.
+  const session = {};
+  const res = { locals: {} };
+  csrfProtection({ method: 'GET', session }, res, () => {});
+  ok('csrf: a request that never prints the token leaves the session untouched', session.csrfToken === undefined);
+  const printed = `${res.locals.csrfToken}`;
+  ok('csrf: printing the token creates it (48 hex chars) and stores it in the session', /^[a-f0-9]{48}$/.test(printed) && session.csrfToken === printed);
+  ok('csrf: printing again returns the same token; JSON.stringify gives the string', `${res.locals.csrfToken}` === printed && JSON.stringify(res.locals.csrfToken) === JSON.stringify(printed));
+  let nextCalled = false;
+  const sent = [];
+  csrfProtection({ method: 'POST', session: { csrfToken: 'a' }, body: { _csrf: 'a' }, get: () => undefined }, { locals: {}, status: (c) => ({ send: () => sent.push(c) }) }, () => { nextCalled = true; });
+  ok('csrf: POST with the right token passes', nextCalled && sent.length === 0);
+  csrfProtection({ method: 'POST', session: {}, body: {}, get: () => undefined }, { locals: {}, status: (c) => ({ send: () => sent.push(c) }) }, () => { nextCalled = false; });
+  ok('csrf: POST with no token is refused with 403', sent[0] === 403 && nextCalled === true);
+
+  // Graceful shutdown (what Render triggers with SIGTERM on every deploy).
+  {
+    const { createShutdown } = require('../utils/gracefulShutdown');
+    const quietLog = { info() {}, warn() {} };
+    const calls = [];
+    const server = { close(cb) { calls.push('server.close'); setImmediate(cb); }, closeIdleConnections() { calls.push('closeIdle'); } };
+    const pool = { end() { calls.push('pool.end'); return Promise.resolve(); } };
+    const exits = [];
+    const sd = createShutdown({ server, pool, stops: [() => calls.push('stop jobs'), () => { throw new Error('boom'); }, () => calls.push('stop maintenance')], log: quietLog, exit: (c) => exits.push(c), timeoutMs: 50 });
+    globalThis.__shutdownChecks = async () => {
+      sd('SIGTERM'); sd('SIGINT');
+      await new Promise((r) => setTimeout(r, 120));
+      ok('shutdown: stops timers (even if one step throws), closes server, then the pool, then exits 0',
+        calls.join() === 'stop jobs,stop maintenance,server.close,closeIdle,pool.end' && exits.join() === '0');
+      ok('shutdown: a second signal does nothing (no double close, no second exit)', calls.filter((c) => c === 'server.close').length === 1 && exits.length === 1);
+      const stuckExits = [];
+      createShutdown({ server: { close() { /* never calls back: a stuck request */ } }, pool, log: quietLog, exit: (c) => stuckExits.push(c), timeoutMs: 40 })('SIGTERM');
+      await new Promise((r) => setTimeout(r, 150));
+      ok('shutdown: a stuck request cannot keep the old instance alive (forced exit 1 after the timeout)', stuckExits.join() === '1');
+    };
+  }
+
+  // Error tracker: grouping, redaction, cooldown, rate cap, never throws.
+  const tracker = require('../utils/errorTracker');
+  const http = require('http');
+  const received = [];
+  const srv = http.createServer((rq, rs) => { let b = ''; rq.on('data', (d) => (b += d)); rq.on('end', () => { received.push(JSON.parse(b)); rs.end('ok'); }); });
+  globalThis.__errorTrackerChecks = () => new Promise((resolve) => srv.listen(0, '127.0.0.1', async () => {
+    process.env.ERROR_WEBHOOK_URL = `http://127.0.0.1:${srv.address().port}/hook`;
+    process.env.ERROR_ALERT_COOLDOWN_MS = '600000';
+    process.env.ERROR_ALERT_MAX_PER_HOUR = '3';
+    tracker.reset();
+    const boom = () => new TypeError('cannot read x of alice@example.com');
+    for (let i = 0; i < 5; i++) tracker.capture(boom(), { method: 'GET', path: '/mentor' });
+    tracker.capture(new RangeError('different'), { source: 'job course_gen' });
+    tracker.capture(new Error('third kind'));
+    tracker.capture(new SyntaxError('fourth kind (over the hourly cap)'));
+    await new Promise((r) => setTimeout(r, 400));
+    const st = tracker.stats();
+    ok('errors: repeats of one error are grouped by fingerprint and counted', st.some((e) => e.name === 'TypeError' && e.count === 5));
+    ok('errors: one alert per fingerprint per cooldown (5 identical errors => 1 alert)', received.filter((r) => /TypeError/.test(r.text)).length === 1);
+    ok('errors: alerts never contain an email address', !received.some((r) => r.text.includes('alice@example.com')) && received.some((r) => r.text.includes('[email]')));
+    ok('errors: alert names the request or job but carries no body/cookie fields', received.some((r) => r.text.includes('on GET /mentor')) && received.every((r) => Object.keys(r).sort().join() === 'content,text'));
+    ok('errors: at most ERROR_ALERT_MAX_PER_HOUR alerts are sent in total', received.length === 3);
+    process.env.ERROR_WEBHOOK_URL = 'http://127.0.0.1:1/unreachable';
+    tracker.reset();
+    let threw = false;
+    try { tracker.capture(new Error('unreachable hook')); tracker.capture(undefined); tracker.capture({ weird: true }); } catch { threw = true; }
+    ok('errors: an unreachable webhook or odd input never throws', !threw);
+    delete process.env.ERROR_WEBHOOK_URL;
+    srv.close();
+    resolve();
+  }));
+}
+
+courseChecks().catch((err) => { failures++; console.error('✗ course checks crashed:', err.message); })
+  .then(() => globalThis.__errorTrackerChecks())
+  .then(() => globalThis.__shutdownChecks())
+  .catch((err) => { failures++; console.error('✗ error tracker checks crashed:', err.message); })
+  .then(() => {
   console.log('');
   if (failures > 0) {
     console.error(`Smoke test FAILED — ${failures} case(s) failed.`);

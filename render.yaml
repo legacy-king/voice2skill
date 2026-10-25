@@ -1,0 +1,53 @@
+# Render Blueprint for Voice2Skill: a paid, always-on web service (no free-tier sleep assumptions).
+#
+# Use: Render dashboard -> New -> Blueprint -> pick this repo. For the EXISTING service, either
+# apply the same settings by hand (Settings -> Build & Deploy / Health Checks / Environment) or
+# link it to this Blueprint. Secrets are `sync: false`: Render asks for them once and a Blueprint
+# sync never overwrites a value already set in the dashboard.
+services:
+  - type: web
+    name: voice2skill
+    runtime: node
+    plan: starter            # paid instance: does not sleep, so the in-process job runner and
+                             # reminder/maintenance timers keep running. Never "free".
+    region: ohio             # same region as the Neon database (us-east-2) = low query latency
+    branch: main
+    autoDeploy: true
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    preDeployCommand: npm run migrate   # idempotent; runs before new code takes traffic, deploy
+                                        # stops if a migration fails and the old version keeps running
+    healthCheckPath: /health            # 200 only when the app AND database answer (cached 5 s)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # Starter has 512 MB. Leave headroom below it so Node garbage-collects instead of being killed.
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=384
+      - key: APP_URL
+        value: https://voice2skill.com
+      - key: PG_POOL_MAX
+        value: "10"             # one instance; Neon pooled endpoint handles the rest
+      # Secrets and per-account values: set in the dashboard (see .env.example for the full list).
+      - key: DATABASE_URL       # Neon POOLED connection string (host contains "-pooler")
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: GROQ_KEY
+        sync: false
+      - key: GEMINI_KEY
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: ERROR_WEBHOOK_URL  # optional: Slack/Discord/ntfy URL for crash and error alerts
+        sync: false

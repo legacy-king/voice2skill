@@ -80,3 +80,5 @@ CREATE TABLE IF NOT EXISTS "session" (
   CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
 );
 CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+CREATE INDEX IF NOT EXISTS idx_session_user ON "session" ((sess::jsonb ->> 'userId'))
+  WHERE sess::jsonb ->> 'userId' IS NOT NULL;

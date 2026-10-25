@@ -183,10 +183,32 @@ async function getRoster(cohortId) {
                    WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.cohort_id = $1 AND m.role = 'student'
-      ORDER BY last_checkin ASC NULLS FIRST, m.joined_at ASC`,
+      ORDER BY last_checkin ASC NULLS FIRST, m.joined_at ASC, u.id ASC`,
     [cohortId]
   );
   return rows;
+}
+
+/**
+ * Rosters for many cohorts in ONE query (admin overview). Same columns and ordering as getRoster
+ * plus cohort_id; returns a Map of cohortId -> rows. Replaces one query per cohort.
+ */
+async function getRostersByCohortIds(cohortIds) {
+  const byCohort = new Map((cohortIds || []).map((id) => [id, []]));
+  if (byCohort.size === 0) return byCohort;
+  const { rows } = await pool.query(
+    `SELECT m.cohort_id, u.id, u.name, u.email, m.status, m.access_until, m.joined_at,
+            (SELECT COUNT(*) FROM checkins c WHERE c.user_id = u.id)::int AS checkin_count,
+            (SELECT MAX(c.checkin_date) FROM checkins c WHERE c.user_id = u.id) AS last_checkin,
+            ARRAY(SELECT DISTINCT c.checkin_date FROM checkins c
+                   WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates
+       FROM memberships m JOIN users u ON u.id = m.user_id
+      WHERE m.cohort_id = ANY($1) AND m.role = 'student'
+      ORDER BY last_checkin ASC NULLS FIRST, m.joined_at ASC, u.id ASC`,
+    [[...byCohort.keys()]]
+  );
+  for (const { cohort_id: cohortId, ...row } of rows) byCohort.get(cohortId).push(row);
+  return byCohort;
 }
 
 /** Money summary for an org (all its cohorts): collected, bootcamp's share, paid out, still owed. */
@@ -217,5 +239,5 @@ async function getOrgLedger(orgId) {
 
 module.exports = {
   generateInviteCode, normalizeCode, checkCode, joinByCode, closedReason, SEATS_TAKEN_SQL, getCohort, getPremiumCohort, getOrgByOwner,
-  createCohort, updateCohort, listManagedCohorts, getRoster, getOrgLedger
+  createCohort, updateCohort, listManagedCohorts, getRoster, getRostersByCohortIds, getOrgLedger
 };

@@ -12,6 +12,7 @@
  */
 const pool = require('../config/db');
 const { log } = require('../utils/log');
+const errorTracker = require('../utils/errorTracker');
 
 const handlers = {
   course_gen: (...args) => require('./courseGenerator').runCourseJob(...args),
@@ -83,6 +84,8 @@ async function runOnce() {
         WHERE id = $1 RETURNING *`,
       [job.id, message]
     );
+    // Retries are normal; a job that has used all its attempts is worth an alert.
+    if (rows[0] && rows[0].status === 'failed') errorTracker.capture(err instanceof Error ? err : new Error(message), { source: `job ${job.kind}` });
     return rows[0];
   }
 }

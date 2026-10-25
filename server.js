@@ -18,6 +18,9 @@ const { paystackWebhook } = require('./controllers/cohortController');
 const { loadEntitlements } = require('./middleware/entitlements');
 const { securityHeaders, csrfProtection, apiCors, touchLastActive } = require('./middleware/security');
 const { log, requestContext, attachUser } = require('./utils/log');
+const errorTracker = require('./utils/errorTracker');
+const maintenance = require('./services/maintenance');
+const { createShutdown } = require('./utils/gracefulShutdown');
 
 // Never run with a forgeable session secret in production — a known constant
 // would let anyone mint session cookies and take over any account.
@@ -71,7 +74,7 @@ app.use(session({
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    maxAge: maintenance.SESSION_DAYS * 24 * 60 * 60 * 1000 // 7 days
   }
 }));
 app.use(attachUser);
@@ -106,14 +109,43 @@ app.use((err, req, res, next) => {
       : res.status(status).send('Bad request.');
   }
   log.error('unhandled error', err);
+  errorTracker.capture(err, { method: req.method, path: req.path });
   res.status(500).send('Something went wrong on our end.');
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+const server = app.listen(port, () => {
   log.info(`Server running on port ${port}`);
 });
+// Render's load balancer keeps connections idle for up to ~100 s. Node's default keep-alive (5 s)
+// closes them first, which shows up as sporadic 502s and a reconnect storm. Stay above the proxy.
+server.keepAliveTimeout = 120 * 1000;
+server.headersTimeout = 125 * 1000;
+server.requestTimeout = 10 * 60 * 1000; // per-user roadmap generation can run for minutes
 
-// Background jobs (Course Library generation, daily reminders) run in this process, one at a time.
-// Set JOBS_DISABLED=1 to keep a process out of the queue.
-require('./services/jobRunner').start();
+// Background work runs in this process: jobs (Course Library generation, daily reminders) one at a
+// time, and a slow housekeeping timer. JOBS_DISABLED=1 / MAINTENANCE_DISABLED=1 opt a process out.
+const jobRunner = require('./services/jobRunner');
+jobRunner.start();
+maintenance.start();
+
+// ---- crash handling -------------------------------------------------------------------------
+// A rejected promise nobody awaited is logged and tracked, not fatal. An uncaught exception leaves
+// the process in an unknown state: log it, give the alert a moment to leave, and exit so Render
+// restarts a clean process (rather than limping along or spinning).
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  log.error('unhandledRejection', err);
+  errorTracker.capture(err, { source: 'unhandledRejection' });
+});
+process.on('uncaughtException', (err) => {
+  log.error('uncaughtException', err);
+  errorTracker.capture(err, { source: 'uncaughtException' });
+  setTimeout(() => process.exit(1), 1500).unref();
+});
+
+// ---- graceful shutdown ----------------------------------------------------------------------
+// Render sends SIGTERM on every deploy and restart (logic and tests: utils/gracefulShutdown.js).
+const shutdown = createShutdown({ server, pool, stops: [() => jobRunner.stop(), () => maintenance.stop()], log });
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
