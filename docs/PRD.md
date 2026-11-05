@@ -268,7 +268,7 @@ Code layout: `routes/` → `controllers/` → `models/` (SQL) with `utils/` (mai
 - bcrypt (10 rounds), hashed verification/reset tokens, session fixation protection, CSRF on all state changes, security headers, `httpOnly` + `secure` + `sameSite=lax` cookies, new-device alert emails. **[Built]**
 - Payments: HMAC-SHA512 webhook signature on the raw body; amounts checked against server-side price; tutor cannot see check-in notes; AI output rendered with `textContent` (no HTML injection). **[Built, tested]**
 - Prompt-injection posture: student text is passed as data; the system prompt says so; the mentor has no tools or data access beyond the cohort syllabus.
-- **To do before launch:** privacy policy and terms (mandatory: you hold learners' personal data); a lawful-basis and retention policy under Nigeria's data-protection law (NDPA 2023, **confirm with a lawyer**); handling for under-18 students (parental consent); data-deletion path; backups (confirm Neon point-in-time restore window on the plan you use); Paystack live-mode business verification (check current requirements).
+- **To do before launch:** privacy policy and terms (mandatory: you hold learners' personal data); a lawful-basis and retention policy under Nigeria's data-protection law (NDPA 2023, **confirm with a lawyer**); handling for under-18 students (parental consent); data-deletion path **[Built: self-service on /security; payments kept, unlinked; reminder unsubscribe]**; backups (confirm Neon point-in-time restore window on the plan you use); Paystack live-mode business verification (check current requirements).
 - `.env` never in git; rotate any key that was ever shared.
 
 ---

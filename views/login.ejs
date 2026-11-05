@@ -42,6 +42,8 @@
         <div class="auth-error" role="alert">Too many wrong passwords for this account. Wait 15 minutes, or <a href="/forgot-password">reset your password</a>.</div>
       <% } else if (typeof error !== 'undefined' && error === 'not_verified') { %>
         <div class="auth-error" role="alert">Please verify your email first — check your inbox, or <a href="/verify-email">resend the link</a>.</div>
+      <% } else if (typeof error !== 'undefined' && error === 'account_deleted') { %>
+        <div class="auth-error" style="color: var(--green); border-color: rgba(143, 209, 79, 0.4); background: rgba(143, 209, 79, 0.08);" role="status">✓ Your account has been deleted. Thank you for learning with Voice2Skill.</div>
       <% } else if (typeof error !== 'undefined' && error === 'password_reset') { %>
         <div class="auth-error" style="color: var(--green); border-color: rgba(143, 209, 79, 0.4); background: rgba(143, 209, 79, 0.08);" role="status">✓ Password updated. Log in with your new password.</div>
       <% } %>

@@ -23,8 +23,16 @@
       <p>Manage the devices signed in to <strong><%= user.email %></strong> — revoke any you don't recognize.</p>
     </div>
 
-    <% if (typeof success !== 'undefined' && success) { %>
+    <% if (typeof success !== 'undefined' && success === 'reminders') { %>
+      <div class="msg-banner" role="status">✓ Reminder setting saved.</div>
+    <% } else if (typeof success !== 'undefined' && success) { %>
       <div class="msg-banner" role="status">✓ Session revoked. That device has been signed out.</div>
+    <% } else if (typeof error !== 'undefined' && error === 'delete_missing') { %>
+      <div class="auth-error" role="alert">To delete your account, enter your password and type DELETE.</div>
+    <% } else if (typeof error !== 'undefined' && error === 'delete_wrong_password') { %>
+      <div class="auth-error" role="alert">That password is not correct. Your account was not deleted.</div>
+    <% } else if (typeof error !== 'undefined' && error === 'delete_owns_org') { %>
+      <div class="auth-error" role="alert">You run a bootcamp on Voice2Skill, so we delete tutor accounts by hand to look after your students. Email <%= supportEmail %> and we'll do it.</div>
     <% } else if (typeof error !== 'undefined' && error === 'self') { %>
       <div class="auth-error" role="alert">You can't revoke the device you're currently using.</div>
     <% } else if (typeof error !== 'undefined' && error === 'missing') { %>
@@ -83,6 +91,37 @@
       <div class="dash-actions" style="margin-top: 1rem;">
         <a class="btn btn-ghost" href="/change-password">Change password</a>
       </div>
+    </div>
+
+    <div class="app-card">
+      <div class="app-card-head">
+        <h2>Email reminders</h2>
+      </div>
+      <form method="POST" action="/account/reminders">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label>
+          <input type="checkbox" name="reminders" value="on" <%= user.reminders_opt_out ? '' : 'checked' %>>
+          Send me a daily reminder on days I haven't checked in
+        </label>
+        <div class="dash-actions" style="margin-top: 1rem;">
+          <button type="submit" class="btn btn-ghost">Save</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="app-card">
+      <div class="app-card-head">
+        <h2>Delete account</h2>
+      </div>
+      <p>This permanently deletes your account, goals, plans, check-ins and mentor chats. It can't be undone. We keep payment records (amount, date, reference), no longer linked to you, for accounting and our bootcamp partners' revenue share. If you have a paid plan, its remaining time ends when you delete. If you run a bootcamp, email <%= supportEmail %> instead.</p>
+      <form class="auth-form" method="POST" action="/account/delete">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="visually-hidden" for="delete_password">Your password</label>
+        <input type="password" name="password" id="delete_password" placeholder="Your password" required autocomplete="current-password">
+        <label class="visually-hidden" for="delete_confirm">Type DELETE to confirm</label>
+        <input type="text" name="confirm" id="delete_confirm" placeholder="Type DELETE to confirm" required autocomplete="off" pattern="[Dd][Ee][Ll][Ee][Tt][Ee]">
+        <button type="submit" class="btn btn-ghost btn-danger-ghost">Delete my account</button>
+      </form>
     </div>
   </main>
   <%- include('partials/app-footer') %>

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const { rateLimiter, loginEmailLimiter, resetEmailLimiter } = require('../middleware/security');
-const { validate, onInvalid, z, text, clipped, secret, email, hexToken } = require('../middleware/validate');
+const { validate, onInvalid, z, text, clipped, secret, email, hexToken, optional } = require('../middleware/validate');
 const cohortModel = require('../models/cohortModel');
 const { naira } = require('../utils/format');
 const { log } = require('../utils/log');
@@ -47,6 +47,14 @@ router.get('/security', userController.securityPage);
 router.post('/security/revoke', rateLimiter({ max: 30 }),
   validate({ body: z.object({ sid: text(128) }) }, onInvalid.redirect('/security', {}, 'missing')),
   userController.revokeSession);
+// Account settings on the Security page. Deletion needs the password; its tight limiter keeps
+// password guesses here from being cheaper than on /login.
+router.post('/account/reminders', rateLimiter({ max: 20 }),
+  validate({ body: z.object({ reminders: optional(z.literal('on')) }) }, onInvalid.redirect('/security', {}, 'missing')),
+  userController.updateReminders);
+router.post('/account/delete', rateLimiter({ max: 5, message: 'Too many attempts. Please wait a few minutes.' }),
+  validate({ body: z.object({ password: secret(), confirm: text(20) }) }, onInvalid.redirect('/security', {}, 'delete_missing')),
+  userController.deleteAccount);
 router.get('/dashboard', userController.dashboard);
 router.get('/login', userController.loginPage);
 router.get('/signup', userController.signupPage);

@@ -14,6 +14,7 @@ const cohortRoutes = require('./routes/cohortRoutes');
 const voiceRoutes = require('./routes/voiceRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const unsubscribeRoutes = require('./routes/unsubscribeRoutes');
 const { paystackWebhook } = require('./controllers/cohortController');
 const { loadEntitlements } = require('./middleware/entitlements');
 const { securityHeaders, csrfProtection, apiCors, touchLastActive } = require('./middleware/security');
@@ -59,6 +60,9 @@ app.use((req, res, next) => {
   res.locals.supportEmail = process.env.SUPPORT_EMAIL || 'support@voice2skill.com';
   next();
 });
+// Unsubscribe links from emails: authenticated by a signed token, so before sessions/CSRF and no
+// session row for a visit (routes/unsubscribeRoutes.js).
+app.use('/', unsubscribeRoutes);
 app.use('/api', apiCors);
 app.use(session({
   secret: process.env.SESSION_SECRET || 'insecure-dev-secret-change-me',

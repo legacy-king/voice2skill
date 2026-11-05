@@ -2,7 +2,7 @@
  * Daily "don't break your streak" emails (audit finding A7), run as a background job so the cron
  * request returns at once and a slow email provider never holds a web request open.
  *
- * Who gets one: verified users with an unfinished roadmap (fewer than 56 check-ins) who are
+ * Who gets one: verified users who have not unsubscribed (users.reminders_opt_out), with an unfinished roadmap (fewer than 56 check-ins) who are
  * ACTIVE (checked in within REMINDER_ACTIVE_DAYS, default 7, or started the roadmap within that
  * time), have not checked in today, and have not already been reminded today.
  * Idempotent per user per day via email_log (claimed before sending, released if the send fails).
@@ -11,6 +11,7 @@
  */
 const pool = require('../config/db');
 const { sendReminderEmail } = require('./mailer');
+const { unsubscribeUrl } = require('../utils/unsubscribe');
 const { log } = require('../utils/log');
 
 const ACTIVE_DAYS = () => Math.max(1, Number(process.env.REMINDER_ACTIVE_DAYS) || 7);
@@ -22,6 +23,7 @@ async function findRecipients(limit) {
     `SELECT u.id, u.name, u.email
        FROM users u
       WHERE u.email_verified
+        AND NOT u.reminders_opt_out
         AND NOT EXISTS (SELECT 1 FROM checkins c WHERE c.user_id = u.id AND c.checkin_date = CURRENT_DATE)
         AND NOT EXISTS (SELECT 1 FROM email_log e WHERE e.user_id = u.id AND e.kind = 'reminder' AND e.day = CURRENT_DATE)
         AND EXISTS (
@@ -55,7 +57,7 @@ async function runReminderJob(job, { saveProgress }) {
     );
     if (!claim.rowCount) continue;
     try {
-      await sendReminderEmail(user.email, user.name);
+      await sendReminderEmail(user.email, user.name, unsubscribeUrl(user.id));
       sent++;
     } catch (err) {
       failed++;

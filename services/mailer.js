@@ -12,8 +12,8 @@ function esc(value) {
     .replace(/>/g, '&gt;');
 }
 
-/** Core sender — talks to Resend over HTTPS, not SMTP. */
-async function sendEmail(to, subject, html) {
+/** Core sender — talks to Brevo over HTTPS, not SMTP. `headers` adds custom email headers. */
+async function sendEmail(to, subject, html, headers = null) {
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -25,7 +25,8 @@ async function sendEmail(to, subject, html) {
       sender: { name: 'Voice2Skill', email: process.env.BREVO_SENDER_EMAIL },
       to: [{ email: to }],
       subject,
-      htmlContent: html
+      htmlContent: html,
+      ...(headers ? { headers } : {})
     }),
     signal: AbortSignal.timeout(15000) // never hang a request or job on the email provider
   });
@@ -38,9 +39,13 @@ async function sendEmail(to, subject, html) {
   return response.json();
 }
 
-async function sendReminderEmail(toEmail, userName) {
+/**
+ * Daily reminder. Carries a signed unsubscribe link in the body and the List-Unsubscribe headers
+ * (RFC 8058 one-click), which Gmail and Yahoo require of bulk senders.
+ */
+async function sendReminderEmail(toEmail, userName, unsubscribeUrl) {
   if (LOG_ONLY) {
-    log.info(`[mail:log] reminder to ${toEmail}`);
+    log.info(`[mail:log] reminder to ${toEmail} unsubscribe=${unsubscribeUrl ? 'yes' : 'no'}`);
     return;
   }
   await sendEmail(
@@ -51,7 +56,9 @@ async function sendReminderEmail(toEmail, userName) {
       <p>You haven't checked in today on Voice2Skill yet. Even 10 minutes of progress keeps your streak alive.</p>
       <p><a href="${APP_URL}/dashboard">Log in and check in now</a></p>
       <p>— The Voice2Skill Team</p>
-    `
+      <p style="color:#777;font-size:12px;">Don't want these reminders? <a href="${unsubscribeUrl}">Unsubscribe</a>. You can turn them back on in your Security settings.</p>
+    `,
+    { 'List-Unsubscribe': `<${unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
   );
 }
 
