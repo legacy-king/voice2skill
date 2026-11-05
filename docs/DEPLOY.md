@@ -209,7 +209,7 @@ These are the items that can cause real harm (data, money, legal, broken feature
 
 ## 7. Known limitations in this release
 
-- No unsubscribe link for reminder emails yet.
+- Reminder emails carry a signed unsubscribe link and one-click `List-Unsubscribe` headers; learners can also switch reminders off, or delete their account, on `/security`. A tutor who owns a bootcamp can't self-delete (their cohorts would be orphaned): handle those by hand. A payment that lands after its buyer deleted the account is recorded but grants nothing; the log says `PAID AFTER ACCOUNT DELETION ref=…`, so refund it in Paystack.
 - Login says "no account found" vs "wrong password" (reveals whether an email is registered). The per-email lock limits guessing.
 - Rate-limit counters are in memory: correct for one Render instance; a second instance needs a shared store first.
 - Inline `style=""` attributes are still allowed by the CSP; scripts are fully locked to our own files.

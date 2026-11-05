@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Email reminders - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%# Rendered before sessions (routes/unsubscribeRoutes.js): no CSRF token, no logged-in nav. %>
+  <%- include('partials/public-nav', { active: '' }) %>
+  <main class="app-wrap app-main" id="main">
+    <div class="app-card">
+      <% if (state === 'confirm') { %>
+        <h1>Stop daily reminders?</h1>
+        <p>You'll stop getting the daily "don't break your streak" email. Account emails (password resets, security alerts) still arrive.</p>
+        <form method="POST" action="/unsubscribe?u=<%= u %>&amp;t=<%= t %>" class="dash-actions" style="margin-top: 1rem;">
+          <button type="submit" class="btn btn-gold">Unsubscribe</button>
+        </form>
+      <% } else if (state === 'done') { %>
+        <h1>You're unsubscribed</h1>
+        <p role="status">We won't send you daily reminders any more. Changed your mind? Turn them back on in your <a href="/security">Security settings</a>.</p>
+      <% } else { %>
+        <h1>This link doesn't work</h1>
+        <p role="alert">The unsubscribe link is incomplete or has expired. Log in and turn reminders off in your <a href="/security">Security settings</a>, or email <%= supportEmail %>.</p>
+      <% } %>
+    </div>
+  </main>
+  <%- include('partials/app-footer') %>
+</body>
+</html>

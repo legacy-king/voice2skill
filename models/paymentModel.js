@@ -68,6 +68,14 @@ async function settlePayment(reference, ps) {
         WHERE id = $1`,
       [p.id, fee, orgShare]
     );
+    // The buyer deleted their account during checkout (models/accountModel.js unlinks payments).
+    // The money is real, so it is recorded for the ledger, but there is no one to give access to:
+    // refund it by hand in Paystack.
+    if (p.user_id === null) {
+      await client.query('COMMIT');
+      log.error(`[payments] PAID AFTER ACCOUNT DELETION ref=${reference}: refund in Paystack`);
+      return { ok: false, reason: 'user_deleted', payment: { ...p, status: 'success', provider_fee_kobo: fee, org_share_kobo: orgShare } };
+    }
     // Extend from the later of (now, current expiry) so renewing early never wastes paid days.
     await client.query(
       `INSERT INTO memberships (user_id, cohort_id, role, status, access_until)

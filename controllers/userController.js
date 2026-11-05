@@ -4,6 +4,7 @@ const userModel = require('../models/userModel');
 const cohortModel = require('../models/cohortModel');
 const roadmapModel = require('../models/roadmapModel');
 const trackModel = require('../models/trackModel');
+const accountModel = require('../models/accountModel');
 const { sendVerificationEmail, sendPasswordResetEmail, sendNewDeviceAlertEmail, sendSessionRevokedEmail } = require('../services/mailer');
 const { rankTracksForGoal } = require('../utils/goalMatcher');
 
@@ -373,7 +374,48 @@ async function securityPage(req, res) {
     user,
     sessions,
     error: req.query.error || null,
-    success: req.query.success === '1'
+    // '1' = a session was revoked; 'reminders' = the reminder setting was saved.
+    success: ['1', 'reminders'].includes(req.query.success) ? req.query.success : null
+  });
+}
+
+/** POST /account/reminders — turn the daily reminder email on (checkbox ticked) or off. */
+async function updateReminders(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  await accountModel.setRemindersOptOut(req.session.userId, !req.valid.body.reminders);
+  res.redirect('/security?success=reminders');
+}
+
+/**
+ * POST /account/delete — permanently delete the signed-in account. Needs the current password
+ * and the word DELETE typed out. What is removed and what is kept: models/accountModel.js.
+ */
+async function deleteAccount(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const { password, confirm } = req.valid.body;
+  if (!password || confirm.toUpperCase() !== 'DELETE') {
+    return res.redirect('/security?error=delete_missing');
+  }
+  const user = await userModel.findUserById(req.session.userId);
+  if (!user) {
+    req.session.destroy(() => res.redirect('/login'));
+    return;
+  }
+  if (!(await bcrypt.compare(password, user.password_hash))) {
+    return res.redirect('/security?error=delete_wrong_password');
+  }
+  const result = await accountModel.deleteAccount(user.id);
+  if (result === 'owns_org') {
+    return res.redirect('/security?error=delete_owns_org');
+  }
+  log.info('Account deleted', { userId: user.id });
+  req.session.destroy(() => {
+    res.clearCookie('voice2skill.sid');
+    res.redirect('/login?error=account_deleted');
   });
 }
 
@@ -475,6 +517,6 @@ module.exports = {
   verifyEmailPage, confirmEmail, resendVerification,
   forgotPasswordPage, requestPasswordReset, resetPasswordPage, resetPassword,
   changePasswordPage, changePassword,
-  securityPage, revokeSession,
+  securityPage, revokeSession, updateReminders, deleteAccount,
   loginPage, signupPage, logout
 };

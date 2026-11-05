@@ -844,6 +844,94 @@ async function main() {
     check('request log lines are structured JSON with a request id', serverLog.split('\n').some((l) => /^\{"time":".*","level":"info","msg":"request".*"reqId":"[0-9a-f-]{36}"/.test(l)));
     mock.reset();
 
+    // ---- NDPA: unsubscribe from reminders, delete your account ----
+    console.log('Account: reminder unsubscribe');
+    const { unsubscribeToken } = require('../utils/unsubscribe');
+    const { findRecipients } = require('../services/reminderService');
+    const optedOut = async (u) => (await pool.query('SELECT reminders_opt_out FROM users WHERE id = $1', [u.id])).rows[0].reminders_opt_out;
+    const isRecipient = async (u) => (await findRecipients(10000)).some((r) => r.id === u.id);
+    await pool.query("DELETE FROM email_log WHERE user_id = $1 AND kind = 'reminder'", [remi.id]); // eligible again today
+    check('an eligible learner is a reminder recipient before unsubscribing', await isRecipient(remi));
+    const unsubPath = `/unsubscribe?u=${remi.id}&t=${unsubscribeToken(remi.id)}`;
+    const mailer = client();
+    const sessionsAtStart = (await pool.query('SELECT COUNT(*)::int n FROM "session"')).rows[0].n;
+    const unsubPage = await mailer.req('GET', unsubPath);
+    check('unsubscribe link opens a confirm page (200, a POST button)', unsubPage.status === 200 && /Stop daily reminders\?/.test(unsubPage.text) && /method="POST"/.test(unsubPage.text));
+    check('opening the link (or a mail scanner prefetching it) changes nothing', (await optedOut(remi)) === false);
+    check('a forged token is refused (400)', (await mailer.req('GET', `/unsubscribe?u=${remi.id}&t=${'0'.repeat(64)}`)).status === 400);
+    check("one user's token can't unsubscribe another user", (await mailer.req('POST', `/unsubscribe?u=${oldie.id}&t=${unsubscribeToken(remi.id)}`)).status === 400
+      && (await pool.query('SELECT reminders_opt_out FROM users WHERE id = $1', [oldie.id])).rows[0].reminders_opt_out === false);
+    check('a malformed link is refused (400)', (await mailer.req('GET', '/unsubscribe?u=abc&t=xyz')).status === 400);
+    const oneClick = await mailer.req('POST', unsubPath, { form: { 'List-Unsubscribe': 'One-Click' } });
+    check('one-click POST (RFC 8058, no session, no CSRF token) unsubscribes', oneClick.status === 200 && /unsubscribed/.test(oneClick.text) && (await optedOut(remi)) === true);
+    check('unsubscribing from an email writes no session row and sets no cookie',
+      !mailer.cookie && (await pool.query('SELECT COUNT(*)::int n FROM "session"')).rows[0].n === sessionsAtStart);
+    check('an unsubscribed learner gets no reminder', !(await isRecipient(remi)));
+    check('reminder emails carry an unsubscribe link', serverLog.includes(`reminder to ${remi.email} unsubscribe=yes`));
+
+    console.log('Account: reminder toggle (logged in)');
+    check('toggle without CSRF is refused', (await remi.c.req('POST', '/account/reminders', { form: { reminders: 'on' } })).status === 403);
+    const remiTok = await remi.c.csrf('/security');
+    check('security page shows reminders off (unticked)', /name="reminders" value="on" >/.test((await remi.c.req('GET', '/security')).text));
+    const turnOn = await remi.c.req('POST', '/account/reminders', { form: { _csrf: remiTok, reminders: 'on' } });
+    check('ticking the box turns reminders back on', turnOn.location === '/security?success=reminders' && (await optedOut(remi)) === false && (await isRecipient(remi)));
+    await remi.c.req('POST', '/account/reminders', { form: { _csrf: remiTok } });
+    check('unticking turns them off', (await optedOut(remi)) === true);
+
+    console.log('Account: deletion');
+    const dana = await makeUser('dana');
+    const danaRm = (await pool.query("INSERT INTO roadmaps (user_id, track_id, goal, content) VALUES ($1, 4, 'my private goal', '{\"weeks\":[]}') RETURNING id", [dana.id])).rows[0].id;
+    const danaCi = (await pool.query("INSERT INTO checkins (user_id, roadmap_id, notes) VALUES ($1, $2, 'private note') RETURNING id", [dana.id, danaRm])).rows[0].id;
+    await pool.query("INSERT INTO coach_responses (checkin_id, acknowledgement, insight, next_action) VALUES ($1, 'a', 'b', 'c')", [danaCi]);
+    await pool.query("INSERT INTO assessments (user_id, track_id, level, score, topic_scores, answers) VALUES ($1, 4, 'foundation', 3, '{}', '[]')", [dana.id]);
+    await pool.query("INSERT INTO ai_usage (user_id, day, kind, count) VALUES ($1, CURRENT_DATE, 'stt', 1)", [dana.id]);
+    await pool.query("INSERT INTO email_log (user_id, kind, day) VALUES ($1, 'reminder', CURRENT_DATE)", [dana.id]);
+    // A Premium checkout left open: pending membership + pending payment.
+    await dana.c.req('POST', '/premium', { form: { _csrf: await dana.c.csrf('/join') } });
+    const danaRef = (await pool.query('SELECT reference FROM payments WHERE user_id = $1', [dana.id])).rows[0]?.reference;
+    check('fixture: dana has a pending payment', !!danaRef);
+    const danaPhone = client(); // a second signed-in device
+    await danaPhone.req('POST', '/login', { form: { _csrf: await danaPhone.csrf('/login'), email: dana.email, password: 'password123' } });
+
+    const delTok = await dana.c.csrf('/security');
+    check('delete without CSRF is refused', (await dana.c.req('POST', '/account/delete', { form: { password: 'password123', confirm: 'DELETE' } })).status === 403);
+    check('delete with the wrong password is refused, nothing deleted',
+      (await dana.c.req('POST', '/account/delete', { form: { _csrf: delTok, password: 'wrong-pass-1', confirm: 'DELETE' } })).location === '/security?error=delete_wrong_password'
+      && (await pool.query('SELECT 1 FROM users WHERE id = $1', [dana.id])).rowCount === 1);
+    check('delete without typing DELETE is refused',
+      (await dana.c.req('POST', '/account/delete', { form: { _csrf: delTok, password: 'password123', confirm: 'nope' } })).location === '/security?error=delete_missing');
+    const tutorTok = await tutor.c.csrf('/security');
+    check('a tutor who owns a bootcamp is sent to support, not deleted',
+      (await tutor.c.req('POST', '/account/delete', { form: { _csrf: tutorTok, password: 'password123', confirm: 'DELETE' } })).location === '/security?error=delete_owns_org'
+      && (await pool.query('SELECT 1 FROM users WHERE id = $1', [tutor.id])).rowCount === 1);
+
+    const gone = await dana.c.req('POST', '/account/delete', { form: { _csrf: delTok, password: 'password123', confirm: 'delete' } });
+    check('delete with password + DELETE (any case) succeeds', gone.location === '/login?error=account_deleted', gone.location);
+    const left1 = async (sql) => (await pool.query(sql, [dana.id])).rows[0].n;
+    check('the user row is gone', (await left1('SELECT COUNT(*)::int n FROM users WHERE id = $1')) === 0);
+    check('roadmaps, check-ins, assessments are gone',
+      (await left1('SELECT COUNT(*)::int n FROM roadmaps WHERE user_id = $1')) === 0
+      && (await left1('SELECT COUNT(*)::int n FROM checkins WHERE user_id = $1')) === 0
+      && (await left1('SELECT COUNT(*)::int n FROM assessments WHERE user_id = $1')) === 0);
+    check('coach replies are gone', (await pool.query('SELECT COUNT(*)::int n FROM coach_responses WHERE checkin_id = $1', [danaCi])).rows[0].n === 0);
+    check('memberships, AI usage and email log are gone',
+      (await left1('SELECT COUNT(*)::int n FROM memberships WHERE user_id = $1')) === 0
+      && (await left1('SELECT COUNT(*)::int n FROM ai_usage WHERE user_id = $1')) === 0
+      && (await left1('SELECT COUNT(*)::int n FROM email_log WHERE user_id = $1')) === 0);
+    check('every session of the user is gone (all devices signed out)',
+      (await pool.query(`SELECT COUNT(*)::int n FROM "session" WHERE sess::jsonb ->> 'userId' = $1`, [String(dana.id)])).rows[0].n === 0
+      && (await danaPhone.req('GET', '/dashboard')).location === '/login');
+    const keptPay = (await pool.query('SELECT user_id, status FROM payments WHERE reference = $1', [danaRef])).rows[0];
+    check('the payment row is kept for the ledger, unlinked from the user', keptPay && keptPay.user_id === null);
+    const late = await webhook(client(), { event: 'charge.success', data: { reference: danaRef, status: 'success', amount: 600000, currency: 'NGN', fees: 10000 } });
+    const latePay = (await pool.query('SELECT user_id, status FROM payments WHERE reference = $1', [danaRef])).rows[0];
+    check('a payment that lands after deletion is recorded (200, success) without crashing or granting access',
+      late.status === 200 && latePay.status === 'success' && latePay.user_id === null && serverLog.includes(`PAID AFTER ACCOUNT DELETION ref=${danaRef}`));
+    check('the old login no longer works', (await (async () => {
+      const c = client();
+      return (await c.req('POST', '/login', { form: { _csrf: await c.csrf('/login'), email: dana.email, password: 'password123' } })).location;
+    })()) === '/login?error=invalid_credentials');
+
     // ---- CPU audit (21 Oct 2026): anonymous traffic must not write, sessions are indexed and pruned ----
     console.log('Stability: anonymous requests, session table, health, pool');
     const sessCount = async () => (await pool.query('SELECT COUNT(*)::int n FROM "session"')).rows[0].n;
