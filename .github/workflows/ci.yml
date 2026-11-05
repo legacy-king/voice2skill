@@ -1,0 +1,51 @@
+# All three suites must pass before a merge (CLAUDE.md). test:cohorts needs a DISPOSABLE Postgres:
+# the service container below lives only for this job. No secrets are used: payments and AI are mocked.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17   # Neon runs Postgres 17
+        env:
+          POSTGRES_USER: v2s
+          POSTGRES_PASSWORD: v2s
+          POSTGRES_DB: v2s_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U v2s -d v2s_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://v2s:v2s@localhost:5432/v2s_test
+      DATABASE_SSL: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22   # same as render.yaml
+          cache: npm
+      - run: npm ci
+      - name: Smoke test (render, no DB)
+        run: npm test
+      - name: LLM router tests (mock providers)
+        run: npm run test:llm
+      - name: Migrate twice (migrations must be idempotent)
+        run: npm run migrate && npm run migrate
+      - name: Cohort / payment / mentor e2e
+        run: npm run test:cohorts
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
