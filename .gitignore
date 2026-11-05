@@ -1,2 +1,7 @@
 node_modules/
 .env
+# Any local env file holds secrets; only the blank template is tracked.
+.env.*
+!.env.example
+# Claude Code worktrees contain full repo copies (with node_modules).
+.claude/worktrees/

@@ -57,6 +57,13 @@ These are the items that can cause real harm (data, money, legal, broken feature
 - [ ] **Health check path: `/health`** (returns only `{"ok":true}` when the app and DB answer).
 - [ ] Optional, recommended: **Pre-Deploy Command `npm run migrate`** (paid instances). Migrations are idempotent and run before the new code goes live. Otherwise run them by hand (§3.2).
 
+### 1.6a Stability settings (added after the 21 Oct 2026 CPU audit)
+- [ ] `render.yaml` in the repo describes the intended service (Starter plan, Ohio region next to Neon, health check, pre-deploy migrate, `NODE_OPTIONS=--max-old-space-size=384`). The existing service does not read it unless you link it as a Blueprint, so set the same values in the dashboard.
+- [ ] Optional: `ERROR_WEBHOOK_URL` = a Slack/Discord/ntfy URL. Crashes, unhandled errors and jobs that exhaust their retries post one alert per error per 10 minutes (max 20 an hour). Without it, errors are still logged as JSON (`level":"error"`) in Render's logs.
+- [ ] Watch the Render **Metrics** tab (CPU, memory) for a week after the deploy. Expected on one Starter instance: CPU mostly under 10%, memory steady below ~300 MB.
+- [ ] To find a future problem fast, search the logs for `"level":"error"`, `unhandledRejection`, `uncaughtException` and `Idle database connection error` (the last one is normal now and just means a Neon connection was recycled).
+- Anonymous visitors no longer create session rows; a 6-hourly housekeeping pass deletes sessions of visitors who never logged in after `SESSION_ANON_KEEP_DAYS` (default 1). The first deploy therefore clears the existing backlog within hours.
+
 ### 1.7 Daily reminder cron (cron-job.org or similar)
 - [ ] Change the job to: `GET https://voice2skill.com/api/send-reminders` with the header **`X-Cron-Secret: <CRON_SECRET>`** (no `?key=` in the URL).
 - [ ] When that works (the response is `202 {"queued":true,…}`), set `CRON_ALLOW_QUERY_KEY=0` in Render.

@@ -31,11 +31,12 @@ async function adminHome(req, res) {
     adminModel.getOverview(), adminModel.listOrgs(), adminModel.listCohorts()
   ]);
   const now = Date.now();
-  // Pilot scale (a handful of cohorts): one roster query per cohort keeps a single at-risk rule.
-  const withStats = await Promise.all(cohorts.map(async (c) => {
-    const students = (await cohortModel.getRoster(c.id)).map((s) => annotate(s, now));
+  // One roster query for every cohort (was one per cohort). annotate() stays the single at-risk rule.
+  const rosters = await cohortModel.getRostersByCohortIds(cohorts.map((c) => c.id));
+  const withStats = cohorts.map((c) => {
+    const students = (rosters.get(c.id) || []).map((s) => annotate(s, now));
     return { ...c, ...summarise(students), codeExpired: !!c.code_expires_at && new Date(c.code_expires_at).getTime() <= now };
-  }));
+  });
   res.render('admin', { overview, orgs, cohorts: withStats, atRiskDays: AT_RISK_DAYS() });
 }
 

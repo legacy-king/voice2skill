@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="app">
-  <%- include('partials/app-nav', { active: 'terms' }) %>
+  <%- include(typeof isLoggedIn !== 'undefined' && isLoggedIn ? 'partials/app-nav' : 'partials/public-nav', { active: 'terms' }) %>
   <main class="app-wrap app-main" id="main">
     <div class="app-card">
       <h1>Terms of Service</h1>

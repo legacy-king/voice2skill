@@ -32,6 +32,13 @@ Read `docs/PRD.md` (product, tiers, costs, architecture, roadmap) and `docs/COHO
 - Any change to what data we collect, who sees it, payments, pricing, refunds or AI use must update `views/privacy.ejs` and `views/terms.ejs` in the same change, and bump their "Last updated" date. Legal text changes need founder (and ideally lawyer) sign-off.
 - Student text (goals, check-ins, mentor chat) and tutor syllabi go only to providers marked `studentText` in `config/llm.js`: Groq with Zero Data Retention, Gemini **paid** tier (the privacy policy names exactly these). Never a free tier that trains on prompts. Adding a provider means updating `views/privacy.ejs`.
 
+## Keeping the instance cheap and alive (CPU audit, 21 Oct 2026)
+- Anonymous requests must not write. A page that prints `<%= csrfToken %>` creates a session (the token is lazy); public pages (landing, privacy, terms) use no token for logged-out visitors, so bots cannot fill the session table. Never touch `req.session` on a route anonymous visitors hit unless a form needs it.
+- No unbounded work: every timer is `unref()`'d and does a bounded batch; every loop has a cap; every outbound call has a timeout; AI calls never retry inside the SDK (`maxRetries: 0`) and fail over at most once per provider.
+- Queries over `"session"` filter on `sess::jsonb ->> 'userId'` exactly as written so `idx_session_user` is used; new hot queries get an index in `db/perf.sql` (idempotent) and a check that they use it.
+- No query per row: batch with `ANY($1)` (see `cohortModel.getRostersByCohortIds`).
+- Anything that can crash the process (idle pool errors, unhandled rejections) is handled and reported through `utils/errorTracker.js`; shutdown goes through `utils/gracefulShutdown.js`.
+
 ## Security procedure for every change
 - New state-changing route: POST only, CSRF token (form field or `X-CSRF-Token`), a `rateLimiter`, a zod schema via `validate()` (`middleware/validate.js`; the controller reads only `req.valid`), auth check, and an ownership/role check (`canManageCohort`, roadmap owner, etc.).
 - New money path: price from the DB, settlement only via `settlePayment`, and e2e tests (replay, wrong amount, wrong user) in `scripts/cohort-test.js`.

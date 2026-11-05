@@ -13,6 +13,7 @@ function loadEntitlements() {
   return async function loadEntitlementsMiddleware(req, res, next) {
     res.locals.naira = naira;
     res.locals.ent = { hasMentor: false, hasPremium: false, isTeacher: false, isAdmin: false };
+    res.locals.isLoggedIn = !!(req.session && req.session.userId);
     if (!req.session || !req.session.userId) return next();
     try {
       const cached = req.session.ent;

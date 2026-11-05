@@ -78,11 +78,19 @@ function apiCors(req, res, next) {
 
 /** Session-based CSRF protection. Must run after express-session. */
 function csrfProtection(req, res, next) {
-  // Lazily create the token once per session.
-  if (!req.session.csrfToken) {
-    req.session.csrfToken = crypto.randomBytes(24).toString('hex');
-  }
-  res.locals.csrfToken = req.session.csrfToken;
+  // The token is created only when a view actually prints it (a page with a form). Creating it up
+  // front made EVERY anonymous request (bots, crawlers, uptime pings, the landing page) save a new
+  // session row: ~5,000 rows in six days on a site with 11 users. express-session stores a session
+  // only when it is modified, so a page that never prints the token now writes nothing.
+  // The object stringifies to the token in EJS (`<%= csrfToken %>`) and in JSON.stringify.
+  const lazyToken = {
+    toString() {
+      if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(24).toString('hex');
+      return req.session.csrfToken;
+    }
+  };
+  lazyToken.toJSON = lazyToken.valueOf = lazyToken.toString;
+  res.locals.csrfToken = lazyToken;
 
   if (SAFE_METHODS.has(req.method)) {
     return next();
