@@ -67,6 +67,7 @@
       <div class="progress-meta">
         <span><%= checkins.length %> check-ins completed</span>
         <span><%= totalDays - checkins.length %> days to go</span>
+        <% if (locals.quizScore && quizScore.total) { %><span>Quiz: <%= quizScore.correct %> of <%= quizScore.total %> got it</span><% } %>
       </div>
     </div>
 

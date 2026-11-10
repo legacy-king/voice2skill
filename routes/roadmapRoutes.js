@@ -15,5 +15,11 @@ router.post('/tracks/:trackId/select', rateLimiter({ max: 30 }),
   roadmapController.selectTrack);
 router.get('/roadmaps/:id', validate({ params: z.object({ id: id() }) }, onInvalid.notFound), roadmapController.getRoadmap);
 router.get('/roadmaps/:id/days/:day', validate({ params: z.object({ id: id(), day: id() }) }, onInvalid.notFound), roadmapController.getDay);
+router.post('/roadmaps/:id/days/:day/quiz/:q', rateLimiter({ max: 60 }),
+  validate({
+    params: z.object({ id: id(), day: id(), q: id() }),
+    body: z.object({ answer: clipped(1000), correct: z.enum(['0', '1']) })
+  }, onInvalid.badRequest),
+  roadmapController.answerQuiz);
 
 module.exports = router;

@@ -439,6 +439,26 @@ async function main() {
     check('days not reached yet stay locked (404)', (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/3`)).status === 404
       && (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/0`)).status === 404);
     check("another learner can't open someone's lessons", (await alice.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`)).status === 404);
+
+    console.log('Quiz self-check');
+    const quizUrl = (day, q) => `/roadmaps/${libRoadmapId}/days/${day}/quiz/${q}`;
+    check("today's quiz has an answer form", day2Page.text.includes(`action="${quizUrl(2, 0)}"`));
+    check('quiz answer without CSRF is refused', (await daUser.c.req('POST', quizUrl(2, 0), { form: { answer: 'x', correct: '1' } })).status === 403);
+    const qa = await daUser.c.req('POST', quizUrl(2, 0), { form: { _csrf: dt0, answer: 'Closures keep <scope>', correct: '1' } });
+    check("answering today's question returns to the roadmap", qa.location === `/roadmaps/${libRoadmapId}`, qa.location);
+    const afterQuiz = (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text;
+    check('the answer, the model answer and the mark are shown (escaped)', afterQuiz.includes('Closures keep &lt;scope&gt;') && /You marked this: got it/.test(afterQuiz) && afterQuiz.includes('Today&#39;s concept.'));
+    check('quiz score on the progress card', /Quiz: 1 of 1 got it/.test(afterQuiz));
+    const qb = await daUser.c.req('POST', quizUrl(1, 0), { form: { _csrf: dt0, answer: 'not sure', correct: '0' } });
+    check('a past day can be answered too (returns to that day)', qb.location === `/roadmaps/${libRoadmapId}/days/1`
+      && /You marked this: not yet/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`)).text));
+    await daUser.c.req('POST', quizUrl(1, 0), { form: { _csrf: dt0, answer: 'now I know', correct: '1' } });
+    check('answering again replaces the earlier answer', /Quiz: 2 of 2 got it/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    check('locked days, unknown questions and empty answers are refused',
+      (await daUser.c.req('POST', quizUrl(3, 0), { form: { _csrf: dt0, answer: 'a', correct: '1' } })).status === 404
+      && (await daUser.c.req('POST', quizUrl(2, 5), { form: { _csrf: dt0, answer: 'a', correct: '1' } })).status === 404
+      && (await daUser.c.req('POST', quizUrl(2, 0), { form: { _csrf: dt0, answer: '  ', correct: '1' } })).status === 400);
+    check("another learner can't answer someone's quiz", (await alice.c.req('POST', quizUrl(2, 0), { form: { _csrf: await alice.c.csrf('/join'), answer: 'a', correct: '1' } })).status === 404);
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
     const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });

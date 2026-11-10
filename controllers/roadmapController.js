@@ -4,6 +4,7 @@ const checkinModel = require('../models/checkinModel');
 const assessmentModel = require('../models/assessmentModel');
 const coachResponseModel = require('../models/coachResponseModel');
 const courseModel = require('../models/courseModel');
+const learningModel = require('../models/learningModel');
 const { calculateStreak } = require('../utils/streak');
 const { goalToSearchPhrase } = require('../utils/goalMatcher');
 const llm = require('../services/llm');
@@ -246,36 +247,69 @@ async function getRoadmap(req, res) {
     isComplete,
     videoSearchPhrase,
     libraryIntro: roadmap.course_version_id ? libraryIntro(track ? track.name : null, roadmap.goal) : null,
-    earlierDays: allDays.slice(0, Math.min(checkins.length, totalDays))
+    earlierDays: allDays.slice(0, Math.min(checkins.length, totalDays)),
+    quizAnswers: todayTask ? await learningModel.getQuizAnswers(roadmap.id, currentDayNumber) : {},
+    quizAction: `/roadmaps/${roadmap.id}/days/${currentDayNumber}/quiz`,
+    quizScore: await learningModel.getQuizScore(roadmap.id)
   });
 }
 
-/** GET /roadmaps/:id/days/:day — reopen a day already reached (1 to today). Later days stay locked. */
+/**
+ * The signed-in learner's roadmap and one day they have reached (1 to today; later days stay
+ * locked). Null when the roadmap isn't theirs or the day isn't open: callers answer 404.
+ */
+async function loadReachedDay(req) {
+  const { id: roadmapId, day: dayNumber } = req.valid.params;
+  const roadmap = await roadmapModel.getRoadmapById(roadmapId);
+  if (!roadmap || roadmap.user_id !== req.session.userId) return null;
+  const checkins = await checkinModel.getCheckinsByRoadmap(req.session.userId, roadmapId);
+  const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
+  const lastOpenDay = Math.min(checkins.length + 1, allDays.length);
+  if (dayNumber < 1 || dayNumber > lastOpenDay) return null;
+  return { roadmap, day: allDays[dayNumber - 1], dayNumber, lastOpenDay, isComplete: checkins.length >= allDays.length };
+}
+
+/** GET /roadmaps/:id/days/:day — reopen a day already reached. */
 async function getDay(req, res) {
   if (!req.session.userId) {
     return res.redirect('/login');
   }
-  const { id: roadmapId, day: dayNumber } = req.valid.params;
-  const roadmap = await roadmapModel.getRoadmapById(roadmapId);
-  if (!roadmap || roadmap.user_id !== req.session.userId) {
-    return res.status(404).send('Roadmap not found');
-  }
-  const checkins = await checkinModel.getCheckinsByRoadmap(req.session.userId, roadmapId);
-  const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
-  const lastOpenDay = Math.min(checkins.length + 1, allDays.length);
-  if (dayNumber < 1 || dayNumber > lastOpenDay) {
+  const found = await loadReachedDay(req);
+  if (!found) {
     return res.status(404).send('Page not found');
   }
+  const { roadmap, day, dayNumber, lastOpenDay } = found;
   const track = await trackModel.getTrackById(roadmap.track_id);
-  const day = allDays[dayNumber - 1];
   res.render('day', {
     roadmap,
     trackName: track ? track.name : null,
     day,
     dayNumber,
     lastOpenDay,
+    quizAnswers: await learningModel.getQuizAnswers(roadmap.id, dayNumber),
+    quizAction: `/roadmaps/${roadmap.id}/days/${dayNumber}/quiz`,
     videoSearchPhrase: [goalToSearchPhrase(roadmap.goal), day.video_search_term].filter(Boolean).join(' ')
   });
 }
 
-module.exports = { generateRoadmapContent, selectTrack, getRoadmap, getDay, libraryIntro };
+/** POST /roadmaps/:id/days/:day/quiz/:q — save the learner's answer and their own got-it/not-yet mark. */
+async function answerQuiz(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const found = await loadReachedDay(req);
+  const { q } = req.valid.params;
+  if (!found || !Array.isArray(found.day.quiz) || !found.day.quiz[q]) {
+    return res.status(404).send('Page not found');
+  }
+  const { answer, correct } = req.valid.body;
+  if (!answer) {
+    return res.status(400).send('Type your answer first.');
+  }
+  await learningModel.saveQuizAnswer(found.roadmap.id, found.dayNumber, q, answer, correct === '1');
+  // Today's question lives on the roadmap page; a past day's on its own page.
+  const isToday = found.dayNumber === found.lastOpenDay && !found.isComplete;
+  res.redirect(isToday ? `/roadmaps/${found.roadmap.id}` : `/roadmaps/${found.roadmap.id}/days/${found.dayNumber}`);
+}
+
+module.exports = { generateRoadmapContent, selectTrack, getRoadmap, getDay, answerQuiz, libraryIntro };

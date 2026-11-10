@@ -21,11 +21,34 @@
         <% if (day.quiz && day.quiz.length > 0) { %>
           <div class="quiz-box">
             <h4>Quick check</h4>
-            <% day.quiz.forEach(q => { %>
-              <details class="quiz-item">
-                <summary><%= q.question %></summary>
-                <p class="quiz-answer"><%= q.answer %></p>
-              </details>
+            <% day.quiz.forEach((q, qi) => { const saved = (locals.quizAnswers || {})[qi]; %>
+              <% if (saved) { %>
+                <div class="quiz-item">
+                  <p><b><%= q.question %></b></p>
+                  <p>Your answer: <%= saved.answer %></p>
+                  <p class="quiz-answer">Model answer: <%= q.answer %></p>
+                  <p><%= saved.correct ? '✓ You marked this: got it' : '✗ You marked this: not yet. Worth another look.' %></p>
+                </div>
+              <% } else if (locals.quizAction) { %>
+                <form class="quiz-item checkin-form" method="POST" action="<%= quizAction %>/<%= qi %>">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <label for="quiz-<%= qi %>"><b><%= q.question %></b></label>
+                  <textarea name="answer" id="quiz-<%= qi %>" placeholder="Your answer" required maxlength="1000"></textarea>
+                  <details>
+                    <summary>Show the model answer</summary>
+                    <p class="quiz-answer"><%= q.answer %></p>
+                  </details>
+                  <div class="form-actions">
+                    <button type="submit" name="correct" value="1" class="btn btn-gold">I got it</button>
+                    <button type="submit" name="correct" value="0" class="btn btn-ghost">Not yet</button>
+                  </div>
+                </form>
+              <% } else { %>
+                <details class="quiz-item">
+                  <summary><%= q.question %></summary>
+                  <p class="quiz-answer"><%= q.answer %></p>
+                </details>
+              <% } %>
             <% }) %>
           </div>
         <% } %>
