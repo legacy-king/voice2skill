@@ -24,6 +24,7 @@ process.env.CORS_ORIGINS = 'https://app.voice2skill.test';
 process.env.JOB_POLL_MS = '300';
 process.env.STT_DAILY_LIMIT_FREE = '4';
 process.env.STT_DAILY_LIMIT_PAID = '6';
+process.env.PROJECT_FEEDBACK_MONTHLY_LIMIT = '2';
 process.env.NODE_ENV = 'test';
 process.env.COURSE_MOCK = '1';
 // Never call a real LLM from tests, even if .env has keys (dotenv won't override set vars). The
@@ -459,6 +460,55 @@ async function main() {
       && (await daUser.c.req('POST', quizUrl(2, 5), { form: { _csrf: dt0, answer: 'a', correct: '1' } })).status === 404
       && (await daUser.c.req('POST', quizUrl(2, 0), { form: { _csrf: dt0, answer: '  ', correct: '1' } })).status === 400);
     check("another learner can't answer someone's quiz", (await alice.c.req('POST', quizUrl(2, 0), { form: { _csrf: await alice.c.csrf('/join'), answer: 'a', correct: '1' } })).status === 404);
+
+    console.log('Weekly project');
+    const projUrl = (rid, day) => `/roadmaps/${rid}/days/${day}/project`;
+    const aiCalls = () => mock.requests.filter((r) => r.kind !== 'audio').length;
+    check("the week's project has a submit form", day2Page.text.includes(`action="${projUrl(libRoadmapId, 2)}"`));
+    check('only http(s) links are accepted', (await daUser.c.req('POST', projUrl(libRoadmapId, 2), { form: { _csrf: dt0, url: 'javascript:alert(1)', note: 'x' } })).status === 400);
+    const callsBeforeFree = aiCalls();
+    const freeSub = await daUser.c.req('POST', projUrl(libRoadmapId, 2), { form: { _csrf: dt0, url: 'https://github.com/me/shop-sales', note: 'Sales <dashboard>' } });
+    const freeView = (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text;
+    check('free learner: project saved and shown, escaped, no AI call', freeSub.status === 302 && aiCalls() === callsBeforeFree
+      && freeView.includes('href="https://github.com/me/shop-sales"') && freeView.includes('Sales &lt;dashboard&gt;') && /AI feedback comes with Premium/.test(freeView));
+
+    const proj = await makeUser('projpaid');
+    const projPay = await proj.c.req('POST', '/premium', { form: { _csrf: await proj.c.csrf('/join') } });
+    await proj.c.req('GET', new URL(projPay.location).pathname + new URL(projPay.location).search);
+    const projSel = await proj.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: await proj.c.csrf('/join') } });
+    const projRm = Number((projSel.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    const pt0 = await proj.c.csrf(`/roadmaps/${projRm}`);
+    mock.reset();
+    const paidSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1', note: 'I built the week 1 project' } });
+    const sent = mock.requests[mock.requests.length - 1];
+    const sys = sent && sent.body.messages[0].content;
+    const usr = sent && sent.body.messages[sent.body.messages.length - 1].content;
+    check('premium learner: one AI call, feedback saved and shown', paidSub.status === 302 && mock.requests.length === 1
+      && /\[mock mentor\]/.test((await proj.c.req('GET', `/roadmaps/${projRm}`)).text));
+    check("the learner's link and note go in the user turn, never the system prompt", /I built the week 1 project/.test(usr || '') && /github\.com\/me\/w1/.test(usr || '')
+      && !/I built the week 1 project/.test(sys || '') && !/github\.com/.test(sys || ''));
+    check('feedback uses the project budget (ai_usage kind project)', (await pool.query("SELECT COALESCE(SUM(count), 0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'project'", [proj.id])).rows[0].n === 1);
+    await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1', note: 'I built the week 1 project' } });
+    check('submitting the same thing again costs nothing (no new AI call)', mock.requests.length === 1);
+    const usedProject = async () => (await pool.query("SELECT COALESCE(SUM(count), 0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'project'", [proj.id])).rows[0].n;
+    mock.setMode('groq', '503'); mock.setMode('gemini', '503');
+    const failSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v2', note: 'v2' } });
+    check('AI down: project still saved, budget refunded, learner told', /project=ai_failed/.test(failSub.location || '') && (await usedProject()) === 1
+      && (await pool.query('SELECT url FROM project_submissions WHERE roadmap_id = $1', [projRm])).rows[0].url === 'https://github.com/me/w1-v2');
+    mock.reset();
+    await Promise.all([1, 2].map(() => proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v3', note: 'v3' } })));
+    check('a changed project gets new feedback once, even on a double tap', mock.requests.length === 1 && (await usedProject()) === 2);
+    mock.reset();
+    const limitSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v4', note: 'v4' } });
+    check('monthly cap (PROJECT_FEEDBACK_MONTHLY_LIMIT=2): no AI call, budget not spent, learner told', /project=limit/.test(limitSub.location || '') && mock.requests.length === 0 && (await usedProject()) === 2);
+    check("another learner can't submit to someone's plan", (await daUser.c.req('POST', projUrl(projRm, 1), { form: { _csrf: dt0, url: 'https://x.dev', note: 'x' } })).status === 404);
+
+    const aliceSel = await alice.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: await alice.c.csrf('/join') } });
+    const aliceRm = Number((aliceSel.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    await alice.c.req('POST', projUrl(aliceRm, 1), { form: { _csrf: await alice.c.csrf('/join'), url: 'https://github.com/alice/w1', note: 'private note to self' } });
+    const tutorRoster = (await tutor.c.req('GET', `/teacher/cohorts/${cohortId}`)).text;
+    check('tutor sees projects submitted and the latest link, never the note or feedback', tutorRoster.includes('href="https://github.com/alice/w1"')
+      && !tutorRoster.includes('private note to self') && !tutorRoster.includes('[mock mentor]'));
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
     const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });

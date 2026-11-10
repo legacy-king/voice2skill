@@ -60,6 +60,7 @@ function canUse(state, feature) {
     // Every AI feature is paid: Premium or an active bootcamp membership.
     case 'mentor_chat':
     case 'ai_coach':
+    case 'project_feedback':
       return !!state.mentorMembership;
     // Voice input is the product's name: every signed-in user gets it (PLAN D2). The daily cap
     // differs by tier (controllers/voiceController.js).

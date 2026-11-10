@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const roadmapController = require('../controllers/roadmapController');
 const { rateLimiter } = require('../middleware/security');
-const { validate, onInvalid, z, clipped, id, optional } = require('../middleware/validate');
+const { validate, onInvalid, z, text, clipped, id, optional } = require('../middleware/validate');
 
 // POST (not GET): creating a roadmap has a side effect, so it must be
 // CSRF-protected and never triggered by a prefetch or a stray link click.
@@ -21,5 +21,11 @@ router.post('/roadmaps/:id/days/:day/quiz/:q', rateLimiter({ max: 60 }),
     body: z.object({ answer: clipped(1000), correct: z.enum(['0', '1']) })
   }, onInvalid.badRequest),
   roadmapController.answerQuiz);
+router.post('/roadmaps/:id/days/:day/project', rateLimiter({ max: 20 }),
+  validate({
+    params: z.object({ id: id(), day: id() }),
+    body: z.object({ url: text(500), note: clipped(1000) })
+  }, onInvalid.badRequest),
+  roadmapController.submitProject);
 
 module.exports = router;

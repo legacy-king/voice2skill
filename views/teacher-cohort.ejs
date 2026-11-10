@@ -28,7 +28,7 @@
       <% if (students.length === 0) { %><p class="co-muted">Nobody has joined yet. Send them the code.</p><% } else { %>
       <div class="co-table-wrap">
         <table class="co-table">
-          <thead><tr><th>Student</th><th>Status</th><th>Check-ins</th><th>Streak</th><th>Progress</th><th>Last check-in</th></tr></thead>
+          <thead><tr><th>Student</th><th>Status</th><th>Check-ins</th><th>Streak</th><th>Progress</th><th>Projects</th><th>Last check-in</th></tr></thead>
           <tbody>
             <% students.forEach(function (s) { %>
               <tr class="<%= s.atRisk ? 'co-row-stuck' : '' %>">
@@ -41,6 +41,7 @@
                 <td><%= s.checkin_count %></td>
                 <td><%= s.streak %> day<%= s.streak === 1 ? '' : 's' %></td>
                 <td><div class="co-bar" aria-label="<%= s.progressPct %>% of the 8-week roadmap"><span style="width: <%= s.progressPct %>%"></span></div></td>
+                <td><%= s.projects_submitted %><% if (s.latest_project_url) { %> · <a href="<%= s.latest_project_url %>" target="_blank" rel="noopener nofollow ugc">latest</a><% } %></td>
                 <td>
                   <% if (s.daysSince === null) { %><span class="co-muted">never</span>
                   <% } else if (s.daysSince === 0) { %>today

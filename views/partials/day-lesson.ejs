@@ -71,11 +71,36 @@
         </div>
       <% } %>
 
-      <% if (day.week_project) { %>
-        <div class="app-card">
+      <% if (day.week_project) { const sub = locals.project;
+           const notices = { limit: "Your project is saved. You've used this month's AI project feedback.", ai_failed: "Your project is saved, but feedback couldn't be written right now. Submit again in a few minutes." }; %>
+        <div class="app-card" id="project">
           <div class="app-card-head">
             <h2>This week's project</h2>
           </div>
           <p><%= day.week_project %></p>
+          <% if (notices[locals.projectNotice]) { %><div class="msg-banner" role="status"><%= notices[projectNotice] %></div><% } %>
+          <% if (sub) { %>
+            <p>Submitted: <a href="<%= sub.url %>" target="_blank" rel="noopener nofollow ugc"><%= sub.url %></a></p>
+            <% if (sub.note) { %><p class="h-notes"><%= sub.note %></p><% } %>
+            <% if (sub.feedback) { %>
+              <div class="lesson-box">
+                <h4>AI feedback</h4>
+                <% sub.feedback.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
+              </div>
+            <% } %>
+          <% } %>
+          <% if (locals.projectAction) { %>
+            <form class="checkin-form" method="POST" action="<%= projectAction %>" data-once>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <label for="project-url">Link to your project (GitHub, Figma, Google Doc…)</label>
+              <input type="url" name="url" id="project-url" required maxlength="500" placeholder="https://" value="<%= sub ? sub.url : '' %>">
+              <label for="project-note">What did you build? What was hard?</label>
+              <textarea name="note" id="project-note" maxlength="1000"><%= sub ? sub.note : '' %></textarea>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-gold"><%= sub ? 'Update project' : 'Submit project' %></button>
+              </div>
+              <% if (!(locals.ent && ent.hasMentor)) { %><p class="empty-note">AI feedback comes with Premium or a bootcamp plan.</p><% } %>
+            </form>
+          <% } %>
         </div>
       <% } %>

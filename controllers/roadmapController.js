@@ -5,6 +5,9 @@ const assessmentModel = require('../models/assessmentModel');
 const coachResponseModel = require('../models/coachResponseModel');
 const courseModel = require('../models/courseModel');
 const learningModel = require('../models/learningModel');
+const usageModel = require('../models/usageModel');
+const { loadState, canUse } = require('../services/entitlements');
+const { generateProjectFeedback } = require('../services/projectFeedback');
 const { calculateStreak } = require('../utils/streak');
 const { goalToSearchPhrase } = require('../utils/goalMatcher');
 const llm = require('../services/llm');
@@ -250,7 +253,10 @@ async function getRoadmap(req, res) {
     earlierDays: allDays.slice(0, Math.min(checkins.length, totalDays)),
     quizAnswers: todayTask ? await learningModel.getQuizAnswers(roadmap.id, currentDayNumber) : {},
     quizAction: `/roadmaps/${roadmap.id}/days/${currentDayNumber}/quiz`,
-    quizScore: await learningModel.getQuizScore(roadmap.id)
+    quizScore: await learningModel.getQuizScore(roadmap.id),
+    project: todayTask ? await learningModel.getProject(roadmap.id, todayTask.week_number) : null,
+    projectAction: `/roadmaps/${roadmap.id}/days/${currentDayNumber}/project`,
+    projectNotice: req.query.project
   });
 }
 
@@ -288,6 +294,9 @@ async function getDay(req, res) {
     lastOpenDay,
     quizAnswers: await learningModel.getQuizAnswers(roadmap.id, dayNumber),
     quizAction: `/roadmaps/${roadmap.id}/days/${dayNumber}/quiz`,
+    project: await learningModel.getProject(roadmap.id, day.week_number),
+    projectAction: `/roadmaps/${roadmap.id}/days/${dayNumber}/project`,
+    projectNotice: req.query.project,
     videoSearchPhrase: [goalToSearchPhrase(roadmap.goal), day.video_search_term].filter(Boolean).join(' ')
   });
 }
@@ -312,4 +321,58 @@ async function answerQuiz(req, res) {
   res.redirect(isToday ? `/roadmaps/${found.roadmap.id}` : `/roadmaps/${found.roadmap.id}/days/${found.dayNumber}`);
 }
 
-module.exports = { generateRoadmapContent, selectTrack, getRoadmap, getDay, answerQuiz, libraryIntro };
+const PROJECT_LIMIT = () => Number(process.env.PROJECT_FEEDBACK_MONTHLY_LIMIT) || 4;
+const isHttpUrl = (u) => { try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; } };
+
+/**
+ * POST /roadmaps/:id/days/:day/project — save the week's project (any plan). Paid plans get AI
+ * feedback, capped per month (ai_usage kind 'project'). Re-sending the same project costs nothing.
+ */
+async function submitProject(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const found = await loadReachedDay(req);
+  if (!found || !found.day.week_project) {
+    return res.status(404).send('Page not found');
+  }
+  const { url, note } = req.valid.body;
+  if (!isHttpUrl(url)) {
+    return res.status(400).send('Enter a link that starts with https://');
+  }
+  const { roadmap, day } = found;
+  await learningModel.submitProject(roadmap.id, day.week_number, url, note);
+  let notice = null;
+  if (canUse(await loadState(req.session.userId), 'project_feedback')) {
+    const claim = await learningModel.claimFeedback(roadmap.id, day.week_number);
+    if (claim) notice = await writeProjectFeedback(req.session.userId, roadmap, day, claim);
+  }
+  const isToday = found.dayNumber === found.lastOpenDay && !found.isComplete;
+  const back = isToday ? `/roadmaps/${roadmap.id}` : `/roadmaps/${roadmap.id}/days/${found.dayNumber}`;
+  res.redirect(notice ? `${back}?project=${notice}` : back);
+}
+
+/** Reserve budget, ask the AI, save. Returns null on success, or 'limit' / 'ai_failed'. */
+async function writeProjectFeedback(userId, roadmap, day, claim) {
+  await usageModel.bumpUsage(userId, 'project');
+  if ((await usageModel.getUsage(userId, 'project')).month > PROJECT_LIMIT()) {
+    await usageModel.refundUsage(userId, 'project');
+    await learningModel.releaseFeedback(roadmap.id, day.week_number);
+    return 'limit';
+  }
+  try {
+    const track = await trackModel.getTrackById(roadmap.track_id);
+    const feedback = await generateProjectFeedback({
+      trackName: track ? track.name : null, weekNumber: day.week_number, brief: day.week_project, url: claim.url, note: claim.note, userId
+    });
+    await learningModel.saveFeedback(roadmap.id, day.week_number, claim.version, feedback);
+    return null;
+  } catch (err) {
+    log.error('Project feedback failed:', err.message);
+    await usageModel.refundUsage(userId, 'project');
+    await learningModel.releaseFeedback(roadmap.id, day.week_number);
+    return 'ai_failed';
+  }
+}
+
+module.exports = { generateRoadmapContent, selectTrack, getRoadmap, getDay, answerQuiz, submitProject, libraryIntro };

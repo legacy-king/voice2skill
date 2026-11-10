@@ -167,6 +167,7 @@ These are the items that can cause real harm (data, money, legal, broken feature
 | `LLM_TIMEOUT_MS` | no | 20000 | Per attempt, chat tasks. `LLM_TIMEOUT_<TASK>_MS`, `LLM_MAX_TOKENS_<TASK>` per task. |
 | `MENTOR_DAILY_LIMIT` | no | 40 | Bootcamp students per day. |
 | `PREMIUM_DAILY_LIMIT` | no | 10 | Premium per day. |
+| `PROJECT_FEEDBACK_MONTHLY_LIMIT` | no | 4 | AI feedback on weekly projects per learner per month (paid plans). |
 | `MENTOR_MONTHLY_LIMIT` | no | 300 | Shared monthly cap (profit guardrail, PRD 5.4). |
 | `STT_DAILY_LIMIT_FREE` / `_PAID` | no | 20 / 60 | Voice clips per user per day. |
 | `STT_MAX_BYTES` | no | 3145728 | Max upload (~60 s of audio). |
