@@ -27,8 +27,8 @@ function summarise(students) {
 
 async function adminHome(req, res) {
   if (!(await requireAdmin(req, res))) return;
-  const [overview, orgs, cohorts] = await Promise.all([
-    adminModel.getOverview(), adminModel.listOrgs(), adminModel.listCohorts()
+  const [overview, funnel, orgs, cohorts] = await Promise.all([
+    adminModel.getOverview(), adminModel.getFunnel(), adminModel.listOrgs(), adminModel.listCohorts()
   ]);
   const now = Date.now();
   // One roster query for every cohort (was one per cohort). annotate() stays the single at-risk rule.
@@ -37,7 +37,7 @@ async function adminHome(req, res) {
     const students = (rosters.get(c.id) || []).map((s) => annotate(s, now));
     return { ...c, ...summarise(students), codeExpired: !!c.code_expires_at && new Date(c.code_expires_at).getTime() <= now };
   });
-  res.render('admin', { overview, orgs, cohorts: withStats, atRiskDays: AT_RISK_DAYS() });
+  res.render('admin', { overview, funnel, orgs, cohorts: withStats, atRiskDays: AT_RISK_DAYS() });
 }
 
 async function adminCohort(req, res) {

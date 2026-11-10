@@ -867,6 +867,29 @@ async function main() {
     check('request log lines are structured JSON with a request id', serverLog.split('\n').some((l) => /^\{"time":".*","level":"info","msg":"request".*"reqId":"[0-9a-f-]{36}"/.test(l)));
     mock.reset();
 
+    console.log('Admin: learning funnel');
+    const adminModelF = require('../models/adminModel');
+    const f0 = await adminModelF.getFunnel();
+    const act = await makeUser('funnel-active');
+    const idle = await makeUser('funnel-idle');
+    await pool.query("UPDATE users SET created_at = NOW() - INTERVAL '3 days' WHERE id = ANY($1)", [[act.id, idle.id]]);
+    const fr = await pool.query("INSERT INTO roadmaps (user_id, track_id, content, created_at) VALUES ($1, 2, '{\"weeks\":[]}', NOW() - INTERVAL '20 days'), ($2, 2, '{\"weeks\":[]}', NOW() - INTERVAL '20 days') RETURNING id", [act.id, idle.id]);
+    // Day 9 of the plan (week 2), saved within 48 h of signing up.
+    await pool.query("INSERT INTO checkins (user_id, roadmap_id, checkin_date, notes, created_at) VALUES ($1, $2, (NOW() - INTERVAL '20 days')::date + 8, 'w2', NOW() - INTERVAL '2 days')", [act.id, fr.rows[0].id]);
+    await pool.query("INSERT INTO memberships (user_id, cohort_id, role, status) VALUES ($1, $3, 'student', 'pending_payment'), ($2, $3, 'student', 'pending_payment')", [act.id, idle.id, premiumRow.id]);
+    await pool.query("INSERT INTO payments (user_id, cohort_id, org_id, reference, amount_kobo, status) VALUES ($1, $2, $3, $4, 600000, 'success')", [act.id, premiumRow.id, premiumRow.org_id, `funnel_${run}`]);
+    await pool.query("INSERT INTO llm_calls (provider, model, task, latency_ms, prompt_tokens, completion_tokens, ok, user_id) VALUES ('groq', 'm', 'mentor', 5, 100, 50, TRUE, $1), ('groq', 'm', 'mentor', 5, NULL, NULL, FALSE, $1)", [act.id]);
+    const f1 = await adminModelF.getFunnel();
+    const d = (k) => f1[k] - f0[k];
+    check('signups counted (last 7 and 30 days)', d('signups7d') === 2 && d('signups30d') === 2, JSON.stringify(f1));
+    check('activation: 2 new learners, 1 checked in within 48 h', d('activationBase') === 2 && d('activated') === 1);
+    check('week-2 retention: 2 plans in range, 1 active on days 8-14', d('week2Base') === 2 && d('week2Active') === 1);
+    check('join -> paid: 2 joined a paid plan, 1 paid', d('joinsBase') === 2 && d('joinsPaid') === 1);
+    check('AI use this month: calls, failures, tokens', d('aiCalls') === 2 && d('aiFailed') === 1 && d('aiTokens') === 150);
+    const adminPage = await boss.c.req('GET', '/admin');
+    check('admin page shows the learning funnel', adminPage.status === 200 && /Activation/.test(adminPage.text) && /Week-2 retention/.test(adminPage.text)
+      && /Join → paid/.test(adminPage.text) && /AI tokens/.test(adminPage.text));
+
     // ---- CPU audit (21 Oct 2026): anonymous traffic must not write, sessions are indexed and pruned ----
     console.log('Stability: anonymous requests, session table, health, pool');
     const sessCount = async () => (await pool.query('SELECT COUNT(*)::int n FROM "session"')).rows[0].n;
