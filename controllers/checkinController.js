@@ -35,6 +35,10 @@ async function createCheckinEntry(req, res) {
   }
 
   const checkin = await checkinModel.createCheckin(userId, roadmapId, notes);
+  if (!checkin) {
+    // A concurrent request (double tap) saved today's check-in first.
+    return res.redirect(`/roadmaps/${roadmapId}?message=already_checked_in`);
+  }
 
   // Generate the coach response; any failure falls back and never blocks the check-in
   try {

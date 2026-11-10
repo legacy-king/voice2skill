@@ -13,3 +13,12 @@ CREATE INDEX IF NOT EXISTS idx_roadmaps_goal_cache ON roadmaps (track_id, (LOWER
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_cohorts_org ON cohorts (org_id);
 CREATE INDEX IF NOT EXISTS idx_org_payouts_org ON org_payouts (org_id);
+
+-- One roadmap per learner per track (a double tap on "start this track" used to make several).
+-- Not created while duplicates exist: those must be merged by hand first (migratePerf.js warns).
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM roadmaps GROUP BY user_id, track_id HAVING COUNT(*) > 1) THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_roadmaps_user_track ON roadmaps (user_id, track_id);
+  END IF;
+END $$;

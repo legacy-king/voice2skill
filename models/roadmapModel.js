@@ -15,24 +15,25 @@ async function withContent(row) {
 
 async function createRoadmap(userId, trackId, content, goal = null, assessmentId = null, isCached = false) {
   const result = await pool.query(
-    'INSERT INTO roadmaps (user_id, track_id, goal, content, assessment_id, is_cached) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+    'INSERT INTO roadmaps (user_id, track_id, goal, content, assessment_id, is_cached) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING RETURNING *',
     [userId, trackId, goal, content, assessmentId, isCached]
   );
-  return result.rows[0];
+  // A concurrent request (double tap) created it first: use that one.
+  return result.rows[0] || getRoadmapByUserAndTrack(userId, trackId);
 }
 
 /** A roadmap that references a published Course Library version instead of holding a copy. */
 async function createLibraryRoadmap(userId, trackId, courseVersionId, goal = null, assessmentId = null) {
   const result = await pool.query(
-    'INSERT INTO roadmaps (user_id, track_id, goal, content, assessment_id, course_version_id) VALUES ($1, $2, $3, NULL, $4, $5) RETURNING *',
+    'INSERT INTO roadmaps (user_id, track_id, goal, content, assessment_id, course_version_id) VALUES ($1, $2, $3, NULL, $4, $5) ON CONFLICT DO NOTHING RETURNING *',
     [userId, trackId, goal, assessmentId, courseVersionId]
   );
-  return withContent(result.rows[0]);
+  return result.rows[0] ? withContent(result.rows[0]) : getRoadmapByUserAndTrack(userId, trackId);
 }
 
 async function getRoadmapByUserAndTrack(userId, trackId) {
     const result = await pool.query(
-        'SELECT * FROM roadmaps WHERE user_id = $1 AND track_id = $2',
+        'SELECT * FROM roadmaps WHERE user_id = $1 AND track_id = $2 ORDER BY id LIMIT 1',
         [userId, trackId]
     );
     return withContent(result.rows[0]);
