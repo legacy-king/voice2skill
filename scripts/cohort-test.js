@@ -511,6 +511,12 @@ async function main() {
       && !tutorRoster.includes('private note to self') && !tutorRoster.includes('[mock mentor]'));
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
+    check("the mentor gets today's lesson from a library plan", /Library lesson for week 1, day 2\./.test(await currentTaskLine(daUser.id) || ''));
+    const perUser = await makeUser('peruser');
+    await pool.query(`INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 1, $2)`,
+      [perUser.id, JSON.stringify({ weeks: [{ focus: 'Focus A', days: [{ task: 'Task A', lesson: 'Lesson mentioning MY-PRIVATE-GOAL' }] }] })]);
+    const perUserLine = await currentTaskLine(perUser.id) || '';
+    check("a per-user plan's lesson (it may hold the learner's goal) never reaches the system prompt", /Task A/.test(perUserLine) && !/MY-PRIVATE-GOAL/.test(perUserLine));
     const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });
     check('reader 4 (migrateRoadmaps) skips library roadmaps', mig.status === 0 && mig.stdout.includes(`Roadmap ${libRoadmapId} uses the Course Library, skipping.`), mig.stdout.slice(-500) + mig.stderr);
 

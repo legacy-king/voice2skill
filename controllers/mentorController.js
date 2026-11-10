@@ -45,7 +45,13 @@ async function currentTaskLine(userId) {
     const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmap.id);
     const days = roadmap.content.weeks.flatMap((w) => w.days.map((d) => ({ ...d, focus: w.focus })));
     const today = days[checkins.length];
-    return today ? `${today.focus} — ${today.task}`.slice(0, 300) : null;
+    if (!today) return null;
+    const line = `${today.focus} — ${today.task}`.slice(0, 300);
+    // A Course Library lesson holds no personal data, so the mentor may read it. A per-user plan's
+    // lesson can contain the learner's goal, and this text goes in the system prompt: never.
+    return roadmap.course_version_id && today.lesson
+      ? `${line}\n\nToday's lesson (from the plan):\n${String(today.lesson).slice(0, 1500)}`
+      : line;
   } catch {
     return null;
   }
