@@ -81,7 +81,7 @@ Write week ${weekNumber} as JSON matching the response schema:
 - "lesson": weekdays a genuine 300-450 word explanation that TEACHES the concept in real depth: the underlying mechanics, why it works this way, common beginner mistakes, and how it connects to earlier days. Weekends a shorter review/practice lesson. Write like a senior practitioner mentoring someone seriously.
 - ${technical ? '"code_example": a short, real, runnable snippet demonstrating the concept.' : 'Omit "code_example" unless the day genuinely involves code (for example CSS).'}
 - "quiz": exactly 1 short comprehension question with its answer explained briefly.
-- "resource_name"/"resource_url": a well-known, real, free platform (freeCodeCamp, MDN Web Docs, official docs, W3Schools), root https URL only.
+- "resource_name"/"resource_url": a well-known, real, free platform (freeCodeCamp, MDN Web Docs, official docs, W3Schools) and the https URL of the specific page there that covers the day's topic.
 - "video_search_term": a YouTube search phrase (not a link).
 The plan is shared by every learner on this track and level, so do not address any individual.`;
 }
@@ -172,6 +172,33 @@ function mockWeek({ trackName, level, weekNumber }) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const LINK_TIMEOUT_MS = 5000;
+
+/** Does this link answer? Only public https hostnames are fetched (no IPs, no localhost), redirects are not followed. */
+async function linkWorks(u, fetchImpl) {
+  if (u.protocol !== 'https:' || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname)) return false;
+  for (const method of ['HEAD', 'GET']) {
+    try {
+      const res = await fetchImpl(u.href, { method, redirect: 'manual', signal: AbortSignal.timeout(LINK_TIMEOUT_MS) });
+      if (res.body) res.body.cancel().catch(() => {});
+      if (res.status < 400) return true;
+      if (res.status !== 403 && res.status !== 405) return false; // only a refused HEAD gets a GET
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+/** AI-written deep links can be wrong: a link that doesn't answer becomes its site's home page. */
+async function checkLinks(week, fetchImpl = fetch) {
+  for (const day of week.days) {
+    const u = new URL(day.resource_url);
+    const home = `${u.protocol}//${u.host}/`;
+    if (day.resource_url !== home && !(await linkWorks(u, fetchImpl))) day.resource_url = home;
+  }
+  return week;
+}
 
 const SYSTEM = 'You are an expert instructor who writes rigorous, practical learning plans. Reply with JSON only, matching the response schema.';
 
@@ -188,7 +215,7 @@ async function generateWeek(args) {
         jsonSchema: WEEK_SCHEMA,
         validate: (raw) => validateWeek(raw, args.weekNumber)
       });
-      return { week: data, model: `${provider}:${model}` };
+      return { week: await checkLinks(data), model: `${provider}:${model}` };
     } catch (err) {
       lastErr = err;
       log.error(`Course week ${args.weekNumber} attempt ${attempt} failed: ${err.message}`);
@@ -250,4 +277,4 @@ async function runCourseJob(job, { saveProgress }) {
   return { courseId: course.id, versionId: draft.id, version: draft.version };
 }
 
-module.exports = { generateCourse, generateWeek, validateWeek, validateCourse, runCourseJob, weekPrompt, WEEK_SCHEMA, WEEKS, DAYS_PER_WEEK };
+module.exports = { generateCourse, generateWeek, validateWeek, validateCourse, checkLinks, runCourseJob, weekPrompt, WEEK_SCHEMA, WEEKS, DAYS_PER_WEEK };

@@ -592,6 +592,30 @@ async function courseChecks() {
   const prompt = gen.weekPrompt({ trackName: 'Cybersecurity', trackDescription: 'd', level: 'professional', weekNumber: 8, previousWeeks: course.weeks.slice(0, 7) });
   expect('week prompt carries level, prior weeks and capstone note', /professional/.test(prompt) && /Week 7:/.test(prompt) && /capstone/.test(prompt));
   expect('response schema forces exactly 7 days', gen.WEEK_SCHEMA.properties.days.minItems === 7 && gen.WEEK_SCHEMA.properties.days.maxItems === 7);
+  expect('week prompt asks for the exact page, not the home page', /specific page/.test(prompt) && !/root https URL only/.test(prompt));
+
+  // Deep links: checked once at generation; a broken one falls back to the site's home page.
+  const fetched = [];
+  const fakeFetch = async (url, opts) => {
+    fetched.push(`${opts.method} ${url}`);
+    if (opts.redirect !== 'manual') throw new Error('redirects must not be followed');
+    if (url.includes('/ok')) return { status: 200 };
+    if (url.includes('/moved')) return { status: 301 };
+    if (url.includes('/nohead')) return { status: opts.method === 'HEAD' ? 405 : 200 };
+    if (url.includes('/down')) throw new Error('ECONNREFUSED');
+    return { status: 404 };
+  };
+  const linkWeek = { days: [
+    'https://developer.mozilla.org/en-US/docs/ok', 'https://www.w3schools.com/moved', 'https://www.freecodecamp.org/nohead',
+    'https://docs.python.org/3/missing', 'https://example.dev/down', 'https://127.0.0.1/admin', 'https://localhost/x', 'https://www.figma.com/'
+  ].map((resource_url) => ({ resource_url })) };
+  const checked = (await gen.checkLinks(linkWeek, fakeFetch)).days.map((d) => d.resource_url);
+  expect('a working deep link is kept (200, or a 3xx not followed)', checked[0].endsWith('/docs/ok') && checked[1].endsWith('/moved'));
+  expect('HEAD refused (405): GET decides', checked[2].endsWith('/nohead') && fetched.includes('GET https://www.freecodecamp.org/nohead'));
+  expect('a 404 or unreachable link falls back to the home page', checked[3] === 'https://docs.python.org/' && checked[4] === 'https://example.dev/');
+  expect('IP and localhost links are never fetched', checked[5] === 'https://127.0.0.1/' && checked[6] === 'https://localhost/'
+    && !fetched.some((f) => /127\.0\.0\.1|localhost/.test(f)));
+  expect('a home page link is left as it is, unfetched', checked[7] === 'https://www.figma.com/' && !fetched.some((f) => f.includes('figma')));
   delete process.env.COURSE_MOCK;
 }
 
