@@ -429,7 +429,16 @@ async function main() {
     const ci = await daUser.c.req('POST', `/roadmaps/${libRoadmapId}/checkin`, { form: { _csrf: dt0, notes: 'did day 1 of the library plan' } });
     const libCoach = (await pool.query('SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [libRoadmapId])).rows[0];
     check('reader 2 (check-in flow) works on a library roadmap, template coach (no AI)', ci.location === `/roadmaps/${libRoadmapId}` && libCoach && libCoach.is_fallback === true, JSON.stringify(libCoach));
-    check('roadmap page advances to day 2', /Library task W1D2/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    const day2Page = await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`);
+    check('roadmap page advances to day 2', /Library task W1D2/.test(day2Page.text));
+    console.log('Past lessons');
+    check('roadmap page links to earlier lessons', day2Page.text.includes(`href="/roadmaps/${libRoadmapId}/days/1"`));
+    const pastDay = await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`);
+    check('a past lesson reopens (day 1 after moving on)', pastDay.status === 200 && /Library task W1D1/.test(pastDay.text) && /Library lesson for week 1, day 1\./.test(pastDay.text));
+    check("today's lesson opens too", (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/2`)).status === 200);
+    check('days not reached yet stay locked (404)', (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/3`)).status === 404
+      && (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/0`)).status === 404);
+    check("another learner can't open someone's lessons", (await alice.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`)).status === 404);
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
     const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });

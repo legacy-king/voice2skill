@@ -245,8 +245,37 @@ async function getRoadmap(req, res) {
     totalDays,
     isComplete,
     videoSearchPhrase,
-    libraryIntro: roadmap.course_version_id ? libraryIntro(track ? track.name : null, roadmap.goal) : null
+    libraryIntro: roadmap.course_version_id ? libraryIntro(track ? track.name : null, roadmap.goal) : null,
+    earlierDays: allDays.slice(0, Math.min(checkins.length, totalDays))
   });
 }
 
-module.exports = { generateRoadmapContent, selectTrack, getRoadmap, libraryIntro };
+/** GET /roadmaps/:id/days/:day — reopen a day already reached (1 to today). Later days stay locked. */
+async function getDay(req, res) {
+  if (!req.session.userId) {
+    return res.redirect('/login');
+  }
+  const { id: roadmapId, day: dayNumber } = req.valid.params;
+  const roadmap = await roadmapModel.getRoadmapById(roadmapId);
+  if (!roadmap || roadmap.user_id !== req.session.userId) {
+    return res.status(404).send('Roadmap not found');
+  }
+  const checkins = await checkinModel.getCheckinsByRoadmap(req.session.userId, roadmapId);
+  const allDays = flattenRoadmapDays(normalizeRoadmapContent(roadmap.content, { strict: false }));
+  const lastOpenDay = Math.min(checkins.length + 1, allDays.length);
+  if (dayNumber < 1 || dayNumber > lastOpenDay) {
+    return res.status(404).send('Page not found');
+  }
+  const track = await trackModel.getTrackById(roadmap.track_id);
+  const day = allDays[dayNumber - 1];
+  res.render('day', {
+    roadmap,
+    trackName: track ? track.name : null,
+    day,
+    dayNumber,
+    lastOpenDay,
+    videoSearchPhrase: [goalToSearchPhrase(roadmap.goal), day.video_search_term].filter(Boolean).join(' ')
+  });
+}
+
+module.exports = { generateRoadmapContent, selectTrack, getRoadmap, getDay, libraryIntro };

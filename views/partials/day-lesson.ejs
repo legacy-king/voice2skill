@@ -1,0 +1,58 @@
+<%# One day of a plan: task, lesson, quiz, resources, example, week project. Used for today's task
+    (roadmap.ejs) and for reopening a past day (day.ejs). Locals: day, heading, videoSearchPhrase. %>
+      <div class="app-card">
+        <div class="app-card-head">
+          <h2><%= heading %></h2>
+          <span class="task-day">Day <%= day.day_number %> · Week <%= day.week_number %></span>
+        </div>
+        <% if (day.day_type === 'weekend') { %>
+          <span class="weekend-note">🌤️ Light day — review &amp; practice</span>
+        <% } %>
+        <h3 class="task-focus"><%= day.week_focus %></h3>
+        <p class="task-text"><%= day.task %></p>
+
+        <% if (day.lesson) { %>
+          <div class="lesson-box">
+            <h4>Today's lesson</h4>
+            <% day.lesson.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
+          </div>
+        <% } %>
+
+        <% if (day.quiz && day.quiz.length > 0) { %>
+          <div class="quiz-box">
+            <h4>Quick check</h4>
+            <% day.quiz.forEach(q => { %>
+              <details class="quiz-item">
+                <summary><%= q.question %></summary>
+                <p class="quiz-answer"><%= q.answer %></p>
+              </details>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <div class="task-links">
+          <a class="btn btn-gold" href="<%= day.resource_url %>" target="_blank" rel="noopener">
+            Open resource: <%= day.resource_name %>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6m-11 5L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://www.youtube.com/results?search_query=<%= encodeURIComponent((typeof videoSearchPhrase !== 'undefined' && videoSearchPhrase) ? videoSearchPhrase : day.video_search_term) %>" target="_blank" rel="noopener">
+            Prefer video? Search YouTube
+          </a>
+        </div>
+      </div>
+
+      <% if (day.code_example) { %>
+        <div class="code-box">
+          <h4>Example</h4>
+          <pre><code><%= day.code_example %></code></pre>
+        </div>
+      <% } %>
+
+      <% if (day.week_project) { %>
+        <div class="app-card">
+          <div class="app-card-head">
+            <h2>This week's project</h2>
+          </div>
+          <p><%= day.week_project %></p>
+        </div>
+      <% } %>

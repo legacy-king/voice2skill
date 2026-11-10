@@ -14,5 +14,6 @@ router.post('/tracks/:trackId/select', rateLimiter({ max: 30 }),
   }, (req, res) => res.status(400).send('Invalid track')),
   roadmapController.selectTrack);
 router.get('/roadmaps/:id', validate({ params: z.object({ id: id() }) }, onInvalid.notFound), roadmapController.getRoadmap);
+router.get('/roadmaps/:id/days/:day', validate({ params: z.object({ id: id(), day: id() }) }, onInvalid.notFound), roadmapController.getDay);
 
 module.exports = router;
