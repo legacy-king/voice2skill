@@ -43,15 +43,18 @@ async function currentTaskLine(userId) {
     const roadmap = await roadmapModel.getRoadmapByUser(userId);
     if (!roadmap) return null;
     const checkins = await checkinModel.getCheckinsByRoadmap(userId, roadmap.id);
-    const days = roadmap.content.weeks.flatMap((w) => w.days.map((d) => ({ ...d, focus: w.focus })));
-    const today = days[checkins.length];
+    const days = roadmap.content.weeks.flatMap((w, wi) => w.days.map((d) => ({ ...d, focus: w.focus, week: wi + 1 })));
+    const n = checkins.length;
+    const today = days[n];
     if (!today) return null;
-    const line = `${today.focus} — ${today.task}`.slice(0, 300);
-    // A Course Library lesson holds no personal data, so the mentor may read it. A per-user plan's
-    // lesson can contain the learner's goal, and this text goes in the system prompt: never.
-    return roadmap.course_version_id && today.lesson
-      ? `${line}\n\nToday's lesson (from the plan):\n${String(today.lesson).slice(0, 1500)}`
-      : line;
+    const line = `Day ${n + 1} of ${days.length} (week ${today.week}): ${`${today.focus} — ${today.task}`.slice(0, 300)}`;
+    // A Course Library plan holds no personal data, so the mentor may read its lesson and the days
+    // around it. A per-user plan's text can contain the learner's goal, and this goes in the system
+    // prompt: never.
+    if (!roadmap.course_version_id) return line;
+    const near = (d, label) => (d ? `\n${label}: ${String(d.task).slice(0, 300)}` : '');
+    return `${line}${near(days[n - 1], 'Previous day')}${near(days[n + 1], 'Next day')}`
+      + (today.lesson ? `\n\nToday's lesson (from the plan):\n${String(today.lesson).slice(0, 9000)}` : '');
   } catch {
     return null;
   }

@@ -54,10 +54,12 @@
         <% } %>
 
         <div class="task-links">
-          <a class="btn btn-gold" href="<%= day.resource_url %>" target="_blank" rel="noopener">
-            Open resource: <%= day.resource_name %>
+          <% (day.resources || [{ name: day.resource_name, url: day.resource_url }]).forEach((r, ri) => { %>
+          <a class="btn <%= ri === 0 ? 'btn-gold' : 'btn-ghost' %>" href="<%= r.url %>" target="_blank" rel="noopener">
+            Read more: <%= r.name %>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6m-11 5L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
+          <% }) %>
           <a class="btn btn-ghost" href="https://www.youtube.com/results?search_query=<%= encodeURIComponent((typeof videoSearchPhrase !== 'undefined' && videoSearchPhrase) ? videoSearchPhrase : day.video_search_term) %>" target="_blank" rel="noopener">
             Prefer video? Search YouTube
           </a>
