@@ -207,6 +207,10 @@ const cases = [
     { roadmap: { id: 42 }, trackName: 'Web Development', checkins, message: null, streak: 0, currentDayNumber: 22, totalDays: 56, isComplete: false,
       todayTask: { ...weekdayTask, lesson: 'A function is a reusable block.\n\nScope decides <what> a function can see.' } },
     ['<p>A function is a reusable block.</p>', '<p>Scope decides &lt;what&gt; a function can see.</p>']],
+  ['roadmap (several free resources)', 'roadmap.ejs',
+    { roadmap: { id: 42 }, trackName: 'Web Development', checkins, message: null, streak: 0, currentDayNumber: 22, totalDays: 56, isComplete: false,
+      todayTask: { ...weekdayTask, resources: [{ name: 'MDN: Closures', url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures' }, { name: 'javascript.info: Closure', url: 'https://javascript.info/closure' }] } },
+    ['MDN: Closures', 'href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Closures"', 'javascript.info: Closure', 'href="https://javascript.info/closure"']],
 
   ['roadmap (with persisted goal + video phrase)', 'roadmap.ejs',
     {
@@ -591,8 +595,9 @@ async function courseChecks() {
 
   const prompt = gen.weekPrompt({ trackName: 'Cybersecurity', trackDescription: 'd', level: 'professional', weekNumber: 8, previousWeeks: course.weeks.slice(0, 7) });
   expect('week prompt carries level, prior weeks and capstone note', /professional/.test(prompt) && /Week 7:/.test(prompt) && /capstone/.test(prompt));
-  expect('response schema forces exactly 7 days', gen.WEEK_SCHEMA.properties.days.minItems === 7 && gen.WEEK_SCHEMA.properties.days.maxItems === 7);
-  expect('week prompt asks for the exact page, not the home page', /specific page/.test(prompt) && !/root https URL only/.test(prompt));
+  expect('response schema forces exactly 7 days', gen.OUTLINE_SCHEMA.properties.days.minItems === 7 && gen.OUTLINE_SCHEMA.properties.days.maxItems === 7);
+  const oneDay = gen.dayPrompt({ trackName: 'Cybersecurity', trackDescription: 'd', level: 'professional', weekNumber: 1, focus: 'F', project: 'P', tasks: ['A', 'B', 'C', 'D', 'E', 'F', 'G'], dayIndex: 0 });
+  expect('day prompt asks for the exact page, not the home page', /specific page/.test(oneDay) && !/root https URL only/.test(oneDay));
 
   // Deep links: checked once at generation; a broken one falls back to the site's home page.
   const fetched = [];
@@ -616,6 +621,50 @@ async function courseChecks() {
   expect('IP and localhost links are never fetched', checked[5] === 'https://127.0.0.1/' && checked[6] === 'https://localhost/'
     && !fetched.some((f) => /127\.0\.0\.1|localhost/.test(f)));
   expect('a home page link is left as it is, unfetched', checked[7] === 'https://www.figma.com/' && !fetched.some((f) => f.includes('figma')));
+  const multi = await gen.checkLinks({ days: [{ resources: [{ name: 'A', url: 'https://docs.python.org/3/ok' }, { name: 'B', url: 'https://docs.python.org/3/missing' }, { name: 'C', url: 'https://docs.python.org/3/gone' }] }] }, fakeFetch);
+  expect('every resource is checked; resource_url is the first one; a duplicate home page fallback is dropped',
+    multi.days[0].resources.map((r) => r.url).join() === 'https://docs.python.org/3/ok,https://docs.python.org/'
+    && multi.days[0].resource_url === 'https://docs.python.org/3/ok');
+
+  expect('mock days carry 3-5 quiz questions and 2-3 resources', days.every((d) => d.quiz.length >= 3 && d.quiz.length <= 5
+    && d.resources.length >= 2 && d.resources.length <= 3 && d.resource_url === d.resources[0].url && d.resource_name === d.resources[0].name));
+
+  // Real path (fake router): an outline call for the week, then one detailed call per day.
+  delete process.env.COURSE_MOCK;
+  const llm = require('../services/llm');
+  const realComplete = llm.complete;
+  const calls = [];
+  const words = (n) => Array.from({ length: n }, (_, i) => `w${i}`).join(' ');
+  const q = { question: 'Q?', answer: 'Because.' };
+  const detail = (over = {}) => ({ lesson: words(1000), code_example: 'SELECT 1;', quiz: [q, q, q], video_search_term: 'sql joins',
+    resources: [{ name: 'PostgreSQL docs', url: 'https://www.postgresql.org/' }, { name: 'W3Schools', url: 'https://www.w3schools.com/' }], ...over });
+  llm.complete = async (req) => {
+    calls.push(req);
+    const raw = req.jsonSchema === gen.OUTLINE_SCHEMA
+      ? { week_number: 2, focus: 'Joins', project: 'Join two tables', days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ task: `Topic ${n}` })) }
+      : detail();
+    return { data: req.validate(raw), provider: 'fake', model: 'm' };
+  };
+  let beats = 0;
+  try {
+    const { week } = await gen.generateWeek({ trackName: 'Data Analysis', trackDescription: 'SQL', level: 'builder', weekNumber: 2, previousWeeks: course.weeks.slice(0, 1), onProgress: async () => { beats++; } });
+    const dayPrompt = calls[3] && calls[3].messages[0].content;
+    expect('a week is one outline call plus one call per day', calls.length === 8 && calls[0].jsonSchema === gen.OUTLINE_SCHEMA && calls.slice(1).every((c) => c.jsonSchema === gen.DAY_SCHEMA));
+    expect('a day prompt knows the week, the day before and after, and asks for depth', /Joins/.test(dayPrompt) && /Topic 2/.test(dayPrompt) && /Topic 3/.test(dayPrompt) && /Topic 4/.test(dayPrompt)
+      && /900-1,400 words/.test(dayPrompt) && /3-5/.test(dayPrompt) && /2-3/.test(dayPrompt));
+    expect('the week is assembled in order with detailed days', week.focus === 'Joins' && week.days.map((d) => d.day_number).join() === '8,9,10,11,12,13,14'
+      && week.days[2].task === 'Topic 3' && week.days.every((d) => d.lesson.split(' ').length === 1000 && d.resources.length === 2 && d.resource_url === d.resources[0].url));
+    expect('progress is saved after every day (job heartbeat)', beats === 7);
+  } finally {
+    llm.complete = realComplete;
+  }
+  const weekday = { weekday: true };
+  expect('a thin weekday lesson is rejected', throws(() => gen.validateDayDetail(detail({ lesson: words(500) }), weekday)));
+  expect('a weekend review can be shorter', !throws(() => gen.validateDayDetail(detail({ lesson: words(500) }), { weekday: false })));
+  expect('fewer than 3 quiz questions is rejected', throws(() => gen.validateDayDetail(detail({ quiz: [q, q] }), weekday)));
+  expect('fewer than 2 resources is rejected', throws(() => gen.validateDayDetail(detail({ resources: [{ name: 'Only', url: 'https://x.dev/' }] }), weekday)));
+  expect('a non-http resource is rejected', throws(() => gen.validateDayDetail(detail({ resources: [{ name: 'A', url: 'https://x.dev/' }, { name: 'B', url: 'javascript:alert(1)' }] }), weekday)));
+  process.env.COURSE_MOCK = '1';
   delete process.env.COURSE_MOCK;
 }
 
@@ -637,6 +686,11 @@ async function courseChecks() {
   ok('roadmap: day without a lesson rejected', throws(() => normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...makeDay(n), lesson: '' })) }] })));
   const jsUrl = { weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...makeDay(n), resource_url: 'javascript:alert(1)' })) }] };
   ok('roadmap: javascript: resource URL neutralised', normalizeRoadmapContent(jsUrl).weeks[0].days[0].resource_url === '#');
+  const longLesson = 'word '.repeat(1800).trim();
+  const links = [{ name: 'MDN', url: 'https://developer.mozilla.org/a' }, { name: 'Bad', url: 'javascript:alert(1)' }, { name: 'fCC', url: 'https://www.freecodecamp.org/b' }, { name: 'W3', url: 'https://www.w3schools.com/c' }, { name: 'Extra', url: 'https://x.dev/' }];
+  const richDay = normalizeRoadmapContent({ weeks: [{ ...makeWeek(1), days: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...makeDay(n), lesson: longLesson, resources: links })) }] }).weeks[0].days[0];
+  ok('roadmap: a 1,400-word lesson is not cut short', richDay.lesson === longLesson);
+  ok('roadmap: up to 3 extra resources kept, unsafe links dropped', richDay.resources.length === 3 && richDay.resources.every((r) => r.url.startsWith('https://') && r.name));
   const oddOld = { weeks: [{ ...makeWeek(1), days: [makeDay(1), { lesson: 'no task' }, 'garbage', makeDay(4)] }] };
   const lenientDays = flattenRoadmapDays(normalizeRoadmapContent(oddOld, { strict: false }));
   ok('roadmap (lenient): odd days kept as placeholders so day numbers do not shift',
@@ -645,6 +699,10 @@ async function courseChecks() {
     flattenRoadmapDays(normalizeRoadmapContent({ weeks: [{ daily_topics: ['x'] }] }, { strict: false })).length === 0);
   const flatDays = flattenRoadmapDays(normalizeRoadmapContent(validRoadmap));
   ok('roadmap: day 7 belongs to week 1 project, day 8 to week 2', flatDays[6].week_project === 'Project 1' && flatDays[7].week_project === 'Project 2');
+  const { systemPrompt } = require('../services/mentorService');
+  const mentorPrompt = systemPrompt({ kind: 'premium', todayTask: 'Day 2 of 56' });
+  ok('mentor: room to explain properly (~350 words)', /350 words/.test(mentorPrompt) && require('../config/llm').TASKS.mentor.maxTokens === 900);
+  ok('mentor: guides in plan order and checks understanding', /in the plan's order/.test(mentorPrompt) && /check question/.test(mentorPrompt));
   ok('coach: complete response accepted', !throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: 'b', next_action: 'c' })));
   ok('coach: blank field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: 'a', insight: '', next_action: 'c' })));
   ok('coach: non-string field rejected (falls back)', throws(() => normalizeCoachResponse({ acknowledgement: { x: 1 }, insight: 'b', next_action: 'c' })));

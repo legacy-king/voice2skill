@@ -46,12 +46,18 @@ function normalizeDay(day, index, strict) {
     day_number: Number.isInteger(day.day_number) ? day.day_number : index + 1,
     day_type: day.day_type === 'weekend' ? 'weekend' : 'weekday',
     task,
-    lesson: str(day.lesson, 6000),
+    lesson: str(day.lesson, 12000),
     quiz,
     resource_name: str(day.resource_name, 100),
     resource_url: sanitizeResourceUrl(day.resource_url),
     video_search_term: str(day.video_search_term, 150)
   };
+  // Course Library days list 2-3 free resources; older plans have only resource_name/url.
+  const resources = (Array.isArray(day.resources) ? day.resources : [])
+    .map(r => ({ name: str(r && r.name, 100), url: sanitizeResourceUrl(r && r.url) }))
+    .filter(r => r.name && r.url !== '#')
+    .slice(0, 3);
+  if (resources.length) normalized.resources = resources;
   const codeExample = str(day.code_example, 4000);
   if (codeExample) normalized.code_example = codeExample;
   return normalized;

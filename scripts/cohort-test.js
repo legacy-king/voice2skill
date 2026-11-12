@@ -512,6 +512,8 @@ async function main() {
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
     check("the mentor gets today's lesson from a library plan", /Library lesson for week 1, day 2\./.test(await currentTaskLine(daUser.id) || ''));
+    const libLine = await currentTaskLine(daUser.id) || '';
+    check('the mentor knows where the learner is and what comes before and after', /Day 2 of 56/.test(libLine) && /Library task W1D1/.test(libLine) && /Library task W1D3/.test(libLine));
     const perUser = await makeUser('peruser');
     await pool.query(`INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 1, $2)`,
       [perUser.id, JSON.stringify({ weeks: [{ focus: 'Focus A', days: [{ task: 'Task A', lesson: 'Lesson mentioning MY-PRIVATE-GOAL' }] }] })]);

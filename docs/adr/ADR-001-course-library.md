@@ -63,6 +63,9 @@ version instead of holding their own copy:
 4. **Generation is a background job, never in a request.** One Gemini call **per week** (8 calls
    per plan), each with `responseMimeType: 'application/json'` plus a response schema,
    `maxOutputTokens`, a timeout and retry. A failed week retries alone instead of the whole plan.
+   *Update 11 Nov 2026:* lessons grew to 900–1,400 words with 3–5 quiz questions and 2–3
+   resources, which no longer fit 7 days in one call: each week is now one outline call plus one
+   call per day (64 per plan), each retried alone.
    The job runs inside the existing web process, polling `jobs` with `FOR UPDATE SKIP LOCKED`. No
    separate worker service.
 5. **Publishing is a human step.** Generated versions land as `draft`; the founder reviews and

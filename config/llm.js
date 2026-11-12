@@ -57,7 +57,7 @@ const PROVIDERS = {
 
 const TASKS = {
   // Low-latency chat. Mentor replies stream.
-  mentor: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 700, temperature: 0.4 },
+  mentor: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 900, temperature: 0.4 },
   checkin: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 600, temperature: 0.5 },
   // Weekly project feedback (paid plans). Carries the learner's link and description.
   project: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 600, temperature: 0.4 },
