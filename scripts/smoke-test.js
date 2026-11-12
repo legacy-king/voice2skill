@@ -202,6 +202,11 @@ const cases = [
     ['12-day streak', 'JavaScript Fundamentals', 'MDN Web Docs', '/roadmaps/42/checkin',
      'Day 22 of 56', 'Week 4', '2 check-ins completed', 'noindex', 'visually-hidden', 'Skip to content',
      'Thu, 30 Jul 2026']],
+  // A 300-450 word lesson comes in paragraphs; they must not collapse into one wall of text.
+  ['roadmap (lesson keeps its paragraphs)', 'roadmap.ejs',
+    { roadmap: { id: 42 }, trackName: 'Web Development', checkins, message: null, streak: 0, currentDayNumber: 22, totalDays: 56, isComplete: false,
+      todayTask: { ...weekdayTask, lesson: 'A function is a reusable block.\n\nScope decides <what> a function can see.' } },
+    ['<p>A function is a reusable block.</p>', '<p>Scope decides &lt;what&gt; a function can see.</p>']],
 
   ['roadmap (with persisted goal + video phrase)', 'roadmap.ejs',
     {

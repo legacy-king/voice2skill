@@ -448,6 +448,20 @@ async function main() {
     const r2 = Number((sel2.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
     check('a new learner gets v2', (await pool.query('SELECT course_version_id FROM roadmaps WHERE id = $1', [r2])).rows[0]?.course_version_id === v2);
     check('library roadmap without a goal gets the no-goal intro', /Pick project topics you care about/.test((await daUser2.c.req('GET', `/roadmaps/${r2}`)).text));
+
+    console.log('Double submit (taps on a slow phone)');
+    const tapper = await makeUser('tapper');
+    const tapTok = await tapper.c.csrf('/join');
+    const taps = await Promise.all(Array.from({ length: 5 }, () => tapper.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: tapTok } })));
+    const tapRoadmaps = (await pool.query('SELECT id FROM roadmaps WHERE user_id = $1 AND track_id = $2', [tapper.id, daTrack])).rows;
+    check('5 taps on "start this track" make one roadmap, every tap lands on it', tapRoadmaps.length === 1
+      && taps.every((r) => r.location === `/roadmaps/${tapRoadmaps[0].id}`), taps.map((r) => r.status + ' ' + r.location).join(', '));
+    if (tapRoadmaps.length) {
+      const ciTaps = await Promise.all(Array.from({ length: 5 }, () => tapper.c.req('POST', `/roadmaps/${tapRoadmaps[0].id}/checkin`, { form: { _csrf: tapTok, notes: 'tap tap' } })));
+      check('5 taps on "submit check-in" save one check-in and never show an error page',
+        (await pool.query('SELECT COUNT(*)::int n FROM checkins WHERE user_id = $1', [tapper.id])).rows[0].n === 1
+        && ciTaps.every((r) => r.status === 302), ciTaps.map((r) => r.status + ' ' + r.location).join(', '));
+    }
     check('another learner cannot open the library roadmap', (await daUser2.c.req('GET', `/roadmaps/${libRoadmapId}`)).status === 404);
     check('course migration is idempotent (re-run succeeds)', spawnSync('node', [path.join(__dirname, 'migrateCourses.js')], { env: process.env, encoding: 'utf8' }).status === 0);
 

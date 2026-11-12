@@ -36,7 +36,7 @@
             <span class="confirm-alts-label">Not quite it? These are close too:</span>
             <div class="alt-row">
               <% alternatives.forEach(alt => { %>
-                <form method="POST" action="/tracks/<%= alt.id %>/select">
+                <form method="POST" action="/tracks/<%= alt.id %>/select" data-once>
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="hidden" name="goal" value="<%= goal %>">
                   <button type="submit" class="alt-chip">
@@ -57,7 +57,7 @@
         <p class="confirm-note">We'll build your free 8-week roadmap around this — day-by-day tasks, real resources, and a coach that checks in daily.</p>
 
         <div class="confirm-actions">
-          <form method="POST" action="/tracks/<%= track.id %>/select">
+          <form method="POST" action="/tracks/<%= track.id %>/select" data-once>
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="goal" value="<%= goal %>">
             <button type="submit" class="btn btn-gold">
@@ -73,5 +73,6 @@
     </div>
   </main>
   <%- include('partials/app-footer') %>
+  <script src="/js/once.js" defer></script>
 </body>
 </html>

@@ -92,7 +92,7 @@
         <% if (todayTask.lesson) { %>
           <div class="lesson-box">
             <h4>Today's lesson</h4>
-            <p><%= todayTask.lesson %></p>
+            <% todayTask.lesson.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
           </div>
         <% } %>
 
@@ -141,7 +141,7 @@
           <h2>Daily check-in</h2>
         </div>
         <p style="margin-bottom: 0.9rem;">Tell your coach how today went — type it or speak it.</p>
-        <form class="checkin-form" action="/roadmaps/<%= roadmap.id %>/checkin" method="POST">
+        <form class="checkin-form" action="/roadmaps/<%= roadmap.id %>/checkin" method="POST" data-once>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <label class="visually-hidden" for="checkinNotes">What did you work on today?</label>
           <textarea name="notes" id="checkinNotes" placeholder="What did you work on today?" required></textarea>
@@ -216,6 +216,7 @@
   </main>
 
   <script src="/js/voice.js" defer></script>
+  <script src="/js/once.js" defer></script>
   <%- include('partials/app-footer') %>
 </body>
 </html>

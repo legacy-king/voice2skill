@@ -3,7 +3,7 @@ const pool = require('../config/db');
 
 async function createCheckin(user_id, roadmap_id, notes) {
     const result = await pool.query(
-'INSERT INTO checkins (user_id, roadmap_id, notes) VALUES ($1, $2, $3) RETURNING *',
+'INSERT INTO checkins (user_id, roadmap_id, notes) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING *',
 [user_id, roadmap_id, notes]
     );
     return result.rows[0];

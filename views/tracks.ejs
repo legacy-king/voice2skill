@@ -26,7 +26,7 @@
     <div class="track-grid">
       <% const glyphs = ['</>', '✦', '∑', '◎', '⚿']; %>
       <% tracks.forEach((track, i) => { %>
-        <form method="POST" action="/tracks/<%= track.id %>/select">
+        <form method="POST" action="/tracks/<%= track.id %>/select" data-once>
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="track-card">
             <span class="glyph"><%= glyphs[i % glyphs.length] %></span>
@@ -39,5 +39,6 @@
     </div>
   </main>
   <%- include('partials/app-footer') %>
+  <script src="/js/once.js" defer></script>
 </body>
 </html>
