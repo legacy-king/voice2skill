@@ -1,0 +1,106 @@
+<%# One day of a plan: task, lesson, quiz, resources, example, week project. Used for today's task
+    (roadmap.ejs) and for reopening a past day (day.ejs). Locals: day, heading, videoSearchPhrase. %>
+      <div class="app-card">
+        <div class="app-card-head">
+          <h2><%= heading %></h2>
+          <span class="task-day">Day <%= day.day_number %> · Week <%= day.week_number %></span>
+        </div>
+        <% if (day.day_type === 'weekend') { %>
+          <span class="weekend-note">🌤️ Light day — review &amp; practice</span>
+        <% } %>
+        <h3 class="task-focus"><%= day.week_focus %></h3>
+        <p class="task-text"><%= day.task %></p>
+
+        <% if (day.lesson) { %>
+          <div class="lesson-box">
+            <h4>Today's lesson</h4>
+            <% day.lesson.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
+          </div>
+        <% } %>
+
+        <% if (day.quiz && day.quiz.length > 0) { %>
+          <div class="quiz-box">
+            <h4>Quick check</h4>
+            <% day.quiz.forEach((q, qi) => { const saved = (locals.quizAnswers || {})[qi]; %>
+              <% if (saved) { %>
+                <div class="quiz-item">
+                  <p><b><%= q.question %></b></p>
+                  <p>Your answer: <%= saved.answer %></p>
+                  <p class="quiz-answer">Model answer: <%= q.answer %></p>
+                  <p><%= saved.correct ? '✓ You marked this: got it' : '✗ You marked this: not yet. Worth another look.' %></p>
+                </div>
+              <% } else if (locals.quizAction) { %>
+                <form class="quiz-item checkin-form" method="POST" action="<%= quizAction %>/<%= qi %>">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <label for="quiz-<%= qi %>"><b><%= q.question %></b></label>
+                  <textarea name="answer" id="quiz-<%= qi %>" placeholder="Your answer" required maxlength="1000"></textarea>
+                  <details>
+                    <summary>Show the model answer</summary>
+                    <p class="quiz-answer"><%= q.answer %></p>
+                  </details>
+                  <div class="form-actions">
+                    <button type="submit" name="correct" value="1" class="btn btn-gold">I got it</button>
+                    <button type="submit" name="correct" value="0" class="btn btn-ghost">Not yet</button>
+                  </div>
+                </form>
+              <% } else { %>
+                <details class="quiz-item">
+                  <summary><%= q.question %></summary>
+                  <p class="quiz-answer"><%= q.answer %></p>
+                </details>
+              <% } %>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <div class="task-links">
+          <a class="btn btn-gold" href="<%= day.resource_url %>" target="_blank" rel="noopener">
+            Open resource: <%= day.resource_name %>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6m-11 5L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://www.youtube.com/results?search_query=<%= encodeURIComponent((typeof videoSearchPhrase !== 'undefined' && videoSearchPhrase) ? videoSearchPhrase : day.video_search_term) %>" target="_blank" rel="noopener">
+            Prefer video? Search YouTube
+          </a>
+        </div>
+      </div>
+
+      <% if (day.code_example) { %>
+        <div class="code-box">
+          <h4>Example</h4>
+          <pre><code><%= day.code_example %></code></pre>
+        </div>
+      <% } %>
+
+      <% if (day.week_project) { const sub = locals.project;
+           const notices = { limit: "Your project is saved. You've used this month's AI project feedback.", ai_failed: "Your project is saved, but feedback couldn't be written right now. Submit again in a few minutes." }; %>
+        <div class="app-card" id="project">
+          <div class="app-card-head">
+            <h2>This week's project</h2>
+          </div>
+          <p><%= day.week_project %></p>
+          <% if (notices[locals.projectNotice]) { %><div class="msg-banner" role="status"><%= notices[projectNotice] %></div><% } %>
+          <% if (sub) { %>
+            <p>Submitted: <a href="<%= sub.url %>" target="_blank" rel="noopener nofollow ugc"><%= sub.url %></a></p>
+            <% if (sub.note) { %><p class="h-notes"><%= sub.note %></p><% } %>
+            <% if (sub.feedback) { %>
+              <div class="lesson-box">
+                <h4>AI feedback</h4>
+                <% sub.feedback.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
+              </div>
+            <% } %>
+          <% } %>
+          <% if (locals.projectAction) { %>
+            <form class="checkin-form" method="POST" action="<%= projectAction %>" data-once>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <label for="project-url">Link to your project (GitHub, Figma, Google Doc…)</label>
+              <input type="url" name="url" id="project-url" required maxlength="500" placeholder="https://" value="<%= sub ? sub.url : '' %>">
+              <label for="project-note">What did you build? What was hard?</label>
+              <textarea name="note" id="project-note" maxlength="1000"><%= sub ? sub.note : '' %></textarea>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-gold"><%= sub ? 'Update project' : 'Submit project' %></button>
+              </div>
+              <% if (!(locals.ent && ent.hasMentor)) { %><p class="empty-note">AI feedback comes with Premium or a bootcamp plan.</p><% } %>
+            </form>
+          <% } %>
+        </div>
+      <% } %>

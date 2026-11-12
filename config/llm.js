@@ -59,6 +59,8 @@ const TASKS = {
   // Low-latency chat. Mentor replies stream.
   mentor: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 700, temperature: 0.4 },
   checkin: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 600, temperature: 0.5 },
+  // Weekly project feedback (paid plans). Carries the learner's link and description.
+  project: { route: ['groq', 'gemini', 'mistral'], studentText: true, timeoutMs: null, maxTokens: 600, temperature: 0.4 },
   // Per-user plan (rollout fallback until the Course Library is published). Carries the goal.
   roadmap: { route: ['gemini', 'mistral', 'groq'], studentText: true, timeoutMs: 120000, maxTokens: 60000, temperature: 0.5 },
   // Course Library weeks: shared content, no personal data.

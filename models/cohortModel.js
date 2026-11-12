@@ -180,7 +180,10 @@ async function getRoster(cohortId) {
             (SELECT COUNT(*) FROM checkins c WHERE c.user_id = u.id)::int AS checkin_count,
             (SELECT MAX(c.checkin_date) FROM checkins c WHERE c.user_id = u.id) AS last_checkin,
             ARRAY(SELECT DISTINCT c.checkin_date FROM checkins c
-                   WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates
+                   WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates,
+            (SELECT COUNT(*) FROM project_submissions ps JOIN roadmaps r ON r.id = ps.roadmap_id WHERE r.user_id = u.id)::int AS projects_submitted,
+            (SELECT ps.url FROM project_submissions ps JOIN roadmaps r ON r.id = ps.roadmap_id
+              WHERE r.user_id = u.id ORDER BY ps.submitted_at DESC LIMIT 1) AS latest_project_url
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.cohort_id = $1 AND m.role = 'student'
       ORDER BY last_checkin ASC NULLS FIRST, m.joined_at ASC, u.id ASC`,
@@ -201,7 +204,10 @@ async function getRostersByCohortIds(cohortIds) {
             (SELECT COUNT(*) FROM checkins c WHERE c.user_id = u.id)::int AS checkin_count,
             (SELECT MAX(c.checkin_date) FROM checkins c WHERE c.user_id = u.id) AS last_checkin,
             ARRAY(SELECT DISTINCT c.checkin_date FROM checkins c
-                   WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates
+                   WHERE c.user_id = u.id AND c.checkin_date >= CURRENT_DATE - 60) AS recent_dates,
+            (SELECT COUNT(*) FROM project_submissions ps JOIN roadmaps r ON r.id = ps.roadmap_id WHERE r.user_id = u.id)::int AS projects_submitted,
+            (SELECT ps.url FROM project_submissions ps JOIN roadmaps r ON r.id = ps.roadmap_id
+              WHERE r.user_id = u.id ORDER BY ps.submitted_at DESC LIMIT 1) AS latest_project_url
        FROM memberships m JOIN users u ON u.id = m.user_id
       WHERE m.cohort_id = ANY($1) AND m.role = 'student'
       ORDER BY last_checkin ASC NULLS FIRST, m.joined_at ASC, u.id ASC`,

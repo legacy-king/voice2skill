@@ -35,6 +35,38 @@ async function getOverview() {
   };
 }
 
+/**
+ * Is anyone learning? Counts, not percentages, so the page shows "x of y".
+ *   activation: signed up 2-30 days ago -> checked in within 48 h of signing up
+ *   week 2:     plan started 14-60 days ago -> a check-in on days 8-14 of the plan
+ *   join->paid: joined a paid plan in the last 30 days -> has a successful payment for it
+ *   AI:         router calls this month (llm_calls; tokens, not money: prices vary by model)
+ */
+async function getFunnel() {
+  const { rows } = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '7 days')::int AS signups7d,
+       (SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '30 days')::int AS signups30d,
+       (SELECT COUNT(*) FROM users u WHERE u.created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '2 days')::int AS "activationBase",
+       (SELECT COUNT(*) FROM users u WHERE u.created_at BETWEEN NOW() - INTERVAL '30 days' AND NOW() - INTERVAL '2 days'
+          AND EXISTS (SELECT 1 FROM checkins c WHERE c.user_id = u.id AND c.created_at <= u.created_at + INTERVAL '48 hours'))::int AS activated,
+       (SELECT COUNT(*) FROM roadmaps r WHERE r.created_at BETWEEN NOW() - INTERVAL '60 days' AND NOW() - INTERVAL '14 days')::int AS "week2Base",
+       (SELECT COUNT(*) FROM roadmaps r WHERE r.created_at BETWEEN NOW() - INTERVAL '60 days' AND NOW() - INTERVAL '14 days'
+          AND EXISTS (SELECT 1 FROM checkins c WHERE c.roadmap_id = r.id
+                       AND c.checkin_date BETWEEN r.created_at::date + 7 AND r.created_at::date + 13))::int AS "week2Active",
+       (SELECT COUNT(*) FROM memberships m JOIN cohorts c ON c.id = m.cohort_id
+         WHERE m.role = 'student' AND c.price_kobo > 0 AND m.joined_at >= NOW() - INTERVAL '30 days')::int AS "joinsBase",
+       (SELECT COUNT(*) FROM memberships m JOIN cohorts c ON c.id = m.cohort_id
+         WHERE m.role = 'student' AND c.price_kobo > 0 AND m.joined_at >= NOW() - INTERVAL '30 days'
+           AND EXISTS (SELECT 1 FROM payments p WHERE p.user_id = m.user_id AND p.cohort_id = m.cohort_id AND p.status = 'success'))::int AS "joinsPaid",
+       (SELECT COUNT(*) FROM llm_calls WHERE created_at >= date_trunc('month', NOW()))::int AS "aiCalls",
+       (SELECT COUNT(*) FROM llm_calls WHERE created_at >= date_trunc('month', NOW()) AND NOT ok)::int AS "aiFailed",
+       (SELECT COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0)
+          FROM llm_calls WHERE created_at >= date_trunc('month', NOW()))::bigint AS "aiTokens"`
+  );
+  return { ...rows[0], aiTokens: Number(rows[0].aiTokens) };
+}
+
 /** Every organization with its revenue share and what is still owed to it. */
 async function listOrgs() {
   const { rows } = await pool.query(
@@ -72,4 +104,4 @@ async function listCohorts() {
   return rows;
 }
 
-module.exports = { getOverview, listOrgs, listCohorts };
+module.exports = { getOverview, getFunnel, listOrgs, listCohorts };

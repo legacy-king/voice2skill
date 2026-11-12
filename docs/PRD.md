@@ -61,7 +61,7 @@
 - Streaks, "today's task", reminders by email (via an external cron hitting a secret URL). **[Built]**
 - Capability assessment (8 questions → foundation / builder / professional) for Software Engineering. **[Built]**
 - **Voice end to end [Built, Phase 3]:** speak your goal, your daily check-in, or a mentor question. The browser records with MediaRecorder (60 s max, low bitrate for mobile data, upload progress, retry) and `POST /api/voice/transcribe` turns it into text through the LLM router (Groq `whisper-large-v3-turbo`, Gemini paid fallback). Audio is never stored. Falls back to the browser's own speech recognition, then to typing (mic blocked or unsupported). Mentor and coach replies can be read aloud (`speechSynthesis`, Listen/Stop, remembered "read replies aloud"). Free users get voice input with a smaller daily cap (`STT_DAILY_LIMIT_FREE`).
-- **[Planned]** Quiz answers captured and scored; AI rubric feedback on weekly projects (capped); certificates of completion.
+- **[Built]** Past lessons reopen (days reached so far). Daily quiz self-check (type an answer, mark got it / not yet; all tiers, no AI). Weekly project submission (link + note; tutor sees count + latest link); AI feedback on paid plans, `PROJECT_FEEDBACK_MONTHLY_LIMIT` (default 4). Course Library resource links point at the exact page, checked at generation. **[Planned]** Certificates of completion.
 
 ### 4.3 Mentoring
 - **AI check-in coach:** after each check-in, a 3-part reply (acknowledgement, insight, next action) tuned to the learner's level; falls back to a template if the AI fails. **[Built]**

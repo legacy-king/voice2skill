@@ -27,7 +27,8 @@ const MIGRATIONS = [
   'migrateCourses.js',            // courses, course_versions, jobs, roadmaps.course_version_id + indexes
   'migrateLlm.js',                // llm_calls (LLM router log)
   'migrateEmail.js',              // email_log (idempotent reminders) + check-in date indexes
-  'migratePerf.js'                // indexes for hot queries (assessments, goal cache, payments, cohorts)
+  'migratePerf.js',               // indexes for hot queries (assessments, goal cache, payments, cohorts)
+  'migrateLearning.js'            // quiz answers, weekly project submissions
 ];
 
 const TIMEOUT_MS = 120 * 1000; // guard against a hanging DB connection

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Day <%= dayNumber %> - Voice2Skill</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="app">
+  <%- include('partials/app-nav', { active: 'roadmap', roadmapUrl: '/roadmaps/' + roadmap.id }) %>
+
+  <main class="app-wrap app-main" id="main">
+    <div class="app-head">
+      <span class="app-eyebrow"><%= trackName ? trackName : 'Your roadmap' %></span>
+      <h1>Day <%= dayNumber %> <span class="grad-text">lesson</span></h1>
+      <p><a href="/roadmaps/<%= roadmap.id %>">← Back to today</a></p>
+    </div>
+
+    <%- include('partials/day-lesson', { day, heading: 'Day ' + dayNumber }) %>
+
+    <div class="dash-actions">
+      <% if (dayNumber > 1) { %><a class="btn btn-ghost" href="/roadmaps/<%= roadmap.id %>/days/<%= dayNumber - 1 %>">← Day <%= dayNumber - 1 %></a><% } %>
+      <% if (dayNumber < lastOpenDay) { %><a class="btn btn-ghost" href="/roadmaps/<%= roadmap.id %>/days/<%= dayNumber + 1 %>">Day <%= dayNumber + 1 %> →</a><% } %>
+    </div>
+  </main>
+  <%- include('partials/app-footer') %>
+  <script src="/js/once.js" defer></script>
+</body>
+</html>

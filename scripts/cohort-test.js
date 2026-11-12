@@ -24,6 +24,7 @@ process.env.CORS_ORIGINS = 'https://app.voice2skill.test';
 process.env.JOB_POLL_MS = '300';
 process.env.STT_DAILY_LIMIT_FREE = '4';
 process.env.STT_DAILY_LIMIT_PAID = '6';
+process.env.PROJECT_FEEDBACK_MONTHLY_LIMIT = '2';
 process.env.NODE_ENV = 'test';
 process.env.COURSE_MOCK = '1';
 // Never call a real LLM from tests, even if .env has keys (dotenv won't override set vars). The
@@ -429,9 +430,93 @@ async function main() {
     const ci = await daUser.c.req('POST', `/roadmaps/${libRoadmapId}/checkin`, { form: { _csrf: dt0, notes: 'did day 1 of the library plan' } });
     const libCoach = (await pool.query('SELECT cr.is_fallback FROM coach_responses cr JOIN checkins c ON c.id = cr.checkin_id WHERE c.roadmap_id = $1', [libRoadmapId])).rows[0];
     check('reader 2 (check-in flow) works on a library roadmap, template coach (no AI)', ci.location === `/roadmaps/${libRoadmapId}` && libCoach && libCoach.is_fallback === true, JSON.stringify(libCoach));
-    check('roadmap page advances to day 2', /Library task W1D2/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    const day2Page = await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`);
+    check('roadmap page advances to day 2', /Library task W1D2/.test(day2Page.text));
+    console.log('Past lessons');
+    check('roadmap page links to earlier lessons', day2Page.text.includes(`href="/roadmaps/${libRoadmapId}/days/1"`));
+    const pastDay = await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`);
+    check('a past lesson reopens (day 1 after moving on)', pastDay.status === 200 && /Library task W1D1/.test(pastDay.text) && /Library lesson for week 1, day 1\./.test(pastDay.text));
+    check("today's lesson opens too", (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/2`)).status === 200);
+    check('days not reached yet stay locked (404)', (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/3`)).status === 404
+      && (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/0`)).status === 404);
+    check("another learner can't open someone's lessons", (await alice.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`)).status === 404);
+
+    console.log('Quiz self-check');
+    const quizUrl = (day, q) => `/roadmaps/${libRoadmapId}/days/${day}/quiz/${q}`;
+    check("today's quiz has an answer form", day2Page.text.includes(`action="${quizUrl(2, 0)}"`));
+    check('quiz answer without CSRF is refused', (await daUser.c.req('POST', quizUrl(2, 0), { form: { answer: 'x', correct: '1' } })).status === 403);
+    const qa = await daUser.c.req('POST', quizUrl(2, 0), { form: { _csrf: dt0, answer: 'Closures keep <scope>', correct: '1' } });
+    check("answering today's question returns to the roadmap", qa.location === `/roadmaps/${libRoadmapId}`, qa.location);
+    const afterQuiz = (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text;
+    check('the answer, the model answer and the mark are shown (escaped)', afterQuiz.includes('Closures keep &lt;scope&gt;') && /You marked this: got it/.test(afterQuiz) && afterQuiz.includes('Today&#39;s concept.'));
+    check('quiz score on the progress card', /Quiz: 1 of 1 got it/.test(afterQuiz));
+    const qb = await daUser.c.req('POST', quizUrl(1, 0), { form: { _csrf: dt0, answer: 'not sure', correct: '0' } });
+    check('a past day can be answered too (returns to that day)', qb.location === `/roadmaps/${libRoadmapId}/days/1`
+      && /You marked this: not yet/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}/days/1`)).text));
+    await daUser.c.req('POST', quizUrl(1, 0), { form: { _csrf: dt0, answer: 'now I know', correct: '1' } });
+    check('answering again replaces the earlier answer', /Quiz: 2 of 2 got it/.test((await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text));
+    check('locked days, unknown questions and empty answers are refused',
+      (await daUser.c.req('POST', quizUrl(3, 0), { form: { _csrf: dt0, answer: 'a', correct: '1' } })).status === 404
+      && (await daUser.c.req('POST', quizUrl(2, 5), { form: { _csrf: dt0, answer: 'a', correct: '1' } })).status === 404
+      && (await daUser.c.req('POST', quizUrl(2, 0), { form: { _csrf: dt0, answer: '  ', correct: '1' } })).status === 400);
+    check("another learner can't answer someone's quiz", (await alice.c.req('POST', quizUrl(2, 0), { form: { _csrf: await alice.c.csrf('/join'), answer: 'a', correct: '1' } })).status === 404);
+
+    console.log('Weekly project');
+    const projUrl = (rid, day) => `/roadmaps/${rid}/days/${day}/project`;
+    const aiCalls = () => mock.requests.filter((r) => r.kind !== 'audio').length;
+    check("the week's project has a submit form", day2Page.text.includes(`action="${projUrl(libRoadmapId, 2)}"`));
+    check('only http(s) links are accepted', (await daUser.c.req('POST', projUrl(libRoadmapId, 2), { form: { _csrf: dt0, url: 'javascript:alert(1)', note: 'x' } })).status === 400);
+    const callsBeforeFree = aiCalls();
+    const freeSub = await daUser.c.req('POST', projUrl(libRoadmapId, 2), { form: { _csrf: dt0, url: 'https://github.com/me/shop-sales', note: 'Sales <dashboard>' } });
+    const freeView = (await daUser.c.req('GET', `/roadmaps/${libRoadmapId}`)).text;
+    check('free learner: project saved and shown, escaped, no AI call', freeSub.status === 302 && aiCalls() === callsBeforeFree
+      && freeView.includes('href="https://github.com/me/shop-sales"') && freeView.includes('Sales &lt;dashboard&gt;') && /AI feedback comes with Premium/.test(freeView));
+
+    const proj = await makeUser('projpaid');
+    const projPay = await proj.c.req('POST', '/premium', { form: { _csrf: await proj.c.csrf('/join') } });
+    await proj.c.req('GET', new URL(projPay.location).pathname + new URL(projPay.location).search);
+    const projSel = await proj.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: await proj.c.csrf('/join') } });
+    const projRm = Number((projSel.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    const pt0 = await proj.c.csrf(`/roadmaps/${projRm}`);
+    mock.reset();
+    const paidSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1', note: 'I built the week 1 project' } });
+    const sent = mock.requests[mock.requests.length - 1];
+    const sys = sent && sent.body.messages[0].content;
+    const usr = sent && sent.body.messages[sent.body.messages.length - 1].content;
+    check('premium learner: one AI call, feedback saved and shown', paidSub.status === 302 && mock.requests.length === 1
+      && /\[mock mentor\]/.test((await proj.c.req('GET', `/roadmaps/${projRm}`)).text));
+    check("the learner's link and note go in the user turn, never the system prompt", /I built the week 1 project/.test(usr || '') && /github\.com\/me\/w1/.test(usr || '')
+      && !/I built the week 1 project/.test(sys || '') && !/github\.com/.test(sys || ''));
+    check('feedback uses the project budget (ai_usage kind project)', (await pool.query("SELECT COALESCE(SUM(count), 0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'project'", [proj.id])).rows[0].n === 1);
+    await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1', note: 'I built the week 1 project' } });
+    check('submitting the same thing again costs nothing (no new AI call)', mock.requests.length === 1);
+    const usedProject = async () => (await pool.query("SELECT COALESCE(SUM(count), 0)::int n FROM ai_usage WHERE user_id = $1 AND kind = 'project'", [proj.id])).rows[0].n;
+    mock.setMode('groq', '503'); mock.setMode('gemini', '503');
+    const failSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v2', note: 'v2' } });
+    check('AI down: project still saved, budget refunded, learner told', /project=ai_failed/.test(failSub.location || '') && (await usedProject()) === 1
+      && (await pool.query('SELECT url FROM project_submissions WHERE roadmap_id = $1', [projRm])).rows[0].url === 'https://github.com/me/w1-v2');
+    mock.reset();
+    await Promise.all([1, 2].map(() => proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v3', note: 'v3' } })));
+    check('a changed project gets new feedback once, even on a double tap', mock.requests.length === 1 && (await usedProject()) === 2);
+    mock.reset();
+    const limitSub = await proj.c.req('POST', projUrl(projRm, 1), { form: { _csrf: pt0, url: 'https://github.com/me/w1-v4', note: 'v4' } });
+    check('monthly cap (PROJECT_FEEDBACK_MONTHLY_LIMIT=2): no AI call, budget not spent, learner told', /project=limit/.test(limitSub.location || '') && mock.requests.length === 0 && (await usedProject()) === 2);
+    check("another learner can't submit to someone's plan", (await daUser.c.req('POST', projUrl(projRm, 1), { form: { _csrf: dt0, url: 'https://x.dev', note: 'x' } })).status === 404);
+
+    const aliceSel = await alice.c.req('POST', `/tracks/${daTrack}/select`, { form: { _csrf: await alice.c.csrf('/join') } });
+    const aliceRm = Number((aliceSel.location || '').match(/\/roadmaps\/(\d+)/)?.[1]);
+    await alice.c.req('POST', projUrl(aliceRm, 1), { form: { _csrf: await alice.c.csrf('/join'), url: 'https://github.com/alice/w1', note: 'private note to self' } });
+    const tutorRoster = (await tutor.c.req('GET', `/teacher/cohorts/${cohortId}`)).text;
+    check('tutor sees projects submitted and the latest link, never the note or feedback', tutorRoster.includes('href="https://github.com/alice/w1"')
+      && !tutorRoster.includes('private note to self') && !tutorRoster.includes('[mock mentor]'));
     const { currentTaskLine } = require('../controllers/mentorController');
     check('reader 3 (mentor currentTaskLine) reads library content', /Library task W1D2/.test(await currentTaskLine(daUser.id) || ''));
+    check("the mentor gets today's lesson from a library plan", /Library lesson for week 1, day 2\./.test(await currentTaskLine(daUser.id) || ''));
+    const perUser = await makeUser('peruser');
+    await pool.query(`INSERT INTO roadmaps (user_id, track_id, content) VALUES ($1, 1, $2)`,
+      [perUser.id, JSON.stringify({ weeks: [{ focus: 'Focus A', days: [{ task: 'Task A', lesson: 'Lesson mentioning MY-PRIVATE-GOAL' }] }] })]);
+    const perUserLine = await currentTaskLine(perUser.id) || '';
+    check("a per-user plan's lesson (it may hold the learner's goal) never reaches the system prompt", /Task A/.test(perUserLine) && !/MY-PRIVATE-GOAL/.test(perUserLine));
     const mig = spawnSync('node', [path.join(__dirname, 'migrateRoadmaps.js')], { env: NO_LLM_ENV, encoding: 'utf8' });
     check('reader 4 (migrateRoadmaps) skips library roadmaps', mig.status === 0 && mig.stdout.includes(`Roadmap ${libRoadmapId} uses the Course Library, skipping.`), mig.stdout.slice(-500) + mig.stderr);
 
@@ -857,6 +942,29 @@ async function main() {
     check('the secret never appears in the request log', !serverLog.includes(process.env.CRON_SECRET));
     check('request log lines are structured JSON with a request id', serverLog.split('\n').some((l) => /^\{"time":".*","level":"info","msg":"request".*"reqId":"[0-9a-f-]{36}"/.test(l)));
     mock.reset();
+
+    console.log('Admin: learning funnel');
+    const adminModelF = require('../models/adminModel');
+    const f0 = await adminModelF.getFunnel();
+    const act = await makeUser('funnel-active');
+    const idle = await makeUser('funnel-idle');
+    await pool.query("UPDATE users SET created_at = NOW() - INTERVAL '3 days' WHERE id = ANY($1)", [[act.id, idle.id]]);
+    const fr = await pool.query("INSERT INTO roadmaps (user_id, track_id, content, created_at) VALUES ($1, 2, '{\"weeks\":[]}', NOW() - INTERVAL '20 days'), ($2, 2, '{\"weeks\":[]}', NOW() - INTERVAL '20 days') RETURNING id", [act.id, idle.id]);
+    // Day 9 of the plan (week 2), saved within 48 h of signing up.
+    await pool.query("INSERT INTO checkins (user_id, roadmap_id, checkin_date, notes, created_at) VALUES ($1, $2, (NOW() - INTERVAL '20 days')::date + 8, 'w2', NOW() - INTERVAL '2 days')", [act.id, fr.rows[0].id]);
+    await pool.query("INSERT INTO memberships (user_id, cohort_id, role, status) VALUES ($1, $3, 'student', 'pending_payment'), ($2, $3, 'student', 'pending_payment')", [act.id, idle.id, premiumRow.id]);
+    await pool.query("INSERT INTO payments (user_id, cohort_id, org_id, reference, amount_kobo, status) VALUES ($1, $2, $3, $4, 600000, 'success')", [act.id, premiumRow.id, premiumRow.org_id, `funnel_${run}`]);
+    await pool.query("INSERT INTO llm_calls (provider, model, task, latency_ms, prompt_tokens, completion_tokens, ok, user_id) VALUES ('groq', 'm', 'mentor', 5, 100, 50, TRUE, $1), ('groq', 'm', 'mentor', 5, NULL, NULL, FALSE, $1)", [act.id]);
+    const f1 = await adminModelF.getFunnel();
+    const d = (k) => f1[k] - f0[k];
+    check('signups counted (last 7 and 30 days)', d('signups7d') === 2 && d('signups30d') === 2, JSON.stringify(f1));
+    check('activation: 2 new learners, 1 checked in within 48 h', d('activationBase') === 2 && d('activated') === 1);
+    check('week-2 retention: 2 plans in range, 1 active on days 8-14', d('week2Base') === 2 && d('week2Active') === 1);
+    check('join -> paid: 2 joined a paid plan, 1 paid', d('joinsBase') === 2 && d('joinsPaid') === 1);
+    check('AI use this month: calls, failures, tokens', d('aiCalls') === 2 && d('aiFailed') === 1 && d('aiTokens') === 150);
+    const adminPage = await boss.c.req('GET', '/admin');
+    check('admin page shows the learning funnel', adminPage.status === 200 && /Activation/.test(adminPage.text) && /Week-2 retention/.test(adminPage.text)
+      && /Join → paid/.test(adminPage.text) && /AI tokens/.test(adminPage.text));
 
     // ---- CPU audit (21 Oct 2026): anonymous traffic must not write, sessions are indexed and pruned ----
     console.log('Stability: anonymous requests, session table, health, pool');

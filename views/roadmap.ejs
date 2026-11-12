@@ -67,6 +67,7 @@
       <div class="progress-meta">
         <span><%= checkins.length %> check-ins completed</span>
         <span><%= totalDays - checkins.length %> days to go</span>
+        <% if (locals.quizScore && quizScore.total) { %><span>Quiz: <%= quizScore.correct %> of <%= quizScore.total %> got it</span><% } %>
       </div>
     </div>
 
@@ -78,62 +79,7 @@
       </div>
     <% } else if (todayTask) { %>
       <!-- Today's task -->
-      <div class="app-card">
-        <div class="app-card-head">
-          <h2>Today's task</h2>
-          <span class="task-day">Day <%= todayTask.day_number %> · Week <%= todayTask.week_number %></span>
-        </div>
-        <% if (todayTask.day_type === 'weekend') { %>
-          <span class="weekend-note">🌤️ Light day — review &amp; practice</span>
-        <% } %>
-        <h3 class="task-focus"><%= todayTask.week_focus %></h3>
-        <p class="task-text"><%= todayTask.task %></p>
-
-        <% if (todayTask.lesson) { %>
-          <div class="lesson-box">
-            <h4>Today's lesson</h4>
-            <% todayTask.lesson.split(/\n\s*\n/).forEach((para) => { %><p><%= para.trim() %></p><% }) %>
-          </div>
-        <% } %>
-
-        <% if (todayTask.quiz && todayTask.quiz.length > 0) { %>
-          <div class="quiz-box">
-            <h4>Quick check</h4>
-            <% todayTask.quiz.forEach(q => { %>
-              <details class="quiz-item">
-                <summary><%= q.question %></summary>
-                <p class="quiz-answer"><%= q.answer %></p>
-              </details>
-            <% }) %>
-          </div>
-        <% } %>
-
-        <div class="task-links">
-          <a class="btn btn-gold" href="<%= todayTask.resource_url %>" target="_blank" rel="noopener">
-            Open resource: <%= todayTask.resource_name %>
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6m-11 5L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </a>
-          <a class="btn btn-ghost" href="https://www.youtube.com/results?search_query=<%= encodeURIComponent((typeof videoSearchPhrase !== 'undefined' && videoSearchPhrase) ? videoSearchPhrase : todayTask.video_search_term) %>" target="_blank" rel="noopener">
-            Prefer video? Search YouTube
-          </a>
-        </div>
-      </div>
-
-      <% if (todayTask.code_example) { %>
-        <div class="code-box">
-          <h4>Example</h4>
-          <pre><code><%= todayTask.code_example %></code></pre>
-        </div>
-      <% } %>
-
-      <% if (todayTask.week_project) { %>
-        <div class="app-card">
-          <div class="app-card-head">
-            <h2>This week's project</h2>
-          </div>
-          <p><%= todayTask.week_project %></p>
-        </div>
-      <% } %>
+      <%- include('partials/day-lesson', { day: todayTask, heading: "Today's task" }) %>
 
       <!-- Daily check-in -->
       <div class="app-card">
@@ -184,6 +130,22 @@
           <% } %>
         </div>
       <% } %>
+    <% } %>
+
+    <% const earlier = locals.earlierDays || []; if (earlier.length) { %>
+      <div class="app-card">
+        <div class="app-card-head">
+          <h2>Earlier lessons</h2>
+        </div>
+        <details>
+          <summary>Reopen a past day (<%= earlier.length %>)</summary>
+          <ul class="history-list">
+            <% earlier.forEach((d, i) => { %>
+              <li><a href="/roadmaps/<%= roadmap.id %>/days/<%= i + 1 %>">Day <%= i + 1 %> · <%= d.task %></a></li>
+            <% }) %>
+          </ul>
+        </details>
+      </div>
     <% } %>
 
     <!-- Check-in history -->

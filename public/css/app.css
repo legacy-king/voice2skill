@@ -594,7 +594,13 @@ body.app ::selection { background: rgba(212, 175, 55, 0.35); color: var(--ink); 
 }
 
 /* Check-in form */
-.checkin-form textarea {
+.checkin-form input[type="url"] {
+  min-height: 0;
+  margin-bottom: 0.8rem;
+}
+
+.checkin-form textarea,
+.checkin-form input[type="url"] {
   width: 100%;
   background: #0E0E12;
   border: 1px solid var(--line-strong);

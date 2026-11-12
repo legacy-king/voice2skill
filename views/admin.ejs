@@ -23,6 +23,19 @@
       <div class="co-stat"><div class="num"><%= naira(overview.owed) %></div><div class="lbl">owed to bootcamps (<%= naira(overview.paidOut) %> paid out)</div></div>
     </section>
 
+    <% if (locals.funnel) { const pct = (n, of) => (of ? Math.round((n / of) * 100) + '%' : '—'); %>
+    <section class="co-section">
+      <h2>Is anyone learning?</h2>
+      <section class="co-stats" aria-label="Learning funnel">
+        <div class="co-stat"><div class="num"><%= funnel.signups7d %></div><div class="lbl">signups in 7 days (<%= funnel.signups30d %> in 30)</div></div>
+        <div class="co-stat"><div class="num"><%= pct(funnel.activated, funnel.activationBase) %></div><div class="lbl">Activation: <%= funnel.activated %> of <%= funnel.activationBase %> checked in within 48 h of signing up</div></div>
+        <div class="co-stat"><div class="num"><%= pct(funnel.week2Active, funnel.week2Base) %></div><div class="lbl">Week-2 retention: <%= funnel.week2Active %> of <%= funnel.week2Base %> plans active on days 8-14</div></div>
+        <div class="co-stat"><div class="num"><%= pct(funnel.joinsPaid, funnel.joinsBase) %></div><div class="lbl">Join → paid: <%= funnel.joinsPaid %> of <%= funnel.joinsBase %> who joined a paid plan (30 days)</div></div>
+        <div class="co-stat"><div class="num"><%= overview.payingStudents ? Math.round(funnel.aiTokens / overview.payingStudents).toLocaleString('en-NG') : '—' %></div><div class="lbl">AI tokens per paying student this month (<%= funnel.aiTokens.toLocaleString('en-NG') %> total, <%= funnel.aiCalls %> calls, <%= funnel.aiFailed %> failed)</div></div>
+      </section>
+    </section>
+    <% } %>
+
     <section class="co-section">
       <h2>Bootcamps and revenue share</h2>
       <% if (orgs.length === 0) { %><p class="co-muted">No organizations yet. Add one with scripts/createOrg.js.</p><% } else { %>
