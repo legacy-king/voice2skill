@@ -549,6 +549,37 @@ async function main() {
         (await pool.query('SELECT COUNT(*)::int n FROM checkins WHERE user_id = $1', [tapper.id])).rows[0].n === 1
         && ciTaps.every((r) => r.status === 302), ciTaps.map((r) => r.status + ' ' + r.location).join(', '));
     }
+    console.log('Double submit while the AI is generating (per-user fallback)');
+    {
+      // A track with no published library plan forces per-user AI generation (the rollout fallback).
+      const genTrack = (await pool.query(
+        `SELECT t.id FROM tracks t
+          WHERE t.name <> 'Software Engineering'
+            AND NOT EXISTS (SELECT 1 FROM courses c JOIN course_versions v ON v.course_id = c.id AND v.status = 'published'
+                             WHERE c.track_id = t.id AND c.cohort_id IS NULL)
+          ORDER BY t.id LIMIT 1`
+      )).rows[0].id;
+      const genDay = (n) => ({ day_number: n, day_type: n > 5 ? 'weekend' : 'weekday', task: `Gen task ${n}`, lesson: 'A lesson.',
+        quiz: [{ question: 'Q?', answer: 'A.' }], resource_name: 'MDN', resource_url: 'https://developer.mozilla.org', video_search_term: 'term' });
+      const genPlan = JSON.stringify({ weeks: Array.from({ length: 8 }, (_, w) => ({
+        week_number: w + 1, focus: `Week ${w + 1}`, project: `Project ${w + 1}`, days: [1, 2, 3, 4, 5, 6, 7].map(genDay) })) });
+      mock.reset();
+      mock.setResponder('gemini', () => genPlan);
+      mock.setDelay('gemini', 1500); // the first request is still generating when the others arrive
+      const gen = await makeUser('genlock');
+      const genTok = await gen.c.csrf('/join');
+      const genGoal = `a goal nobody else typed ${Date.now()}`; // no exact-goal cache hit
+      const genReqs = await Promise.all(Array.from({ length: 4 }, () => gen.c.req('POST', `/tracks/${genTrack}/select`, { form: { _csrf: genTok, goal: genGoal } })));
+      const genRows = (await pool.query('SELECT id FROM roadmaps WHERE user_id = $1 AND track_id = $2', [gen.id, genTrack])).rows;
+      const genCalls = mock.requests.filter((r) => r.kind === 'chat').length;
+      check('4 concurrent submits while the AI is generating make exactly one AI call', genCalls === 1, String(genCalls));
+      check('... and one roadmap that every one of the 4 requests lands on', genRows.length === 1
+        && genReqs.every((r) => r.location === `/roadmaps/${genRows[0].id}`), genReqs.map((r) => r.status + ' ' + r.location).join(', '));
+      const lockLeft = (await pool.query("SELECT COUNT(*)::int n FROM pg_locks WHERE locktype = 'advisory'")).rows[0].n;
+      check('the generation lock is released afterwards', lockLeft === 0, String(lockLeft));
+      mock.reset();
+    }
+
     check('another learner cannot open the library roadmap', (await daUser2.c.req('GET', `/roadmaps/${libRoadmapId}`)).status === 404);
     check('course migration is idempotent (re-run succeeds)', spawnSync('node', [path.join(__dirname, 'migrateCourses.js')], { env: process.env, encoding: 'utf8' }).status === 0);
 

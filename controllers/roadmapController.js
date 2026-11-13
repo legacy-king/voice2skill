@@ -97,6 +97,39 @@ function clearAssessmentSession(req) {
   delete req.session.assessmentGoal;
 }
 
+const CAPACITY_PAGE = `
+      <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
+        <h1 style="color: #D4AF37;">We're at capacity right now</h1>
+        <p>Our AI coach is handling a lot of requests today. Please try again in a few minutes.</p>
+        <a href="/tracks" style="color: #D4AF37;">← Back to tracks</a>
+      </div>
+    `;
+
+const STILL_BUILDING_PAGE = `
+      <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
+        <h1 style="color: #D4AF37;">Your roadmap is still being built</h1>
+        <p>We're already making it from your earlier request. Give it a minute, then open your dashboard.</p>
+        <a href="/dashboard" style="color: #D4AF37;">Go to your dashboard</a>
+      </div>
+    `;
+
+/**
+ * While another request holds the generation lock for this learner and track, poll (cheap
+ * indexed lookup) until its roadmap exists. Bounded: ROADMAP_LOCK_WAIT_MS (default 90 s) total,
+ * ROADMAP_LOCK_POLL_MS (default 2 s) between checks. Resolves the roadmap id, or null on timeout.
+ */
+async function waitForRoadmap(userId, trackId) {
+  const waitMs = Number(process.env.ROADMAP_LOCK_WAIT_MS) || 90 * 1000;
+  const pollMs = Number(process.env.ROADMAP_LOCK_POLL_MS) || 2000;
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
+    const done = await roadmapModel.getRoadmapByUserAndTrack(userId, trackId);
+    if (done) return done.id;
+  }
+  return null;
+}
+
 async function selectTrack(req, res) {
   if (!req.session.userId) {
     return res.redirect('/login');
@@ -137,51 +170,58 @@ async function selectTrack(req, res) {
     resolvedAssessmentId = assessmentId;
   }
 
-  // Course Library (ADR-001): a published plan for this track x level means 0 AI calls. Tracks
-  // without an assessment use the default level.
-  const level = courseModel.LEVELS.includes(assessmentLevel) ? assessmentLevel : courseModel.DEFAULT_LEVEL;
-  const libraryVersion = await courseModel.findPublishedLibraryVersion(trackId, level);
-  if (libraryVersion) {
-    const newRoadmap = await roadmapModel.createLibraryRoadmap(userId, trackId, libraryVersion.id, goal || null, resolvedAssessmentId);
-    clearAssessmentSession(req);
-    return res.redirect(`/roadmaps/${newRoadmap.id}`);
-  }
+  // One build per learner and track at a time (double-click, two tabs, a retry while the first
+  // request is still generating): at most one AI call, never a duplicate roadmap.
+  const build = async () => {
+    // The request that held the lock just before us may have finished this very roadmap.
+    const already = await roadmapModel.getRoadmapByUserAndTrack(userId, trackId);
+    if (already) return { id: already.id };
 
-  // Rollout fallback until every track x level is published: exact-goal cache, then per-user AI.
-  // Cache check — only for non-empty goals, exact match after trim/lowercase, same track + level
-  if (goal) {
-    const cached = await roadmapModel.findCachedRoadmap(trackId, normalizedGoal, assessmentLevel);
-    let cachedContent = null;
-    if (cached) {
-      // Rows saved before validation existed may be malformed — regenerate instead of copying them.
-      try {
-        cachedContent = normalizeRoadmapContent(cached.content);
-      } catch (err) {
-        log.error(`Cached roadmap ${cached.id} skipped:`, err.message);
+    // Course Library (ADR-001): a published plan for this track x level means 0 AI calls. Tracks
+    // without an assessment use the default level.
+    const level = courseModel.LEVELS.includes(assessmentLevel) ? assessmentLevel : courseModel.DEFAULT_LEVEL;
+    const libraryVersion = await courseModel.findPublishedLibraryVersion(trackId, level);
+    if (libraryVersion) {
+      return { id: (await roadmapModel.createLibraryRoadmap(userId, trackId, libraryVersion.id, goal || null, resolvedAssessmentId)).id };
+    }
+
+    // Rollout fallback until every track x level is published: exact-goal cache, then per-user AI.
+    // Cache check — only for non-empty goals, exact match after trim/lowercase, same track + level
+    if (goal) {
+      const cached = await roadmapModel.findCachedRoadmap(trackId, normalizedGoal, assessmentLevel);
+      let cachedContent = null;
+      if (cached) {
+        // Rows saved before validation existed may be malformed — regenerate instead of copying them.
+        try {
+          cachedContent = normalizeRoadmapContent(cached.content);
+        } catch (err) {
+          log.error(`Cached roadmap ${cached.id} skipped:`, err.message);
+        }
+      }
+      if (cachedContent) {
+        return { id: (await roadmapModel.createRoadmap(userId, trackId, cachedContent, goal, resolvedAssessmentId, true)).id };
       }
     }
-    if (cachedContent) {
-      const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, cachedContent, goal, resolvedAssessmentId, true);
-      clearAssessmentSession(req);
-      return res.redirect(`/roadmaps/${newRoadmap.id}`);
-    }
-  }
 
-  try {
-    const content = await generateRoadmapContent(track.name, track.description, goal || null, assessmentContext, userId);
-    const newRoadmap = await roadmapModel.createRoadmap(userId, trackId, content, goal || null, resolvedAssessmentId, false);
-    clearAssessmentSession(req);
-    res.redirect(`/roadmaps/${newRoadmap.id}`);
-  } catch (err) {
-    log.error('Roadmap generation failed:', err.message);
-    res.status(503).send(`
-      <div style="font-family: sans-serif; text-align: center; padding: 3rem 1.5rem; background: #121212; color: #F0EDE6; min-height: 100vh;">
-        <h1 style="color: #D4AF37;">We're at capacity right now</h1>
-        <p>Our AI coach is handling a lot of requests today. Please try again in a few minutes.</p>
-        <a href="/tracks" style="color: #D4AF37;">← Back to tracks</a>
-      </div>
-    `);
-  }
+    let content;
+    try {
+      content = await generateRoadmapContent(track.name, track.description, goal || null, assessmentContext, userId);
+    } catch (err) {
+      log.error('Roadmap generation failed:', err.message);
+      return { failed: true };
+    }
+    return { id: (await roadmapModel.createRoadmap(userId, trackId, content, goal || null, resolvedAssessmentId, false)).id };
+  };
+
+  const outcome = await roadmapModel.withGenerationLock(userId, trackId, build);
+  let roadmapId = outcome.acquired ? outcome.value.id : null;
+  if (outcome.acquired && outcome.value.failed) return res.status(503).send(CAPACITY_PAGE);
+  // Another request for this learner and track is building it right now: wait for that one
+  // instead of starting a second build, then land on the same roadmap.
+  if (!outcome.acquired) roadmapId = await waitForRoadmap(userId, trackId);
+  if (!roadmapId) return res.status(503).send(STILL_BUILDING_PAGE);
+  clearAssessmentSession(req);
+  return res.redirect(`/roadmaps/${roadmapId}`);
 }
 
 async function getRoadmap(req, res) {

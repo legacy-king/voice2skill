@@ -73,4 +73,33 @@ async function findCachedRoadmap(trackId, normalizedGoal, level) {
   return result.rows[0];
 }
 
-module.exports = { createRoadmap, createLibraryRoadmap, getRoadmapByUserAndTrack, getRoadmapById, getRoadmapByUser, findCachedRoadmap };
+/**
+ * Runs fn() while holding a Postgres advisory lock for this (user, track), so concurrent
+ * submissions for the same learner and track (a double-click, two tabs, a retry while the first
+ * request is still generating) build the roadmap at most once and make at most one AI call.
+ *
+ * Session-level lock on a dedicated pooled connection: it works across instances, is released in
+ * finally, and Postgres drops it on its own if the connection dies. The connection stays checked
+ * out for the whole build (minutes for per-user AI generation; instant for library roadmaps).
+ * Resolves { acquired: false } at once, without waiting, if another request holds the lock.
+ */
+async function withGenerationLock(userId, trackId, fn) {
+  const key = `roadmap-gen:${userId}:${trackId}`;
+  const client = await pool.connect();
+  let acquired = false;
+  let unlockFailed = false;
+  try {
+    const { rows } = await client.query('SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS ok', [key]);
+    acquired = rows[0].ok === true;
+    if (!acquired) return { acquired: false };
+    return { acquired: true, value: await fn() };
+  } finally {
+    if (acquired) {
+      await client.query('SELECT pg_advisory_unlock(hashtextextended($1, 0))', [key]).catch(() => { unlockFailed = true; });
+    }
+    // A connection that may still hold the lock is destroyed, not returned to the pool.
+    client.release(unlockFailed ? true : undefined);
+  }
+}
+
+module.exports = { createRoadmap, createLibraryRoadmap, getRoadmapByUserAndTrack, getRoadmapById, getRoadmapByUser, findCachedRoadmap, withGenerationLock };
