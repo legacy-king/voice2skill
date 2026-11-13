@@ -4,6 +4,7 @@
  *
  *   const mock = await startMockLlm();            // mock.url('groq') -> base URL
  *   mock.setMode('groq', '429' | '500' | '400' | 'timeout' | 'badjson' | 'ok')
+ *   mock.setDelay('gemini', 1500)   answer only after 1.5 s (0 removes the delay)
  *   mock.setResponder('groq', (body) => 'reply text')
  *   mock.setTranscript('groq', 'text')             // reply for /audio/transcriptions ('' = silence)
  *   mock.requests                                  // [{ provider, kind, body, bytes, contentType, raw }]
@@ -36,6 +37,7 @@ function startMockLlm({ port = 0 } = {}) {
   const modes = new Map();
   const responders = new Map();
   const transcripts = new Map();
+  const delays = new Map(); // provider -> ms to wait before answering (to make requests overlap)
   const requests = [];
   const sockets = new Set();
 
@@ -43,7 +45,7 @@ function startMockLlm({ port = 0 } = {}) {
     const m = req.url.match(/^\/([a-z]+)\/(chat\/completions|audio\/transcriptions)$/);
     const chunks = [];
     req.on('data', (c) => { chunks.push(c); });
-    req.on('end', () => {
+    req.on('end', async () => {
       if (!m || req.method !== 'POST') { res.writeHead(404); return res.end(); }
       const provider = m[1];
       const kind = m[2] === 'chat/completions' ? 'chat' : 'transcription';
@@ -57,6 +59,7 @@ function startMockLlm({ port = 0 } = {}) {
         raw: kind === 'transcription' ? raw : null, auth: req.headers.authorization
       });
       const mode = modes.get(provider) || 'ok';
+      if (delays.get(provider)) await new Promise((r) => setTimeout(r, delays.get(provider)));
 
       if (mode === 'timeout') return; // never answer; the client must give up
       if (/^\d{3}$/.test(mode)) {
@@ -103,7 +106,8 @@ function startMockLlm({ port = 0 } = {}) {
         setMode: (name, mode) => modes.set(name, mode),
         setResponder: (name, fn) => (fn ? responders.set(name, fn) : responders.delete(name)),
         setTranscript: (name, text) => (text === undefined ? transcripts.delete(name) : transcripts.set(name, text)),
-        reset: () => { modes.clear(); responders.clear(); transcripts.clear(); requests.length = 0; },
+        setDelay: (name, ms) => (ms ? delays.set(name, ms) : delays.delete(name)),
+        reset: () => { modes.clear(); responders.clear(); transcripts.clear(); delays.clear(); requests.length = 0; },
         requests,
         close: () => new Promise((r) => { for (const s of sockets) s.destroy(); server.close(() => r()); })
       });
